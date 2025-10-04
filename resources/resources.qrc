@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/rat-logo.png</file>
+        <file>images/icon.png</file>
+    </qresource>
+    <qresource prefix="/styles">
+        <file>styles/dark.qss</file>
+        <file>styles/light.qss</file>
+    </qresource>
+</RCC>
+

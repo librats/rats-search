@@ -1,0 +1,114 @@
+/* Light Theme for Rats Search */
+
+QMainWindow {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+QLineEdit {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 8px;
+    color: #000000;
+    font-size: 14px;
+}
+
+QLineEdit:focus {
+    border: 1px solid #4a9eff;
+}
+
+QPushButton {
+    background-color: #4a9eff;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #3d8ce8;
+}
+
+QPushButton:pressed {
+    background-color: #2e6fb8;
+}
+
+QTableView {
+    background-color: #ffffff;
+    alternate-background-color: #f5f5f5;
+    color: #000000;
+    gridline-color: #e0e0e0;
+    border: 1px solid #cccccc;
+    selection-background-color: #4a9eff;
+    selection-color: #ffffff;
+}
+
+QHeaderView::section {
+    background-color: #f0f0f0;
+    color: #000000;
+    padding: 8px;
+    border: none;
+    border-right: 1px solid #cccccc;
+    font-weight: bold;
+}
+
+QTabWidget::pane {
+    border: 1px solid #cccccc;
+    background-color: #ffffff;
+}
+
+QTabBar::tab {
+    background-color: #f0f0f0;
+    color: #000000;
+    padding: 8px 16px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QTabBar::tab:hover {
+    background-color: #e0e0e0;
+}
+
+QStatusBar {
+    background-color: #f0f0f0;
+    color: #000000;
+}
+
+QMenuBar {
+    background-color: #f0f0f0;
+    color: #000000;
+}
+
+QMenuBar::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QMenu {
+    background-color: #ffffff;
+    color: #000000;
+    border: 1px solid #cccccc;
+}
+
+QMenu::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QToolBar {
+    background-color: #f0f0f0;
+    border: none;
+    spacing: 3px;
+}
+
+QLabel {
+    color: #000000;
+}
+

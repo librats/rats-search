@@ -1,22 +1,77 @@
-node_modules
+# Build directories
+build/
+build-*/
+cmake-build-*/
+
+# Qt
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+Makefile*
+*build-*
+*.autosave
+
+# C++
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+*.app
+*.a
+*.la
+*.lo
+*.slo
+*.lai
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
-Thumbs.db
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs
 *.log
-rats.json
-binlog.*
-*.pid
-version.vrs
-sphinx.conf
-*.p2p
-downloads.json
-node.exe
+rats.log
 
-/dist
-/temp
-/web
-/database
+# Configuration
+config.json
+peers.rats
+peers_ever.rats
 
-# ignore everything in 'app' folder what had been generated from 'src' folder
-/app/*.js
-/app/**/*.map
-
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak

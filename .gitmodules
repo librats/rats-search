@@ -1,3 +1,6 @@
 [submodule "imports"]
 	path = imports
 	url = https://github.com/DEgITx/manticore-binary.git
+[submodule "src/librats"]
+	path = src/librats
+	url = git@github.com:DEgITx/librats.git
