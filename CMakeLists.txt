@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Set Qt6 as required
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOUIC OFF)
 
 # Find Qt6 packages
 find_package(Qt6 REQUIRED COMPONENTS 
@@ -61,14 +61,6 @@ set(HEADERS
     src/torrentclient.h
 )
 
-# UI files
-set(UI_FILES
-    src/ui/mainwindow.ui
-    src/ui/searchwidget.ui
-    src/ui/torrentdetailwidget.ui
-    src/ui/settingswidget.ui
-)
-
 # Resources
 set(RESOURCES
     resources/resources.qrc
@@ -78,7 +70,6 @@ set(RESOURCES
 add_executable(${PROJECT_NAME} WIN32 MACOSX_BUNDLE
     ${SOURCES}
     ${HEADERS}
-    ${UI_FILES}
     ${RESOURCES}
 )
 
