@@ -43,43 +43,34 @@ void attachConsoleOnWindows()
 }
 #endif
 
-// Custom Qt message handler for stdout logging
+// Custom Qt message handler using librats logger
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     Q_UNUSED(context);
     QByteArray localMsg = msg.toLocal8Bit();
+    std::string message = localMsg.constData();
     
-    std::string typeStr;
+    // Get librats logger instance
+    auto& logger = librats::Logger::getInstance();
+    
+    // Map Qt message types to librats log levels
     switch (type) {
     case QtDebugMsg:
-        typeStr = "[DEBUG]";
+        logger.log(librats::LogLevel::DEBUG, "RatsSearch", message);
         break;
     case QtInfoMsg:
-        typeStr = "[INFO ]";
+        logger.log(librats::LogLevel::INFO, "RatsSearch", message);
         break;
     case QtWarningMsg:
-        typeStr = "[WARN ]";
+        logger.log(librats::LogLevel::WARN, "RatsSearch", message);
         break;
     case QtCriticalMsg:
-        typeStr = "[ERROR]";
+        logger.log(librats::LogLevel::ERROR, "RatsSearch", message);
         break;
     case QtFatalMsg:
-        typeStr = "[FATAL]";
-        break;
-    }
-    
-    // Output to stdout/stderr
-    if (type == QtFatalMsg || type == QtCriticalMsg) {
-        std::cerr << typeStr << " [Qt] " << localMsg.constData() << std::endl;
-        std::cerr.flush();
-    } else {
-        std::cout << typeStr << " [Qt] " << localMsg.constData() << std::endl;
-        std::cout.flush();
-    }
-    
-    // Abort on fatal
-    if (type == QtFatalMsg) {
+        logger.log(librats::LogLevel::ERROR, "RatsSearch", "[FATAL] " + message);
         abort();
+        break;
     }
 }
 
