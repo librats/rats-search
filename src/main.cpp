@@ -3,10 +3,55 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <QDebug>
+#include <iostream>
 #include "mainwindow.h"
+#include "librats/src/logger.h"
+
+// Custom Qt message handler for stdout logging
+void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    Q_UNUSED(context);
+    QByteArray localMsg = msg.toLocal8Bit();
+    
+    std::string typeStr;
+    switch (type) {
+    case QtDebugMsg:
+        typeStr = "[DEBUG]";
+        break;
+    case QtInfoMsg:
+        typeStr = "[INFO ]";
+        break;
+    case QtWarningMsg:
+        typeStr = "[WARN ]";
+        break;
+    case QtCriticalMsg:
+        typeStr = "[ERROR]";
+        break;
+    case QtFatalMsg:
+        typeStr = "[FATAL]";
+        break;
+    }
+    
+    // Output to stdout/stderr
+    if (type == QtFatalMsg || type == QtCriticalMsg) {
+        std::cerr << typeStr << " [Qt] " << localMsg.constData() << std::endl;
+        std::cerr.flush();
+    } else {
+        std::cout << typeStr << " [Qt] " << localMsg.constData() << std::endl;
+        std::cout.flush();
+    }
+    
+    // Abort on fatal
+    if (type == QtFatalMsg) {
+        abort();
+    }
+}
 
 int main(int argc, char *argv[])
 {
+    // Install custom message handler for Qt logging
+    qInstallMessageHandler(customMessageHandler);
+    
     QApplication app(argc, argv);
     
     // Set application information
@@ -33,7 +78,6 @@ int main(int argc, char *argv[])
     parser.addOption(dataDirectoryOption);
     
     parser.process(app);
-    
     // Get command line options
     int p2pPort = parser.value(portOption).toInt();
     int dhtPort = parser.value(dhtPortOption).toInt();
