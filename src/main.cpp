@@ -7,6 +7,42 @@
 #include "mainwindow.h"
 #include "librats/src/logger.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#endif
+
+#ifdef _WIN32
+// Allocate and attach a console on Windows for stdout/stderr
+void attachConsoleOnWindows()
+{
+    // Try to attach to parent console first (if run from cmd.exe)
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
+        // If no parent console, allocate a new one
+        AllocConsole();
+    }
+    
+    // Redirect stdout
+    FILE* fp;
+    freopen_s(&fp, "CONOUT$", "w", stdout);
+    freopen_s(&fp, "CONOUT$", "w", stderr);
+    freopen_s(&fp, "CONIN$", "r", stdin);
+    
+    // Make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog point to console as well
+    std::ios::sync_with_stdio();
+    
+    // Clear the error state for each of the C++ standard stream objects
+    std::cout.clear();
+    std::cerr.clear();
+    std::cin.clear();
+    
+    std::wcout.clear();
+    std::wcerr.clear();
+    std::wcin.clear();
+}
+#endif
+
 // Custom Qt message handler for stdout logging
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -49,6 +85,11 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
 
 int main(int argc, char *argv[])
 {
+#ifdef _WIN32
+    // Attach console on Windows to see stdout/stderr
+    attachConsoleOnWindows();
+#endif
+    
     // Install custom message handler for Qt logging
     qInstallMessageHandler(customMessageHandler);
     
