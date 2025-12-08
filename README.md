@@ -32,6 +32,17 @@ A BitTorrent search program for desktop and web. It collects and allows navigati
 * Torrent generation and automatic adding to search database
 * [WebSockets & REST API for server/search engine. You can make search requests and create your own UI client.](docs/API.md)
 
+## 🚀 Version 2.0 Coming Soon
+
+The next major version of Rats Search is currently in development and will bring significant improvements:
+
+* **Complete rewrite in C++/Qt** - Native desktop application with enhanced performance
+* **Powered by [librats](https://github.com/DEgITx/librats)** - High-performance P2P networking core library
+* **Improved resource efficiency** - Lower memory footprint and CPU usage
+* **Enhanced cross-platform support** - Better native integration on Windows, Linux, and macOS
+
+The C++/Qt rewrite is available in the `cpp` branch for early testing and contributions. Version 2.0 will maintain compatibility with the existing P2P network while providing a more robust and efficient foundation.
+
 ## Architecture
 ![Basic Architecture](docs/img/ratsarch.png)
 
