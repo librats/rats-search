@@ -3,4 +3,4 @@
 	url = https://github.com/DEgITx/manticore-binary.git
 [submodule "src/librats"]
 	path = src/librats
-	url = git@github.com:DEgITx/librats.git
+	url = https://github.com/librats/librats.git
