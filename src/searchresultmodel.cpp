@@ -45,7 +45,7 @@ QVariant SearchResultModel::data(const QModelIndex &index, int role) const
             case LeechersColumn:
                 return torrent.leechers;
             case DateColumn:
-                return formatDate(torrent.indexedDate);
+                return formatDate(torrent.added);
             default:
                 return QVariant();
         }
@@ -63,7 +63,7 @@ QVariant SearchResultModel::data(const QModelIndex &index, int role) const
     }
     else if (role == Qt::ToolTipRole) {
         return QString("Info Hash: %1\nSeeders: %2\nLeechers: %3\nSize: %4")
-            .arg(torrent.infoHash)
+            .arg(torrent.hash)
             .arg(torrent.seeders)
             .arg(torrent.leechers)
             .arg(formatSize(torrent.size));
@@ -119,7 +119,7 @@ TorrentInfo SearchResultModel::getTorrent(int row) const
 QString SearchResultModel::getInfoHash(int row) const
 {
     if (row >= 0 && row < results_.size()) {
-        return results_[row].infoHash;
+        return results_[row].hash;
     }
     return QString();
 }

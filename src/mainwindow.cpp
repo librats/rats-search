@@ -4,6 +4,7 @@
 #include "torrentspider.h"
 #include "p2pnetwork.h"
 #include "searchresultmodel.h"
+#include "searchapi.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -45,6 +46,9 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     searchEngine = std::make_unique<SearchEngine>(torrentDatabase.get());
     p2pNetwork = std::make_unique<P2PNetwork>(p2pPort_, dataDirectory_);
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), dhtPort_);
+    
+    // Initialize search API after database
+    searchAPI = std::make_unique<SearchAPI>(torrentDatabase.get(), p2pNetwork.get());
     
     connectSignals();
     startServices();
@@ -271,16 +275,29 @@ void MainWindow::performSearch(const QString &query)
     
     statusBar()->showMessage("Searching...", 2000);
     
-    // Perform search in database
-    auto results = searchEngine->search(query);
-    searchResultModel->setResults(results);
+    // Use SearchAPI for searching
+    QJsonObject navigation;
+    navigation["limit"] = 100;
+    navigation["safeSearch"] = false;
     
-    // Also perform P2P search if connected
-    if (p2pNetwork->isConnected()) {
-        p2pNetwork->searchTorrents(query);
-    }
-    
-    statusBar()->showMessage(QString("Found %1 results").arg(results.size()), 3000);
+    searchAPI->searchTorrent(query, navigation, [this, query](const QJsonArray& torrents) {
+        // Convert JSON to TorrentInfo for model
+        QVector<TorrentInfo> results;
+        for (const QJsonValue& val : torrents) {
+            QJsonObject obj = val.toObject();
+            TorrentInfo info;
+            info.hash = obj["hash"].toString();
+            info.name = obj["name"].toString();
+            info.size = obj["size"].toVariant().toLongLong();
+            info.seeders = obj["seeders"].toInt();
+            info.leechers = obj["leechers"].toInt();
+            info.added = QDateTime::fromMSecsSinceEpoch(obj["added"].toVariant().toLongLong());
+            results.append(info);
+        }
+        
+        searchResultModel->setResults(results);
+        statusBar()->showMessage(QString("Found %1 results for '%2'").arg(results.size()).arg(query), 3000);
+    });
 }
 
 void MainWindow::updateStatusBar()

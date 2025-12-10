@@ -11,6 +11,7 @@ class SearchEngine;
 class TorrentDatabase;
 class TorrentSpider;
 class P2PNetwork;
+class SearchAPI;
 class QLineEdit;
 class QPushButton;
 class QTableView;
@@ -72,6 +73,7 @@ private:
     std::unique_ptr<TorrentDatabase> torrentDatabase;
     std::unique_ptr<TorrentSpider> torrentSpider;
     std::unique_ptr<P2PNetwork> p2pNetwork;
+    std::unique_ptr<SearchAPI> searchAPI;
     
     // Models
     SearchResultModel *searchResultModel;

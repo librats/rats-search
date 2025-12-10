@@ -2,32 +2,100 @@
 #define TORRENTSPIDER_H
 
 #include <QObject>
-#include <QThread>
+#include <QTimer>
+#include <QString>
 #include <memory>
-#include "torrentdatabase.h"
+#include <atomic>
+#include <queue>
+#include <mutex>
+#include <set>
+
+// Forward declarations
+class TorrentDatabase;
 
 namespace librats {
     class RatsClient;
+    class DhtClient;
 }
 
 /**
- * @brief TorrentSpider - BitTorrent DHT spider for automatic torrent discovery
+ * @brief TorrentSpider - DHT spider for discovering torrents
  * 
- * Crawls the BitTorrent DHT network to discover and index torrents automatically
+ * Uses librats DHT spider mode to:
+ * 1. Walk the DHT network discovering nodes
+ * 2. Capture announce_peer messages from other clients
+ * 3. Fetch torrent metadata for discovered info hashes
+ * 4. Store torrent information in the database
  */
 class TorrentSpider : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit TorrentSpider(TorrentDatabase *database, int dhtPort, QObject *parent = nullptr);
+    /**
+     * @brief Constructor
+     * @param database Pointer to torrent database
+     * @param dhtPort DHT port number
+     * @param parent Parent QObject
+     */
+    explicit TorrentSpider(TorrentDatabase *database, int dhtPort = 6881, QObject *parent = nullptr);
     ~TorrentSpider();
 
+    /**
+     * @brief Start the spider
+     * @return true if started successfully
+     */
     bool start();
+
+    /**
+     * @brief Stop the spider
+     */
     void stop();
+
+    /**
+     * @brief Check if spider is running
+     */
     bool isRunning() const;
-    
+
+    /**
+     * @brief Get number of torrents indexed
+     */
     int getIndexedCount() const;
+
+    /**
+     * @brief Get number of pending metadata fetches
+     */
+    int getPendingCount() const;
+
+    /**
+     * @brief Set spider walk interval (ms)
+     */
+    void setWalkInterval(int intervalMs);
+
+    /**
+     * @brief Get current walk interval
+     */
+    int getWalkInterval() const;
+
+    /**
+     * @brief Set ignore interval (ms) - rate limiting
+     */
+    void setIgnoreInterval(int intervalMs);
+
+    /**
+     * @brief Enable/disable metadata fetching
+     */
+    void setMetadataFetchEnabled(bool enabled);
+
+    /**
+     * @brief Get DHT routing table size
+     */
+    size_t getDhtNodeCount() const;
+
+    /**
+     * @brief Access librats client
+     */
+    librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }
 
 signals:
     void started();
@@ -35,17 +103,63 @@ signals:
     void statusChanged(const QString& status);
     void torrentDiscovered(const QString& infoHash);
     void torrentIndexed(const QString& infoHash, const QString& name);
-    void error(const QString& errorMessage);
+    void indexedCountChanged(int count);
+    void error(const QString& message);
+
+private slots:
+    void onSpiderWalk();
+    void onIgnoreToggle();
+    void processMetadataQueue();
 
 private:
-    void setupDhtCallbacks();
-    void handleTorrentDiscovery(const QString& infoHash);
+    /**
+     * @brief Handle announce_peer callback from DHT
+     */
+    void onAnnounce(const std::array<uint8_t, 20>& infoHash, 
+                    const std::string& ip, uint16_t port);
+
+    /**
+     * @brief Fetch metadata for an info hash
+     */
+    void fetchMetadata(const QString& infoHash);
+
+    /**
+     * @brief Handle metadata retrieval result
+     */
+    void onMetadataReceived(const QString& infoHash, 
+                           const QString& name,
+                           qint64 size,
+                           int files,
+                           int pieceLength,
+                           const QVector<QPair<QString, qint64>>& filesList);
+
+    TorrentDatabase* database_;
+    std::unique_ptr<librats::RatsClient> ratsClient_;
     
-    TorrentDatabase *database_;
     int dhtPort_;
-    bool running_;
-    int indexedCount_;
+    std::atomic<bool> running_;
+    std::atomic<int> indexedCount_;
+    std::atomic<int> pendingCount_;
+    
+    // Timers
+    QTimer* walkTimer_;
+    QTimer* ignoreTimer_;
+    QTimer* metadataQueueTimer_;
+    
+    int walkIntervalMs_;
+    int ignoreIntervalMs_;
+    bool metadataFetchEnabled_;
+    
+    // Queue for metadata fetching
+    std::queue<QString> metadataQueue_;
+    std::mutex queueMutex_;
+    static const int MAX_CONCURRENT_METADATA_FETCHES = 10;
+    std::atomic<int> activeFetches_;
+    
+    // Set of recently seen hashes to avoid duplicates
+    std::set<QString> recentHashes_;
+    std::mutex recentHashesMutex_;
+    static const size_t MAX_RECENT_HASHES = 10000;
 };
 
 #endif // TORRENTSPIDER_H
-

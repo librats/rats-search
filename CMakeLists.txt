@@ -48,6 +48,9 @@ set(SOURCES
     src/p2pnetwork.cpp
     src/searchresultmodel.cpp
     src/torrentclient.cpp
+    src/manticoremanager.cpp
+    src/sphinxql.cpp
+    src/searchapi.cpp
 )
 
 # Header files
@@ -59,6 +62,9 @@ set(HEADERS
     src/p2pnetwork.h
     src/searchresultmodel.h
     src/torrentclient.h
+    src/manticoremanager.h
+    src/sphinxql.h
+    src/searchapi.h
 )
 
 # Resources

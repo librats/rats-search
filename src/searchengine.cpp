@@ -18,8 +18,13 @@ QVector<TorrentInfo> SearchEngine::search(const QString& query, int maxResults)
         return QVector<TorrentInfo>();
     }
     
+    // Create search options
+    SearchOptions options;
+    options.query = query;
+    options.limit = maxResults;
+    
     // Search in database
-    QVector<TorrentInfo> results = database_->searchTorrents(query, maxResults);
+    QVector<TorrentInfo> results = database_->searchTorrents(options);
     
     // Sort by relevance and seeders
     sortByRelevance(results, query);
@@ -51,7 +56,7 @@ QVector<TorrentInfo> SearchEngine::getTopRanked(int limit)
         return QVector<TorrentInfo>();
     }
     
-    return database_->getTopTorrents(limit);
+    return database_->getTopTorrents("", "", 0, limit);
 }
 
 QVector<TorrentInfo> SearchEngine::getRecent(int limit)
@@ -89,9 +94,9 @@ double SearchEngine::calculateRelevanceScore(const TorrentInfo& torrent, const Q
     }
     
     // Recency boost (newer torrents get slight boost)
-    qint64 daysSinceIndexed = torrent.indexedDate.daysTo(QDateTime::currentDateTime());
-    if (daysSinceIndexed < 7) {
-        score += (7 - daysSinceIndexed) * 2.0;
+    qint64 daysSinceAdded = torrent.added.daysTo(QDateTime::currentDateTime());
+    if (daysSinceAdded < 7 && daysSinceAdded >= 0) {
+        score += (7 - daysSinceAdded) * 2.0;
     }
     
     return score;
