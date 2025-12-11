@@ -487,15 +487,15 @@ jobs:
           fi
           
           # Create desktop file
-          cat > AppDir/usr/share/applications/ratssearch.desktop << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=Rats Search
-Exec=RatsSearch
-Icon=ratssearch
-Categories=Network;P2P;
-Comment=DHT Torrent Search Engine
-EOF
+          {
+            echo "[Desktop Entry]"
+            echo "Type=Application"
+            echo "Name=Rats Search"
+            echo "Exec=RatsSearch"
+            echo "Icon=ratssearch"
+            echo "Categories=Network;P2P;"
+            echo "Comment=DHT Torrent Search Engine"
+          } > AppDir/usr/share/applications/ratssearch.desktop
           
           # Copy icon
           cp resources/icons/512x512.png AppDir/usr/share/icons/hicolor/512x512/apps/ratssearch.png
@@ -527,13 +527,13 @@ EOF
             fi
             
             # Create launcher script
-            cat > RatsSearch-Linux-x64/run.sh << 'EOF'
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
-export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"
-exec "$SCRIPT_DIR/RatsSearch" "$@"
-EOF
+            {
+              echo '#!/bin/bash'
+              echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
+              echo 'export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"'
+              echo 'export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"'
+              echo 'exec "$SCRIPT_DIR/RatsSearch" "$@"'
+            } > RatsSearch-Linux-x64/run.sh
             chmod +x RatsSearch-Linux-x64/run.sh
             
             tar -czvf RatsSearch-Linux-x64.tar.gz RatsSearch-Linux-x64
