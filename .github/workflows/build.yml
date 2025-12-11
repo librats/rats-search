@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.9.3'
+  QT_VERSION: '6.8.3'
   BUILD_TYPE: Release
 
 jobs:
@@ -29,8 +29,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           host: 'windows'
           target: 'desktop'
-          arch: 'win64_msvc2019_64'
-          modules: 'qtsql'
+          arch: 'win64_msvc2022_64'
           cache: true
 
       - name: Setup MSVC
@@ -183,7 +182,6 @@ jobs:
           host: 'mac'
           target: 'desktop'
           arch: 'clang_64'
-          modules: 'qtsql'
           cache: true
 
       - name: Install MySQL client
@@ -290,7 +288,6 @@ jobs:
           host: 'mac'
           target: 'desktop'
           arch: 'clang_64'
-          modules: 'qtsql'
           cache: true
 
       - name: Install MySQL client
@@ -407,7 +404,6 @@ jobs:
           host: 'linux'
           target: 'desktop'
           arch: 'gcc_64'
-          modules: 'qtsql'
           cache: true
 
       - name: Build Qt MySQL plugin (if not available)
