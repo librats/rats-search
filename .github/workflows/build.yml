@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.7.2'
+  QT_VERSION: '6.9.3'
   BUILD_TYPE: Release
 
 jobs:
