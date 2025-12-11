@@ -12,20 +12,24 @@ namespace librats {
 }
 
 /**
- * @brief P2PNetwork - Wrapper around librats RatsClient for Qt integration
+ * @brief P2PNetwork - Central owner of librats RatsClient for Qt integration
+ * 
+ * This class is the SINGLE owner of RatsClient. All other components
+ * that need access to RatsClient should get it through this class.
  * 
  * Handles P2P networking using librats library, including:
  * - Peer discovery (DHT, mDNS)
  * - Torrent search in P2P network
  * - Torrent data exchange
  * - GossipSub pub-sub messaging
+ * - BitTorrent functionality (when enabled)
  */
 class P2PNetwork : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit P2PNetwork(int port, const QString& dataDirectory, QObject *parent = nullptr);
+    explicit P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObject *parent = nullptr);
     ~P2PNetwork();
 
     bool start();
@@ -35,6 +39,38 @@ public:
     
     int getPeerCount() const;
     QString getOurPeerId() const;
+    
+    /**
+     * @brief Get the RatsClient instance
+     * @note This is the only RatsClient instance - do not create others!
+     * @return Pointer to RatsClient, or nullptr if not started
+     */
+    librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }
+    
+    /**
+     * @brief Get DHT routing table size
+     */
+    size_t getDhtNodeCount() const;
+    
+    /**
+     * @brief Check if DHT is running
+     */
+    bool isDhtRunning() const;
+    
+    /**
+     * @brief Check if BitTorrent is enabled
+     */
+    bool isBitTorrentEnabled() const;
+    
+    /**
+     * @brief Enable BitTorrent functionality
+     */
+    bool enableBitTorrent();
+    
+    /**
+     * @brief Disable BitTorrent functionality
+     */
+    void disableBitTorrent();
     
     // Search torrents in P2P network
     void searchTorrents(const QString& query);
@@ -65,8 +101,10 @@ private:
     
     std::unique_ptr<librats::RatsClient> ratsClient_;
     int port_;
+    int dhtPort_;
     QString dataDirectory_;
     bool running_;
+    bool bitTorrentEnabled_;
     
     QTimer *updateTimer_;
 };

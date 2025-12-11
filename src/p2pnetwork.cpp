@@ -3,11 +3,13 @@
 #include <QTimer>
 #include <QDebug>
 
-P2PNetwork::P2PNetwork(int port, const QString& dataDirectory, QObject *parent)
+P2PNetwork::P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObject *parent)
     : QObject(parent)
     , port_(port)
+    , dhtPort_(dhtPort)
     , dataDirectory_(dataDirectory)
     , running_(false)
+    , bitTorrentEnabled_(false)
 {
     updateTimer_ = new QTimer(this);
     connect(updateTimer_, &QTimer::timeout, this, &P2PNetwork::updatePeerCount);
@@ -51,9 +53,9 @@ bool P2PNetwork::start()
             return false;
         }
         
-        // Start DHT discovery
-        if (ratsClient_->start_dht_discovery()) {
-            qInfo() << "DHT discovery started successfully";
+        // Start DHT discovery on specified port
+        if (ratsClient_->start_dht_discovery(dhtPort_)) {
+            qInfo() << "DHT discovery started on port" << dhtPort_;
         } else {
             qWarning() << "Failed to start DHT discovery";
         }
@@ -304,5 +306,63 @@ void P2PNetwork::updatePeerCount()
             lastCount = count;
         }
     }
+}
+
+size_t P2PNetwork::getDhtNodeCount() const
+{
+    if (!ratsClient_) {
+        return 0;
+    }
+    return ratsClient_->get_dht_routing_table_size();
+}
+
+bool P2PNetwork::isDhtRunning() const
+{
+    if (!ratsClient_) {
+        return false;
+    }
+    return ratsClient_->is_dht_running();
+}
+
+bool P2PNetwork::isBitTorrentEnabled() const
+{
+    return bitTorrentEnabled_;
+}
+
+bool P2PNetwork::enableBitTorrent()
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!ratsClient_) {
+        qWarning() << "Cannot enable BitTorrent: RatsClient not started";
+        return false;
+    }
+    
+    if (bitTorrentEnabled_) {
+        return true;
+    }
+    
+    if (ratsClient_->enable_bittorrent(dhtPort_)) {
+        bitTorrentEnabled_ = true;
+        qInfo() << "BitTorrent enabled on port" << dhtPort_;
+        return true;
+    } else {
+        qWarning() << "Failed to enable BitTorrent";
+        return false;
+    }
+#else
+    qWarning() << "BitTorrent features not compiled in";
+    return false;
+#endif
+}
+
+void P2PNetwork::disableBitTorrent()
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (ratsClient_ && bitTorrentEnabled_) {
+        ratsClient_->disable_bittorrent();
+        bitTorrentEnabled_ = false;
+        qInfo() << "BitTorrent disabled";
+    }
+#endif
 }
 

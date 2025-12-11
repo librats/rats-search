@@ -44,8 +44,12 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     // Initialize core components
     torrentDatabase = std::make_unique<TorrentDatabase>(dataDirectory_);
     searchEngine = std::make_unique<SearchEngine>(torrentDatabase.get());
-    p2pNetwork = std::make_unique<P2PNetwork>(p2pPort_, dataDirectory_);
-    torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), dhtPort_);
+    
+    // P2PNetwork is the single owner of RatsClient
+    p2pNetwork = std::make_unique<P2PNetwork>(p2pPort_, dhtPort_, dataDirectory_);
+    
+    // TorrentSpider uses RatsClient from P2PNetwork (doesn't own it)
+    torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
     
     // Initialize search API after database
     searchAPI = std::make_unique<SearchAPI>(torrentDatabase.get(), p2pNetwork.get());

@@ -12,20 +12,22 @@
 
 // Forward declarations
 class TorrentDatabase;
+class P2PNetwork;
 
 namespace librats {
     class RatsClient;
-    class DhtClient;
 }
 
 /**
  * @brief TorrentSpider - DHT spider for discovering torrents
  * 
- * Uses librats DHT spider mode to:
+ * Uses librats DHT spider mode (via P2PNetwork's RatsClient) to:
  * 1. Walk the DHT network discovering nodes
  * 2. Capture announce_peer messages from other clients
  * 3. Fetch torrent metadata for discovered info hashes
  * 4. Store torrent information in the database
+ * 
+ * NOTE: This class does NOT own a RatsClient. It uses the one from P2PNetwork.
  */
 class TorrentSpider : public QObject
 {
@@ -35,10 +37,10 @@ public:
     /**
      * @brief Constructor
      * @param database Pointer to torrent database
-     * @param dhtPort DHT port number
+     * @param p2pNetwork Pointer to P2P network (provides RatsClient)
      * @param parent Parent QObject
      */
-    explicit TorrentSpider(TorrentDatabase *database, int dhtPort = 6881, QObject *parent = nullptr);
+    explicit TorrentSpider(TorrentDatabase *database, P2PNetwork *p2pNetwork, QObject *parent = nullptr);
     ~TorrentSpider();
 
     /**
@@ -92,11 +94,6 @@ public:
      */
     size_t getDhtNodeCount() const;
 
-    /**
-     * @brief Access librats client
-     */
-    librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }
-
 signals:
     void started();
     void stopped();
@@ -112,6 +109,11 @@ private slots:
     void processMetadataQueue();
 
 private:
+    /**
+     * @brief Get RatsClient from P2PNetwork
+     */
+    librats::RatsClient* getRatsClient() const;
+
     /**
      * @brief Handle announce_peer callback from DHT
      */
@@ -134,9 +136,8 @@ private:
                            const QVector<QPair<QString, qint64>>& filesList);
 
     TorrentDatabase* database_;
-    std::unique_ptr<librats::RatsClient> ratsClient_;
+    P2PNetwork* p2pNetwork_;  // Not owned - just a reference
     
-    int dhtPort_;
     std::atomic<bool> running_;
     std::atomic<int> indexedCount_;
     std::atomic<int> pendingCount_;

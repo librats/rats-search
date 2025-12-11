@@ -138,16 +138,16 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
         return 1;
     }
     
-    // Initialize P2P network
-    P2PNetwork p2p(p2pPort, dataDir);
+    // Initialize P2P network (single owner of RatsClient)
+    P2PNetwork p2p(p2pPort, dhtPort, dataDir);
     g_p2p = &p2p;
     
     if (!p2p.start()) {
         qWarning() << "Failed to start P2P network";
     }
     
-    // Initialize spider if enabled
-    TorrentSpider spider(&database, dhtPort);
+    // Initialize spider - uses RatsClient from P2PNetwork
+    TorrentSpider spider(&database, &p2p);
     g_spider = &spider;
     
     if (enableSpider) {
@@ -167,7 +167,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
                 << "Files:" << stats.totalFiles
                 << "Size:" << (stats.totalSize / (1024*1024*1024)) << "GB"
                 << "Peers:" << p2p.getPeerCount()
-                << "DHT nodes:" << spider.getDhtNodeCount();
+                << "DHT nodes:" << p2p.getDhtNodeCount();
     });
     statsTimer.start(30000);  // Every 30 seconds
     
@@ -199,7 +199,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
             std::cout << "Files: " << stats.totalFiles << std::endl;
             std::cout << "Size: " << (stats.totalSize / (1024*1024*1024)) << " GB" << std::endl;
             std::cout << "Peers: " << p2p.getPeerCount() << std::endl;
-            std::cout << "DHT nodes: " << spider.getDhtNodeCount() << std::endl;
+            std::cout << "DHT nodes: " << p2p.getDhtNodeCount() << std::endl;
             if (enableSpider) {
                 std::cout << "Indexed: " << spider.getIndexedCount() << std::endl;
                 std::cout << "Pending: " << spider.getPendingCount() << std::endl;

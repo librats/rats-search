@@ -75,7 +75,7 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
 
 void SphinxQL::queryAsync(const QString& sql, const QVariantList& params, QueryCallback callback)
 {
-    QtConcurrent::run([this, sql, params, callback]() {
+    (void)QtConcurrent::run([this, sql, params, callback]() {
         Results results = query(sql, params);
         if (callback) {
             callback(lastError_.isEmpty(), results);

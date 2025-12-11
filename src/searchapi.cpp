@@ -27,7 +27,7 @@ void SearchAPI::searchTorrent(const QString& text,
     SearchOptions options = jsonToSearchOptions(text, navigation);
     
     // Run search in background thread
-    QtConcurrent::run([this, options, callback]() {
+    (void)QtConcurrent::run([this, options, callback]() {
         QVector<TorrentInfo> results = database_->searchTorrents(options);
         
         QJsonArray torrents;
@@ -59,7 +59,7 @@ void SearchAPI::searchFiles(const QString& text,
 
     SearchOptions options = jsonToSearchOptions(text, navigation);
     
-    QtConcurrent::run([this, options, callback]() {
+    (void)QtConcurrent::run([this, options, callback]() {
         QVector<TorrentInfo> results = database_->searchFiles(options);
         
         QJsonArray torrents;
@@ -95,7 +95,7 @@ void SearchAPI::getTorrent(const QString& hash,
         return;
     }
 
-    QtConcurrent::run([this, hash, includeFiles, callback]() {
+    (void)QtConcurrent::run([this, hash, includeFiles, callback]() {
         TorrentInfo torrent = database_->getTorrent(hash, includeFiles);
         
         QJsonObject result;
@@ -129,7 +129,7 @@ void SearchAPI::getRecentTorrents(int limit, TorrentsCallback callback)
         return;
     }
 
-    QtConcurrent::run([this, limit, callback]() {
+    (void)QtConcurrent::run([this, limit, callback]() {
         QVector<TorrentInfo> results = database_->getRecentTorrents(limit);
         
         QJsonArray torrents;
@@ -158,7 +158,7 @@ void SearchAPI::getTopTorrents(const QString& type,
     int limit = navigation.value("limit").toInt(20);
     QString time = navigation.value("time").toString();
 
-    QtConcurrent::run([this, type, time, index, limit, callback]() {
+    (void)QtConcurrent::run([this, type, time, index, limit, callback]() {
         QVector<TorrentInfo> results = database_->getTopTorrents(type, time, index, limit);
         
         QJsonArray torrents;

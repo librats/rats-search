@@ -1,14 +1,15 @@
 #include "torrentspider.h"
 #include "torrentdatabase.h"
+#include "p2pnetwork.h"
 #include "librats/src/librats.h"
 #include <QDebug>
 #include <QDateTime>
 #include <set>
 
-TorrentSpider::TorrentSpider(TorrentDatabase *database, int dhtPort, QObject *parent)
+TorrentSpider::TorrentSpider(TorrentDatabase *database, P2PNetwork *p2pNetwork, QObject *parent)
     : QObject(parent)
     , database_(database)
-    , dhtPort_(dhtPort)
+    , p2pNetwork_(p2pNetwork)
     , running_(false)
     , indexedCount_(0)
     , pendingCount_(0)
@@ -31,46 +32,54 @@ TorrentSpider::~TorrentSpider()
     stop();
 }
 
+librats::RatsClient* TorrentSpider::getRatsClient() const
+{
+    if (!p2pNetwork_) {
+        return nullptr;
+    }
+    return p2pNetwork_->getRatsClient();
+}
+
 bool TorrentSpider::start()
 {
     if (running_) {
         return true;
     }
     
-    qInfo() << "Starting torrent spider on DHT port" << dhtPort_;
+    // Check that P2PNetwork is running and provides RatsClient
+    if (!p2pNetwork_) {
+        emit error("P2PNetwork not available");
+        return false;
+    }
+    
+    if (!p2pNetwork_->isRunning()) {
+        emit error("P2PNetwork is not running - start it first");
+        return false;
+    }
+    
+    librats::RatsClient* client = getRatsClient();
+    if (!client) {
+        emit error("RatsClient not available from P2PNetwork");
+        return false;
+    }
+    
+    qInfo() << "Starting torrent spider...";
     
     try {
-        // Create librats client for DHT
-        librats::NatTraversalConfig natConfig;
-        ratsClient_ = std::make_unique<librats::RatsClient>(dhtPort_ + 1000, 0, natConfig);
-        
-        // Set protocol name
-        ratsClient_->set_protocol_name("rats-spider");
-        ratsClient_->set_protocol_version("2.0");
-        
-        // Start the client
-        if (!ratsClient_->start()) {
-            emit error("Failed to start librats client for spider");
-            return false;
-        }
-        
-        // Start DHT
-        if (!ratsClient_->start_dht_discovery(dhtPort_)) {
-            emit error("Failed to start DHT for spider");
+        // Check if DHT is running
+        if (!p2pNetwork_->isDhtRunning()) {
+            emit error("DHT is not running");
             return false;
         }
         
 #ifdef RATS_SEARCH_FEATURES
-        // Enable BitTorrent for metadata fetching
-        if (!ratsClient_->enable_bittorrent(dhtPort_)) {
-            qWarning() << "Failed to enable BitTorrent for metadata fetching";
-            // Continue anyway, we can still discover hashes
+        // Enable BitTorrent for metadata fetching if not already enabled
+        if (!p2pNetwork_->isBitTorrentEnabled()) {
+            if (!p2pNetwork_->enableBitTorrent()) {
+                qWarning() << "Failed to enable BitTorrent for metadata fetching";
+                // Continue anyway, we can still discover hashes
+            }
         }
-        
-        // Get DHT client and enable spider mode
-        // Note: We need to access DHT through the client
-        // For now, we'll use periodic walk instead of spider mode
-        // TODO: Add spider mode API to RatsClient
 #endif
         
         running_ = true;
@@ -84,6 +93,7 @@ bool TorrentSpider::start()
         emit statusChanged("Active");
         
         qInfo() << "Torrent spider started successfully";
+        qInfo() << "DHT nodes:" << getDhtNodeCount();
         return true;
         
     } catch (const std::exception& e) {
@@ -104,14 +114,7 @@ void TorrentSpider::stop()
     ignoreTimer_->stop();
     metadataQueueTimer_->stop();
     
-    if (ratsClient_) {
-#ifdef RATS_SEARCH_FEATURES
-        ratsClient_->disable_bittorrent();
-#endif
-        ratsClient_->stop_dht_discovery();
-        ratsClient_->stop();
-        ratsClient_.reset();
-    }
+    // Note: We don't stop the RatsClient here - P2PNetwork owns it
     
     running_ = false;
     
@@ -164,15 +167,15 @@ void TorrentSpider::setMetadataFetchEnabled(bool enabled)
 
 size_t TorrentSpider::getDhtNodeCount() const
 {
-    if (!ratsClient_) {
+    if (!p2pNetwork_) {
         return 0;
     }
-    return ratsClient_->get_dht_routing_table_size();
+    return p2pNetwork_->getDhtNodeCount();
 }
 
 void TorrentSpider::onSpiderWalk()
 {
-    if (!running_ || !ratsClient_) {
+    if (!running_) {
         return;
     }
     
@@ -255,14 +258,15 @@ void TorrentSpider::onAnnounce(const std::array<uint8_t, 20>& infoHash,
 
 void TorrentSpider::fetchMetadata(const QString& infoHash)
 {
-    if (!ratsClient_) {
+    librats::RatsClient* client = getRatsClient();
+    if (!client) {
         return;
     }
     
 #ifdef RATS_SEARCH_FEATURES
     activeFetches_++;
     
-    ratsClient_->get_torrent_metadata(infoHash.toStdString(),
+    client->get_torrent_metadata(infoHash.toStdString(),
         [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success, const std::string& error) {
             activeFetches_--;
             
