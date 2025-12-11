@@ -111,6 +111,7 @@ private:
     QString dataDirectory_;
     QString databasePath_;
     QString configPath_;
+    QString pidFilePath_;
     QString searchdPath_;
     int port_;
     Status status_;
@@ -119,6 +120,7 @@ private:
     std::unique_ptr<QProcess> process_;
     std::unique_ptr<QTimer> connectionCheckTimer_;
     bool isExternalInstance_;
+    bool isWindowsDaemonMode_;
     QString connectionName_;
 };
 

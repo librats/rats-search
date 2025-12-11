@@ -10,15 +10,44 @@
 #include <QDebug>
 #include <QRegularExpression>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <tlhelp32.h>
+#else
+#include <signal.h>
+#endif
+
+// Helper function to check if a process is running by PID
+static bool isProcessRunning(qint64 pid)
+{
+    if (pid <= 0) return false;
+    
+#ifdef Q_OS_WIN
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(pid));
+    if (hProcess == NULL) {
+        return false;
+    }
+    DWORD exitCode;
+    bool running = GetExitCodeProcess(hProcess, &exitCode) && exitCode == STILL_ACTIVE;
+    CloseHandle(hProcess);
+    return running;
+#else
+    // Unix: check if process exists by sending signal 0
+    return kill(static_cast<pid_t>(pid), 0) == 0;
+#endif
+}
+
 ManticoreManager::ManticoreManager(const QString& dataDirectory, QObject *parent)
     : QObject(parent)
     , dataDirectory_(dataDirectory)
     , port_(9306)  // Default MySQL port for Manticore
     , status_(Status::Stopped)
     , isExternalInstance_(false)
+    , isWindowsDaemonMode_(false)
 {
     databasePath_ = dataDirectory_ + "/database";
     configPath_ = dataDirectory_ + "/sphinx.conf";
+    pidFilePath_ = dataDirectory_ + "/searchd.pid";
     connectionName_ = "manticore_" + QString::number(reinterpret_cast<quintptr>(this));
     
     process_ = std::make_unique<QProcess>();
@@ -50,7 +79,30 @@ bool ManticoreManager::start()
         return true;
     }
     
-    // Check if external instance is running
+    isWindowsDaemonMode_ = false;
+    
+    // Check if external instance is running via PID file
+    if (QFile::exists(pidFilePath_)) {
+        QFile pidFile(pidFilePath_);
+        if (pidFile.open(QIODevice::ReadOnly)) {
+            qint64 pid = pidFile.readAll().trimmed().toLongLong();
+            pidFile.close();
+            
+            if (isProcessRunning(pid)) {
+                qInfo() << "Found existing Manticore instance via PID file (pid:" << pid << ")";
+                
+                // Verify it's responding
+                if (testConnection()) {
+                    isExternalInstance_ = true;
+                    setStatus(Status::Running);
+                    emit started();
+                    return true;
+                }
+            }
+        }
+    }
+    
+    // Also check if something is already listening on the port
     if (testConnection()) {
         qInfo() << "Found existing Manticore instance on port" << port_;
         isExternalInstance_ = true;
@@ -88,9 +140,16 @@ bool ManticoreManager::start()
     QStringList args;
     args << "--config" << configPath_;
     
-#ifndef Q_OS_WIN
+#ifdef Q_OS_WIN
+    // On Windows, searchd runs as a daemon (forks itself and parent exits)
+    // We need to handle this differently
+    isWindowsDaemonMode_ = true;
+#else
+    // On Linux/macOS, use --nodetach to keep process in foreground
     args << "--nodetach";
 #endif
+    
+    qInfo() << "Starting searchd with args:" << args;
     
     process_->start(searchdPath_, args);
     
@@ -99,6 +158,13 @@ bool ManticoreManager::start()
         setStatus(Status::Error);
         return false;
     }
+    
+#ifdef Q_OS_WIN
+    // On Windows, the process will exit quickly as it forks into background
+    // Wait for it to finish forking
+    process_->waitForFinished(3000);
+    qInfo() << "Windows daemon mode: searchd process forked into background";
+#endif
     
     // Wait for ready
     return waitForReady(30000);
@@ -115,24 +181,34 @@ void ManticoreManager::stop()
         return;
     }
     
-    if (process_ && process_->state() != QProcess::NotRunning) {
-        qInfo() << "Stopping Manticore...";
-        
+    qInfo() << "Stopping Manticore...";
+    
 #ifdef Q_OS_WIN
-        // On Windows, use stopwait command
+    // On Windows, searchd runs as a daemon, so we need to use stopwait command
+    // regardless of QProcess state
+    if (!searchdPath_.isEmpty() && QFile::exists(configPath_)) {
         QProcess stopProcess;
         QStringList args;
         args << "--config" << configPath_ << "--stopwait";
+        qInfo() << "Executing stopwait:" << searchdPath_ << args;
         stopProcess.start(searchdPath_, args);
-        stopProcess.waitForFinished(10000);
+        if (!stopProcess.waitForFinished(10000)) {
+            qWarning() << "stopwait command timed out";
+        } else {
+            qInfo() << "stopwait finished with code" << stopProcess.exitCode();
+        }
+    }
 #else
+    // On Unix, process runs in foreground with --nodetach
+    if (process_ && process_->state() != QProcess::NotRunning) {
         process_->terminate();
         if (!process_->waitForFinished(5000)) {
+            qWarning() << "Process did not terminate gracefully, killing...";
             process_->kill();
             process_->waitForFinished(2000);
         }
-#endif
     }
+#endif
     
     setStatus(Status::Stopped);
     emit stopped();
@@ -158,23 +234,51 @@ QSqlDatabase ManticoreManager::getDatabase() const
 bool ManticoreManager::waitForReady(int timeoutMs)
 {
     int elapsed = 0;
-    const int checkInterval = 100;
+    const int checkInterval = 200;
+    
+    qInfo() << "Waiting for Manticore to become ready...";
     
     while (elapsed < timeoutMs) {
         if (testConnection()) {
             setStatus(Status::Running);
             emit started();
-            qInfo() << "Manticore is ready on port" << port_;
+            
+            // Try to get version from PID file existence
+            if (QFile::exists(pidFilePath_)) {
+                qInfo() << "Manticore is ready on port" << port_ << "(PID file exists)";
+            } else {
+                qInfo() << "Manticore is ready on port" << port_;
+            }
+            
+            // Start connection monitoring
+            connectionCheckTimer_->start();
             return true;
         }
+        
         QThread::msleep(checkInterval);
         elapsed += checkInterval;
         
-        // Check if process crashed
-        if (process_ && process_->state() == QProcess::NotRunning) {
-            emit error("Manticore process exited unexpectedly");
-            setStatus(Status::Error);
-            return false;
+        // On Windows with daemon mode, we can't check process state
+        // as the original process has already exited
+        if (!isWindowsDaemonMode_) {
+            // Check if process crashed (only for non-daemon mode)
+            if (process_ && process_->state() == QProcess::NotRunning) {
+                QString output = process_->readAllStandardError();
+                qWarning() << "Manticore stderr:" << output;
+                emit error("Manticore process exited unexpectedly");
+                setStatus(Status::Error);
+                return false;
+            }
+        } else {
+            // On Windows, check if PID file was created as a sign of startup progress
+            if (elapsed > 5000 && !QFile::exists(pidFilePath_)) {
+                qWarning() << "PID file not created after 5 seconds, searchd may have failed to start";
+            }
+        }
+        
+        // Log progress every 5 seconds
+        if (elapsed % 5000 == 0) {
+            qInfo() << "Still waiting for Manticore..." << (elapsed / 1000) << "seconds elapsed";
         }
     }
     
@@ -190,14 +294,27 @@ void ManticoreManager::onProcessStarted()
 
 void ManticoreManager::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
-    qInfo() << "Manticore process finished with code" << exitCode;
+    qInfo() << "Manticore process finished with code" << exitCode 
+            << "status" << (exitStatus == QProcess::NormalExit ? "NormalExit" : "CrashExit");
+    
+#ifdef Q_OS_WIN
+    // On Windows, searchd forks into background and parent exits with code 0
+    // This is normal behavior, not an error
+    if (isWindowsDaemonMode_ && exitCode == 0 && status_ == Status::Starting) {
+        qInfo() << "Windows: searchd forked to background, waiting for connection...";
+        return;  // Don't change status, waitForReady() will handle it
+    }
+#endif
     
     if (status_ == Status::Running && exitStatus != QProcess::NormalExit) {
         emit error(QString("Manticore crashed with exit code %1").arg(exitCode));
     }
     
-    setStatus(Status::Stopped);
-    emit stopped();
+    // Only set stopped if we were actually running (not starting in daemon mode)
+    if (status_ == Status::Running || (status_ == Status::Starting && !isWindowsDaemonMode_)) {
+        setStatus(Status::Stopped);
+        emit stopped();
+    }
 }
 
 void ManticoreManager::onProcessError(QProcess::ProcessError error)
@@ -377,37 +494,56 @@ QString ManticoreManager::findSearchdPath()
     // Possible paths for searchd
     QStringList searchPaths;
     
-    // Check near executable first
+    // Get application directory
     QString appDir = QCoreApplication::applicationDirPath();
+    
+    // Check near executable first (for deployed builds)
     searchPaths << appDir + "/searchd"
-                << appDir + "/searchd.exe"
-                << appDir + "/../imports/searchd"
-                << appDir + "/../imports/searchd.exe";
+                << appDir + "/searchd.exe";
+    
+    // For development builds from build/bin directory
+    // Go up to project root and check imports
+    searchPaths << appDir + "/../../imports/win/x64/searchd.exe"
+                << appDir + "/../../../imports/win/x64/searchd.exe"
+                << appDir + "/../../imports/linux/x64/searchd"
+                << appDir + "/../../../imports/linux/x64/searchd";
     
     // Check imports directory based on platform
 #ifdef Q_OS_WIN
     #ifdef Q_PROCESSOR_X86_64
     searchPaths << appDir + "/../imports/win/x64/searchd.exe"
-                << "imports/win/x64/searchd.exe";
+                << appDir + "/imports/win/x64/searchd.exe"
+                << "imports/win/x64/searchd.exe"
+                << "../imports/win/x64/searchd.exe"
+                << "../../imports/win/x64/searchd.exe";
     #else
     searchPaths << appDir + "/../imports/win/ia32/searchd.exe"
-                << "imports/win/ia32/searchd.exe";
+                << appDir + "/imports/win/ia32/searchd.exe"
+                << "imports/win/ia32/searchd.exe"
+                << "../imports/win/ia32/searchd.exe"
+                << "../../imports/win/ia32/searchd.exe";
     #endif
 #elif defined(Q_OS_MACOS)
     #ifdef Q_PROCESSOR_ARM
     searchPaths << appDir + "/../imports/darwin/arm64/searchd"
-                << "imports/darwin/arm64/searchd";
+                << "imports/darwin/arm64/searchd"
+                << "../imports/darwin/arm64/searchd";
     #else
     searchPaths << appDir + "/../imports/darwin/x64/searchd"
-                << "imports/darwin/x64/searchd";
+                << "imports/darwin/x64/searchd"
+                << "../imports/darwin/x64/searchd";
     #endif
 #else  // Linux
     #ifdef Q_PROCESSOR_X86_64
     searchPaths << appDir + "/../imports/linux/x64/searchd"
-                << "imports/linux/x64/searchd";
+                << "imports/linux/x64/searchd"
+                << "../imports/linux/x64/searchd"
+                << "../../imports/linux/x64/searchd";
     #else
     searchPaths << appDir + "/../imports/linux/ia32/searchd"
-                << "imports/linux/ia32/searchd";
+                << "imports/linux/ia32/searchd"
+                << "../imports/linux/ia32/searchd"
+                << "../../imports/linux/ia32/searchd";
     #endif
 #endif
     
@@ -415,36 +551,50 @@ QString ManticoreManager::findSearchdPath()
     searchPaths << "/usr/bin/searchd"
                 << "/usr/local/bin/searchd";
     
+    qDebug() << "Searching for searchd in:" << searchPaths;
+    
     for (const QString& path : searchPaths) {
         if (QFile::exists(path)) {
-            return QFileInfo(path).absoluteFilePath();
+            QString absPath = QFileInfo(path).absoluteFilePath();
+            qInfo() << "Found searchd at:" << absPath;
+            return absPath;
         }
     }
     
-    // Try PATH
+    // Try PATH environment variable
     QString found = QStandardPaths::findExecutable("searchd");
     if (!found.isEmpty()) {
+        qInfo() << "Found searchd in PATH:" << found;
         return found;
     }
     
+    qWarning() << "searchd not found! Searched paths:" << searchPaths;
     return QString();
 }
 
 bool ManticoreManager::testConnection()
 {
-    QSqlDatabase db = getDatabase();
+    // Use a temporary connection for testing
+    QString testConnName = connectionName_ + "_test";
+    bool success = false;
     
-    if (!db.open()) {
-        return false;
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", testConnName);
+        db.setHostName("127.0.0.1");
+        db.setPort(port_);
+        db.setDatabaseName("");
+        
+        if (db.open()) {
+            QSqlQuery query(db);
+            success = query.exec("SHOW STATUS");
+            query.clear();
+            db.close();
+        }
     }
     
-    QSqlQuery query(db);
-    if (!query.exec("SHOW STATUS")) {
-        db.close();
-        return false;
-    }
-    
-    return true;
+    // Remove connection outside of scope where db was used
+    QSqlDatabase::removeDatabase(testConnName);
+    return success;
 }
 
 void ManticoreManager::setStatus(Status status)
