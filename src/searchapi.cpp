@@ -19,16 +19,22 @@ void SearchAPI::searchTorrent(const QString& text,
                                const QJsonObject& navigation,
                                TorrentsCallback callback)
 {
+    qInfo() << "SearchAPI::searchTorrent called with text:" << text;
+    
     if (!database_) {
+        qWarning() << "SearchAPI: database is null!";
         if (callback) callback(QJsonArray());
         return;
     }
 
     SearchOptions options = jsonToSearchOptions(text, navigation);
+    qInfo() << "SearchAPI: Starting search with query:" << options.query;
     
     // Run search in background thread
     (void)QtConcurrent::run([this, options, callback]() {
+        qInfo() << "SearchAPI: Background thread started for query:" << options.query;
         QVector<TorrentInfo> results = database_->searchTorrents(options);
+        qInfo() << "SearchAPI: Got" << results.size() << "results";
         
         QJsonArray torrents;
         for (const TorrentInfo& torrent : results) {

@@ -34,8 +34,10 @@ struct TorrentInfo {
     QDateTime added;
     QString ipv4;               // IP that announced it
     int port = 0;
-    int contentType = 0;        // Content type ID
-    int contentCategory = 0;    // Content category ID
+    int contentTypeId = 0;      // Content type ID (numeric)
+    int contentCategoryId = 0;  // Content category ID (numeric)
+    QString contentType;        // Content type string (video, audio, etc)
+    QString contentCategory;    // Content category string (movie, xxx, etc)
     int seeders = 0;
     int leechers = 0;
     int completed = 0;

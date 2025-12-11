@@ -51,6 +51,8 @@ set(SOURCES
     src/manticoremanager.cpp
     src/sphinxql.cpp
     src/searchapi.cpp
+    src/torrentitemdelegate.cpp
+    src/torrentdetailspanel.cpp
 )
 
 # Header files
@@ -65,6 +67,8 @@ set(HEADERS
     src/manticoremanager.h
     src/sphinxql.h
     src/searchapi.h
+    src/torrentitemdelegate.h
+    src/torrentdetailspanel.h
 )
 
 # Resources
@@ -72,11 +76,17 @@ set(RESOURCES
     resources/resources.qrc
 )
 
+# Windows application icon
+if(WIN32)
+    set(WIN_RC_FILE resources/app.rc)
+endif()
+
 # Create executable
 add_executable(${PROJECT_NAME} WIN32 MACOSX_BUNDLE
     ${SOURCES}
     ${HEADERS}
     ${RESOURCES}
+    ${WIN_RC_FILE}
 )
 
 # Link libraries

@@ -67,9 +67,10 @@ ManticoreManager::~ManticoreManager()
 {
     stop();
     
-    // Remove database connection
-    if (QSqlDatabase::contains(connectionName_)) {
-        QSqlDatabase::removeDatabase(connectionName_);
+    // Remove database connection for current thread
+    QString threadConnName = connectionName_ + "_" + QString::number(reinterpret_cast<quintptr>(QThread::currentThread()));
+    if (QSqlDatabase::contains(threadConnName)) {
+        QSqlDatabase::removeDatabase(threadConnName);
     }
 }
 
@@ -221,14 +222,17 @@ bool ManticoreManager::isRunning() const
 
 QSqlDatabase ManticoreManager::getDatabase() const
 {
-    if (!QSqlDatabase::contains(connectionName_)) {
-        QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", connectionName_);
+    // Each thread needs its own connection - include thread ID in connection name
+    QString threadConnName = connectionName_ + "_" + QString::number(reinterpret_cast<quintptr>(QThread::currentThread()));
+    
+    if (!QSqlDatabase::contains(threadConnName)) {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", threadConnName);
         db.setHostName("127.0.0.1");
         db.setPort(port_);
         db.setDatabaseName("");
     }
     
-    return QSqlDatabase::database(connectionName_);
+    return QSqlDatabase::database(threadConnName);
 }
 
 bool ManticoreManager::waitForReady(int timeoutMs)

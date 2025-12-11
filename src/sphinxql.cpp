@@ -26,6 +26,11 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
 {
     Results results;
     
+    qDebug() << "SphinxQL query:" << sql;
+    if (!params.isEmpty()) {
+        qDebug() << "SphinxQL params:" << params;
+    }
+    
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();

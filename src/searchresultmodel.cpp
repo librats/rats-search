@@ -62,11 +62,33 @@ QVariant SearchResultModel::data(const QModelIndex &index, int role) const
         }
     }
     else if (role == Qt::ToolTipRole) {
-        return QString("Info Hash: %1\nSeeders: %2\nLeechers: %3\nSize: %4")
+        return QString("Info Hash: %1\nSeeders: %2\nLeechers: %3\nSize: %4\nFiles: %5")
             .arg(torrent.hash)
             .arg(torrent.seeders)
             .arg(torrent.leechers)
-            .arg(formatSize(torrent.size));
+            .arg(formatSize(torrent.size))
+            .arg(torrent.files);
+    }
+    // Custom roles for delegate
+    else if (role == Qt::UserRole + 1) {
+        // Content type string for icon coloring
+        return torrent.contentType;
+    }
+    else if (role == Qt::UserRole + 2) {
+        // Content category string
+        return torrent.contentCategory;
+    }
+    else if (role == Qt::UserRole + 3) {
+        // Good votes
+        return torrent.good;
+    }
+    else if (role == Qt::UserRole + 4) {
+        // Bad votes
+        return torrent.bad;
+    }
+    else if (role == Qt::UserRole + 5) {
+        // Info hash
+        return torrent.hash;
     }
     
     return QVariant();

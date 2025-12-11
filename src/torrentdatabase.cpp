@@ -95,8 +95,8 @@ bool TorrentDatabase::addTorrent(const TorrentInfo& torrent)
                                                : QDateTime::currentSecsSinceEpoch();
     values["ipv4"] = torrent.ipv4;
     values["port"] = torrent.port;
-    values["contentType"] = torrent.contentType;
-    values["contentCategory"] = torrent.contentCategory;
+    values["contentType"] = torrent.contentTypeId;
+    values["contentCategory"] = torrent.contentCategoryId;
     values["seeders"] = torrent.seeders;
     values["leechers"] = torrent.leechers;
     values["completed"] = torrent.completed;
@@ -159,8 +159,8 @@ bool TorrentDatabase::updateTorrent(const TorrentInfo& torrent)
     values["name"] = torrent.name;
     values["size"] = torrent.size;
     values["files"] = torrent.files;
-    values["contentType"] = torrent.contentType;
-    values["contentCategory"] = torrent.contentCategory;
+    values["contentType"] = torrent.contentTypeId;
+    values["contentCategory"] = torrent.contentCategoryId;
     values["seeders"] = torrent.seeders;
     values["leechers"] = torrent.leechers;
     values["completed"] = torrent.completed;
@@ -228,7 +228,17 @@ QVector<TorrentInfo> TorrentDatabase::searchTorrents(const SearchOptions& option
 {
     QVector<TorrentInfo> results;
     
-    if (!isReady() || options.query.isEmpty()) {
+    qInfo() << "searchTorrents: query=" << options.query 
+            << "limit=" << options.limit 
+            << "orderBy=" << options.orderBy;
+    
+    if (!isReady()) {
+        qWarning() << "searchTorrents: Database is not ready!";
+        return results;
+    }
+    
+    if (options.query.isEmpty()) {
+        qWarning() << "searchTorrents: Empty query";
         return results;
     }
     
@@ -338,7 +348,7 @@ QVector<TorrentInfo> TorrentDatabase::searchFiles(const SearchOptions& options)
     for (const auto& row : torrentRows) {
         TorrentInfo info = rowToTorrent(row);
         
-        if (options.safeSearch && info.contentCategory == static_cast<int>(ContentCategory::XXX)) {
+        if (options.safeSearch && info.contentCategoryId == static_cast<int>(ContentCategory::XXX)) {
             continue;
         }
         
@@ -499,8 +509,10 @@ TorrentInfo TorrentDatabase::rowToTorrent(const QVariantMap& row)
     info.added = QDateTime::fromSecsSinceEpoch(row.value("added").toLongLong());
     info.ipv4 = row.value("ipv4").toString();
     info.port = row.value("port").toInt();
-    info.contentType = row.value("contentType").toInt();
-    info.contentCategory = row.value("contentCategory").toInt();
+    info.contentTypeId = row.value("contentType").toInt();
+    info.contentCategoryId = row.value("contentCategory").toInt();
+    info.contentType = contentTypeFromId(info.contentTypeId);
+    info.contentCategory = contentCategoryFromId(info.contentCategoryId);
     info.seeders = row.value("seeders").toInt();
     info.leechers = row.value("leechers").toInt();
     info.completed = row.value("completed").toInt();
@@ -626,28 +638,33 @@ void TorrentDatabase::detectContentType(TorrentInfo& torrent)
     
     // Determine type
     if (videoCount > 0) {
-        torrent.contentType = static_cast<int>(ContentType::Video);
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
     } else if (audioCount > 0) {
-        torrent.contentType = static_cast<int>(ContentType::Audio);
+        torrent.contentTypeId = static_cast<int>(ContentType::Audio);
     } else if (docCount > 0) {
-        torrent.contentType = static_cast<int>(ContentType::Books);
+        torrent.contentTypeId = static_cast<int>(ContentType::Books);
     } else if (imageCount > 0) {
-        torrent.contentType = static_cast<int>(ContentType::Pictures);
+        torrent.contentTypeId = static_cast<int>(ContentType::Pictures);
     } else if (executableCount > 0) {
-        torrent.contentType = static_cast<int>(ContentType::Software);
+        torrent.contentTypeId = static_cast<int>(ContentType::Software);
     } else if (archiveCount > 0) {
-        torrent.contentType = static_cast<int>(ContentType::Archive);
+        torrent.contentTypeId = static_cast<int>(ContentType::Archive);
     }
+    
+    // Set string representations
+    torrent.contentType = contentTypeFromId(torrent.contentTypeId);
     
     // Check for adult content in name
     QString nameLower = torrent.name.toLower();
     static QStringList adultKeywords = {"xxx", "porn", "sex", "adult", "18+"};
     for (const QString& keyword : adultKeywords) {
         if (nameLower.contains(keyword)) {
-            torrent.contentCategory = static_cast<int>(ContentCategory::XXX);
+            torrent.contentCategoryId = static_cast<int>(ContentCategory::XXX);
             break;
         }
     }
+    
+    torrent.contentCategory = contentCategoryFromId(torrent.contentCategoryId);
 }
 
 QString TorrentDatabase::buildNameIndex(const TorrentInfo& torrent)
@@ -667,10 +684,10 @@ QString TorrentDatabase::buildNameIndex(const TorrentInfo& torrent)
 
 QString TorrentInfo::contentTypeString() const
 {
-    return TorrentDatabase::contentTypeFromId(contentType);
+    return TorrentDatabase::contentTypeFromId(contentTypeId);
 }
 
 QString TorrentInfo::contentCategoryString() const
 {
-    return TorrentDatabase::contentCategoryFromId(contentCategory);
+    return TorrentDatabase::contentCategoryFromId(contentCategoryId);
 }
