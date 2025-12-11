@@ -1,67 +1,588 @@
-name: rats
-on: [push, pull_request]
+name: Build Rats Search
+
+on:
+  push:
+    branches: [ master, main, develop, cpp ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: '6.7.2'
+  BUILD_TYPE: Release
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    continue-on-error: true
-    strategy:
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        node_version:
-          - 16
-          - 22
-        architecture:
-          - x64
-#          - arm64   precompiled bits may not allow for this
-        # an extra windows-x86 run:
-#        include:
-#          - os: windows-latest
-#            node_version: 15
-#            architecture: arm64
-#          - os: macos-latest
-#            node_version: 15
-#            architecture: arm64
-    name: Node ${{ matrix.node_version }} - ${{ matrix.architecture }} on ${{ matrix.os }}
-    env:
-      GH_TOKEN: ${{ SECRETS.GH_TOKEN }}
-      DISPLAY: :0
+  build-windows:
+    runs-on: windows-latest
+    name: Windows x64
+
     steps:
-      - name: Setup xvfb (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb g++-multilib
-          sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
-      - name: Prepare python3.10
-        if: runner.os == 'macOS'
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: Checkout repository and submodules
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Setup node
-        uses: actions/setup-node@v2
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
         with:
-          node-version: ${{ matrix.node_version }}
-          architecture: ${{ matrix.architecture }}
-      - run: npm install --force
-      - run: npm run postinstall
-      - run: npm run prebuild
-      - run: npm run buildweb
-      - run: npm run test
-      - run: npm run build
-      - uses: actions/upload-artifact@v4
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          modules: 'qtsql'
+          cache: true
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          name: executable
-          path: dist/
-      - uses: nelonoel/branch-name@v1.0.1
-      - name: Deploy release (MacOS)
-        if: matrix.node_version == 16 && env.BRANCH_NAME == 'master' && runner.os == 'macOS' && github.event.head_commit.message == 'release'
+          arch: x64
+
+      - name: Install Ninja
+        run: choco install ninja -y
+
+      - name: Install MySQL client library
+        shell: powershell
         run: |
-          npx semantic-release@17
+          # Download MySQL Connector/C
+          $mysqlUrl = "https://dev.mysql.com/get/Downloads/Connector-C/mysql-connector-c-6.1.11-winx64.zip"
+          $mysqlZip = "$env:TEMP\mysql-connector.zip"
+          $mysqlDir = "$env:TEMP\mysql-connector"
+          
+          Invoke-WebRequest -Uri $mysqlUrl -OutFile $mysqlZip
+          Expand-Archive -Path $mysqlZip -DestinationPath $mysqlDir -Force
+          
+          $mysqlPath = Get-ChildItem -Path $mysqlDir -Directory | Select-Object -First 1
+          echo "MYSQL_DIR=$($mysqlPath.FullName)" >> $env:GITHUB_ENV
+          echo "MYSQL_INCLUDE_DIR=$($mysqlPath.FullName)\include" >> $env:GITHUB_ENV
+          echo "MYSQL_LIB_DIR=$($mysqlPath.FullName)\lib" >> $env:GITHUB_ENV
+
+      - name: Build Qt MySQL plugin (if not available)
+        shell: powershell
+        run: |
+          $pluginPath = "$env:Qt6_DIR\plugins\sqldrivers\qsqlmysql.dll"
+          
+          if (-not (Test-Path $pluginPath)) {
+            Write-Host "MySQL plugin not found in Qt installation, building from source..."
+            
+            # Clone Qt base for sqldrivers source
+            git clone --depth 1 --branch v${{ env.QT_VERSION }} https://github.com/qt/qtbase.git qtbase-src
+            
+            # Build just the MySQL plugin
+            cd qtbase-src/src/plugins/sqldrivers
+            
+            # Configure with MySQL support
+            cmake -B build -G "Ninja" `
+              -DCMAKE_BUILD_TYPE=Release `
+              -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
+              -DMySQL_INCLUDE_DIR="$env:MYSQL_INCLUDE_DIR" `
+              -DMySQL_LIBRARY="$env:MYSQL_LIB_DIR\libmysql.lib"
+            
+            cmake --build build --target qsqlmysql --config Release
+            
+            # Copy built plugin to Qt plugins directory
+            if (Test-Path "build/plugins/sqldrivers/qsqlmysql.dll") {
+              Copy-Item "build/plugins/sqldrivers/qsqlmysql.dll" "$env:Qt6_DIR\plugins\sqldrivers\" -Force
+              Write-Host "Successfully built and installed MySQL plugin"
+            }
+            
+            cd ../../../..
+          } else {
+            Write-Host "MySQL plugin already available at $pluginPath"
+          }
+          
+          # Copy libmysql.dll to Qt bin directory
+          Copy-Item "$env:MYSQL_LIB_DIR\libmysql.dll" "$env:Qt6_DIR\bin\" -Force
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Copy Manticore binaries
+        shell: powershell
+        run: |
+          $binDir = "build/bin"
+          
+          # Copy all Manticore files for Windows x64
+          Copy-Item "imports/win/x64/*" -Destination $binDir -Force -Recurse
+          
+          Write-Host "Copied Manticore binaries:"
+          Get-ChildItem $binDir | ForEach-Object { Write-Host $_.Name }
+
+      - name: Copy Qt MySQL plugin
+        shell: powershell
+        run: |
+          $binDir = "build/bin"
+          $pluginSrc = "$env:Qt6_DIR/plugins/sqldrivers"
+          $pluginDst = "$binDir/sqldrivers"
+          
+          New-Item -ItemType Directory -Force -Path $pluginDst | Out-Null
+          
+          # Copy MySQL plugin
+          if (Test-Path "$pluginSrc/qsqlmysql.dll") {
+            Copy-Item "$pluginSrc/qsqlmysql.dll" -Destination $pluginDst -Force
+            Write-Host "Copied qsqlmysql.dll"
+          }
+          if (Test-Path "$pluginSrc/qsqlmysqld.dll") {
+            Copy-Item "$pluginSrc/qsqlmysqld.dll" -Destination $pluginDst -Force
+          }
+          
+          # Also ensure libmysql.dll is in bin directory
+          if (Test-Path "$env:Qt6_DIR/bin/libmysql.dll") {
+            Copy-Item "$env:Qt6_DIR/bin/libmysql.dll" -Destination $binDir -Force
+            Write-Host "Copied libmysql.dll to bin"
+          }
+
+      - name: Create deployment package
+        shell: powershell
+        run: |
+          $packageDir = "RatsSearch-Windows-x64"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          
+          # Copy all files from bin directory
+          Copy-Item "build/bin/*" -Destination $packageDir -Recurse -Force
+          
+          # Copy config if exists
+          if (Test-Path "build/bin/config.json") {
+            Copy-Item "build/bin/config.json" -Destination $packageDir -Force
+          }
+          
+          # Create zip
+          Compress-Archive -Path $packageDir -DestinationPath "RatsSearch-Windows-x64.zip" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RatsSearch-Windows-x64
+          path: RatsSearch-Windows-x64.zip
+          retention-days: 30
+
+  build-macos-intel:
+    runs-on: macos-13
+    name: macOS Intel (x64)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: 'qtsql'
+          cache: true
+
+      - name: Install MySQL client
+        run: |
+          brew install mysql-client
+          echo "MYSQL_DIR=$(brew --prefix mysql-client)" >> $GITHUB_ENV
+          echo "MYSQL_INCLUDE_DIR=$(brew --prefix mysql-client)/include/mysql" >> $GITHUB_ENV
+          echo "MYSQL_LIB_DIR=$(brew --prefix mysql-client)/lib" >> $GITHUB_ENV
+
+      - name: Build Qt MySQL plugin (if not available)
+        run: |
+          PLUGIN_PATH="$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib"
+          
+          if [ ! -f "$PLUGIN_PATH" ]; then
+            echo "MySQL plugin not found in Qt installation, building from source..."
+            
+            # Clone Qt base for sqldrivers source
+            git clone --depth 1 --branch v${{ env.QT_VERSION }} https://github.com/qt/qtbase.git qtbase-src
+            
+            cd qtbase-src/src/plugins/sqldrivers
+            
+            cmake -B build -G "Ninja" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+              -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
+              -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
+            
+            cmake --build build --target qsqlmysql --config Release
+            
+            if [ -f "build/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
+              cp build/plugins/sqldrivers/libqsqlmysql.dylib "$Qt6_DIR/plugins/sqldrivers/"
+              echo "Successfully built and installed MySQL plugin"
+            fi
+            
+            cd ../../../..
+          else
+            echo "MySQL plugin already available at $PLUGIN_PATH"
+          fi
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Copy Manticore binaries
+        run: |
+          BUNDLE_DIR="build/bin/RatsSearch.app/Contents/MacOS"
+          
+          # Copy Manticore binaries for macOS Intel
+          cp imports/darwin/x64/* "$BUNDLE_DIR/" || true
+          chmod +x "$BUNDLE_DIR/searchd" "$BUNDLE_DIR/indexer" 2>/dev/null || true
+          
+          echo "Copied Manticore binaries:"
+          ls -la "$BUNDLE_DIR/"
+
+      - name: Copy Qt MySQL plugin
+        run: |
+          BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
+          PLUGIN_DST="$BUNDLE_DIR/PlugIns/sqldrivers"
+          
+          mkdir -p "$PLUGIN_DST"
+          
+          # Copy MySQL plugin if it exists
+          if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
+            cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" "$PLUGIN_DST/"
+            echo "Copied libqsqlmysql.dylib"
+          fi
+
+      - name: Create deployment package
+        run: |
+          # Create DMG or zip
+          cd build/bin
+          zip -r ../../RatsSearch-macOS-Intel.zip RatsSearch.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RatsSearch-macOS-Intel
+          path: RatsSearch-macOS-Intel.zip
+          retention-days: 30
+
+  build-macos-arm:
+    runs-on: macos-14
+    name: macOS ARM (Apple Silicon)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: 'qtsql'
+          cache: true
+
+      - name: Install MySQL client
+        run: |
+          brew install mysql-client
+          echo "MYSQL_DIR=$(brew --prefix mysql-client)" >> $GITHUB_ENV
+          echo "MYSQL_INCLUDE_DIR=$(brew --prefix mysql-client)/include/mysql" >> $GITHUB_ENV
+          echo "MYSQL_LIB_DIR=$(brew --prefix mysql-client)/lib" >> $GITHUB_ENV
+
+      - name: Build Qt MySQL plugin (if not available)
+        run: |
+          PLUGIN_PATH="$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib"
+          
+          if [ ! -f "$PLUGIN_PATH" ]; then
+            echo "MySQL plugin not found in Qt installation, building from source..."
+            
+            # Clone Qt base for sqldrivers source
+            git clone --depth 1 --branch v${{ env.QT_VERSION }} https://github.com/qt/qtbase.git qtbase-src
+            
+            cd qtbase-src/src/plugins/sqldrivers
+            
+            cmake -B build -G "Ninja" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+              -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
+              -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
+            
+            cmake --build build --target qsqlmysql --config Release
+            
+            if [ -f "build/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
+              cp build/plugins/sqldrivers/libqsqlmysql.dylib "$Qt6_DIR/plugins/sqldrivers/"
+              echo "Successfully built and installed MySQL plugin"
+            fi
+            
+            cd ../../../..
+          else
+            echo "MySQL plugin already available at $PLUGIN_PATH"
+          fi
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Copy Manticore binaries
+        run: |
+          BUNDLE_DIR="build/bin/RatsSearch.app/Contents/MacOS"
+          
+          # Copy Manticore binaries for macOS ARM
+          cp imports/darwin/arm64/* "$BUNDLE_DIR/" || true
+          chmod +x "$BUNDLE_DIR/searchd" "$BUNDLE_DIR/indexer" 2>/dev/null || true
+          
+          echo "Copied Manticore binaries:"
+          ls -la "$BUNDLE_DIR/"
+
+      - name: Copy Qt MySQL plugin
+        run: |
+          BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
+          PLUGIN_DST="$BUNDLE_DIR/PlugIns/sqldrivers"
+          
+          mkdir -p "$PLUGIN_DST"
+          
+          # Copy MySQL plugin if it exists
+          if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
+            cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" "$PLUGIN_DST/"
+            echo "Copied libqsqlmysql.dylib"
+          fi
+
+      - name: Create deployment package
+        run: |
+          cd build/bin
+          zip -r ../../RatsSearch-macOS-ARM.zip RatsSearch.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RatsSearch-macOS-ARM
+          path: RatsSearch-macOS-ARM.zip
+          retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    name: Linux x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            libgl1-mesa-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxcb-xinerama0-dev \
+            libxcb-cursor-dev \
+            libmysqlclient-dev \
+            libfuse2
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          modules: 'qtsql'
+          cache: true
+
+      - name: Build Qt MySQL plugin (if not available)
+        run: |
+          PLUGIN_PATH="$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so"
+          
+          if [ ! -f "$PLUGIN_PATH" ]; then
+            echo "MySQL plugin not found in Qt installation, building from source..."
+            
+            # Clone Qt base for sqldrivers source
+            git clone --depth 1 --branch v${{ env.QT_VERSION }} https://github.com/qt/qtbase.git qtbase-src
+            
+            cd qtbase-src/src/plugins/sqldrivers
+            
+            cmake -B build -G "Ninja" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+              -DMySQL_INCLUDE_DIR="/usr/include/mysql" \
+              -DMySQL_LIBRARY="/usr/lib/x86_64-linux-gnu/libmysqlclient.so"
+            
+            cmake --build build --target qsqlmysql --config Release
+            
+            if [ -f "build/plugins/sqldrivers/libqsqlmysql.so" ]; then
+              cp build/plugins/sqldrivers/libqsqlmysql.so "$Qt6_DIR/plugins/sqldrivers/"
+              echo "Successfully built and installed MySQL plugin"
+            fi
+            
+            cd ../../../..
+          else
+            echo "MySQL plugin already available at $PLUGIN_PATH"
+          fi
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Copy Manticore binaries
+        run: |
+          BIN_DIR="build/bin"
+          
+          # Copy Manticore binaries for Linux x64
+          cp imports/linux/x64/* "$BIN_DIR/" || true
+          chmod +x "$BIN_DIR/searchd" "$BIN_DIR/indexer" 2>/dev/null || true
+          
+          echo "Copied Manticore binaries:"
+          ls -la "$BIN_DIR/"
+
+      - name: Download linuxdeployqt
+        run: |
+          wget -q https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x linuxdeployqt-continuous-x86_64.AppImage
+
+      - name: Create AppImage
+        run: |
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
+          mkdir -p AppDir/usr/plugins/sqldrivers
+          
+          # Copy executable and Manticore binaries
+          cp build/bin/RatsSearch AppDir/usr/bin/
+          cp build/bin/searchd AppDir/usr/bin/ 2>/dev/null || true
+          cp build/bin/indexer AppDir/usr/bin/ 2>/dev/null || true
+          cp build/bin/indextool AppDir/usr/bin/ 2>/dev/null || true
+          
+          # Copy MySQL plugin
+          if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" ]; then
+            cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" AppDir/usr/plugins/sqldrivers/
+          fi
+          
+          # Create desktop file
+          cat > AppDir/usr/share/applications/ratssearch.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Rats Search
+Exec=RatsSearch
+Icon=ratssearch
+Categories=Network;P2P;
+Comment=DHT Torrent Search Engine
+EOF
+          
+          # Copy icon
+          cp resources/icons/512x512.png AppDir/usr/share/icons/hicolor/512x512/apps/ratssearch.png
+          
+          # Create symlinks for AppImage
+          ln -sf usr/share/applications/ratssearch.desktop AppDir/ratssearch.desktop
+          ln -sf usr/share/icons/hicolor/512x512/apps/ratssearch.png AppDir/ratssearch.png
+          
+          # Run linuxdeployqt
+          ./linuxdeployqt-continuous-x86_64.AppImage AppDir/usr/bin/RatsSearch \
+            -appimage \
+            -qmake="$Qt6_DIR/bin/qmake" \
+            -extra-plugins=sqldrivers/libqsqlmysql.so \
+            -unsupported-allow-new-glibc || true
+          
+          # If AppImage creation failed, create a tar.gz instead
+          if [ ! -f *.AppImage ]; then
+            echo "AppImage creation failed, creating tar.gz package instead"
+            mkdir -p RatsSearch-Linux-x64
+            cp -r build/bin/* RatsSearch-Linux-x64/
+            
+            # Copy Qt libraries
+            mkdir -p RatsSearch-Linux-x64/lib
+            mkdir -p RatsSearch-Linux-x64/plugins/sqldrivers
+            
+            # Copy MySQL plugin
+            if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" ]; then
+              cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" RatsSearch-Linux-x64/plugins/sqldrivers/
+            fi
+            
+            # Create launcher script
+            cat > RatsSearch-Linux-x64/run.sh << 'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
+export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"
+exec "$SCRIPT_DIR/RatsSearch" "$@"
+EOF
+            chmod +x RatsSearch-Linux-x64/run.sh
+            
+            tar -czvf RatsSearch-Linux-x64.tar.gz RatsSearch-Linux-x64
+          else
+            mv *.AppImage RatsSearch-Linux-x64.AppImage
+          fi
+
+      - name: Upload artifact (AppImage)
+        uses: actions/upload-artifact@v4
+        if: hashFiles('RatsSearch-Linux-x64.AppImage') != ''
+        with:
+          name: RatsSearch-Linux-x64-AppImage
+          path: RatsSearch-Linux-x64.AppImage
+          retention-days: 30
+
+      - name: Upload artifact (tar.gz)
+        uses: actions/upload-artifact@v4
+        if: hashFiles('RatsSearch-Linux-x64.tar.gz') != ''
+        with:
+          name: RatsSearch-Linux-x64
+          path: RatsSearch-Linux-x64.tar.gz
+          retention-days: 30
+
+  release:
+    needs: [build-windows, build-macos-intel, build-macos-arm, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.AppImage
+            artifacts/**/*.tar.gz
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
