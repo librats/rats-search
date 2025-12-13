@@ -40,58 +40,34 @@ jobs:
       - name: Install Ninja
         run: choco install ninja -y
 
-      - name: Install MySQL client library
+      - name: Download Qt MySQL plugin
         shell: powershell
         run: |
-          # Download MySQL Connector/C
-          $mysqlUrl = "https://dev.mysql.com/get/Downloads/Connector-C/mysql-connector-c-6.1.11-winx64.zip"
-          $mysqlZip = "$env:TEMP\mysql-connector.zip"
-          $mysqlDir = "$env:TEMP\mysql-connector"
+          # Download pre-built Qt MySQL driver from thecodemonkey86
+          $driverUrl = "https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/${{ env.QT_VERSION }}/qsqlmysql.dll_Qt_SQL_driver_${{ env.QT_VERSION }}_MSVC2022_64-bit.zip"
+          $driverZip = "$env:TEMP\qsqlmysql.zip"
+          $driverDir = "$env:TEMP\qsqlmysql"
           
-          Invoke-WebRequest -Uri $mysqlUrl -OutFile $mysqlZip
-          Expand-Archive -Path $mysqlZip -DestinationPath $mysqlDir -Force
+          Write-Host "Downloading MySQL driver from: $driverUrl"
+          Invoke-WebRequest -Uri $driverUrl -OutFile $driverZip
+          Expand-Archive -Path $driverZip -DestinationPath $driverDir -Force
           
-          $mysqlPath = Get-ChildItem -Path $mysqlDir -Directory | Select-Object -First 1
-          echo "MYSQL_DIR=$($mysqlPath.FullName)" >> $env:GITHUB_ENV
-          echo "MYSQL_INCLUDE_DIR=$($mysqlPath.FullName)\include" >> $env:GITHUB_ENV
-          echo "MYSQL_LIB_DIR=$($mysqlPath.FullName)\lib" >> $env:GITHUB_ENV
-
-      - name: Build Qt MySQL plugin (if not available)
-        shell: powershell
-        run: |
-          $pluginPath = "$env:Qt6_DIR\plugins\sqldrivers\qsqlmysql.dll"
+          # Copy plugin to Qt plugins directory
+          $pluginDir = "$env:Qt6_DIR\plugins\sqldrivers"
+          New-Item -ItemType Directory -Force -Path $pluginDir | Out-Null
           
-          if (-not (Test-Path $pluginPath)) {
-            Write-Host "MySQL plugin not found in Qt installation, building from source..."
-            
-            # Clone Qt base for sqldrivers source
-            git clone --depth 1 --branch v${{ env.QT_VERSION }} https://github.com/qt/qtbase.git qtbase-src
-            
-            # Build just the MySQL plugin
-            cd qtbase-src/src/plugins/sqldrivers
-            
-            # Configure with MySQL support
-            cmake -B build -G "Ninja" `
-              -DCMAKE_BUILD_TYPE=Release `
-              -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
-              -DMySQL_INCLUDE_DIR="$env:MYSQL_INCLUDE_DIR" `
-              -DMySQL_LIBRARY="$env:MYSQL_LIB_DIR\libmysql.lib"
-            
-            cmake --build build --target qsqlmysql --config Release
-            
-            # Copy built plugin to Qt plugins directory
-            if (Test-Path "build/plugins/sqldrivers/qsqlmysql.dll") {
-              Copy-Item "build/plugins/sqldrivers/qsqlmysql.dll" "$env:Qt6_DIR\plugins\sqldrivers\" -Force
-              Write-Host "Successfully built and installed MySQL plugin"
-            }
-            
-            cd ../../../..
-          } else {
-            Write-Host "MySQL plugin already available at $pluginPath"
+          # Copy all files from the archive (includes qsqlmysql.dll and libmysql.dll)
+          Get-ChildItem -Path $driverDir -Recurse -File | ForEach-Object {
+            Copy-Item $_.FullName -Destination $pluginDir -Force
+            Write-Host "Copied: $($_.Name)"
           }
           
-          # Copy libmysql.dll to Qt bin directory
-          Copy-Item "$env:MYSQL_LIB_DIR\libmysql.dll" "$env:Qt6_DIR\bin\" -Force
+          # Also copy libmysql.dll to Qt bin directory if present
+          $libmysql = Get-ChildItem -Path $driverDir -Recurse -Filter "libmysql*.dll" | Select-Object -First 1
+          if ($libmysql) {
+            Copy-Item $libmysql.FullName -Destination "$env:Qt6_DIR\bin\" -Force
+            Write-Host "Copied libmysql.dll to Qt bin directory"
+          }
 
       - name: Configure CMake
         run: |
@@ -123,16 +99,13 @@ jobs:
           
           New-Item -ItemType Directory -Force -Path $pluginDst | Out-Null
           
-          # Copy MySQL plugin
-          if (Test-Path "$pluginSrc/qsqlmysql.dll") {
-            Copy-Item "$pluginSrc/qsqlmysql.dll" -Destination $pluginDst -Force
-            Write-Host "Copied qsqlmysql.dll"
-          }
-          if (Test-Path "$pluginSrc/qsqlmysqld.dll") {
-            Copy-Item "$pluginSrc/qsqlmysqld.dll" -Destination $pluginDst -Force
+          # Copy MySQL plugin and dependencies
+          Get-ChildItem "$pluginSrc" -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $pluginDst -Force
+            Write-Host "Copied: $($_.Name)"
           }
           
-          # Also ensure libmysql.dll is in bin directory
+          # Copy libmysql.dll to bin directory
           if (Test-Path "$env:Qt6_DIR/bin/libmysql.dll") {
             Copy-Item "$env:Qt6_DIR/bin/libmysql.dll" -Destination $binDir -Force
             Write-Host "Copied libmysql.dll to bin"
@@ -394,8 +367,8 @@ jobs:
             libxkbcommon-x11-dev \
             libxcb-xinerama0-dev \
             libxcb-cursor-dev \
-            libmysqlclient-dev \
-            libfuse2
+            libfuse2 \
+            unzip
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -406,35 +379,22 @@ jobs:
           arch: 'gcc_64'
           cache: true
 
-      - name: Build Qt MySQL plugin (if not available)
+      - name: Download Qt MySQL plugin
         run: |
-          PLUGIN_PATH="$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so"
+          # Download pre-built Qt MySQL driver from thecodemonkey86
+          DRIVER_URL="https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/${{ env.QT_VERSION }}/libqsqlmysql.so_Qt_SQL_driver_${{ env.QT_VERSION }}_gcc_64-bit.zip"
           
-          if [ ! -f "$PLUGIN_PATH" ]; then
-            echo "MySQL plugin not found in Qt installation, building from source..."
-            
-            # Clone Qt base for sqldrivers source
-            git clone --depth 1 --branch v${{ env.QT_VERSION }} https://github.com/qt/qtbase.git qtbase-src
-            
-            cd qtbase-src/src/plugins/sqldrivers
-            
-            cmake -B build -G "Ninja" \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
-              -DMySQL_INCLUDE_DIR="/usr/include/mysql" \
-              -DMySQL_LIBRARY="/usr/lib/x86_64-linux-gnu/libmysqlclient.so"
-            
-            cmake --build build --target qsqlmysql --config Release
-            
-            if [ -f "build/plugins/sqldrivers/libqsqlmysql.so" ]; then
-              cp build/plugins/sqldrivers/libqsqlmysql.so "$Qt6_DIR/plugins/sqldrivers/"
-              echo "Successfully built and installed MySQL plugin"
-            fi
-            
-            cd ../../../..
-          else
-            echo "MySQL plugin already available at $PLUGIN_PATH"
-          fi
+          echo "Downloading MySQL driver from: $DRIVER_URL"
+          wget -q "$DRIVER_URL" -O /tmp/qsqlmysql.zip
+          unzip -o /tmp/qsqlmysql.zip -d /tmp/qsqlmysql
+          
+          # Copy plugin to Qt plugins directory
+          mkdir -p "$Qt6_DIR/plugins/sqldrivers"
+          cp /tmp/qsqlmysql/*.so "$Qt6_DIR/plugins/sqldrivers/" 2>/dev/null || \
+          cp /tmp/qsqlmysql/*/*.so "$Qt6_DIR/plugins/sqldrivers/" 2>/dev/null || true
+          
+          echo "Installed MySQL plugin:"
+          ls -la "$Qt6_DIR/plugins/sqldrivers/"
 
       - name: Configure CMake
         run: |
