@@ -27,10 +27,11 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
           cache: true
+          aqtversion: '==3.1.18'
+          py7zrversion: '==0.20.*'
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -52,21 +53,26 @@ jobs:
           Invoke-WebRequest -Uri $driverUrl -OutFile $driverZip
           Expand-Archive -Path $driverZip -DestinationPath $driverDir -Force
           
-          # Copy plugin to Qt plugins directory
-          $pluginDir = "$env:Qt6_DIR\plugins\sqldrivers"
-          New-Item -ItemType Directory -Force -Path $pluginDir | Out-Null
+          # Archive structure:
+          # - libcrypto-3-x64.dll, libmysql.dll, libssl-3-x64.dll (root)
+          # - sqldrivers/qsqlmysql.dll, sqldrivers/qsqlmysqld.dll
           
-          # Copy all files from the archive (includes qsqlmysql.dll and libmysql.dll)
-          Get-ChildItem -Path $driverDir -Recurse -File | ForEach-Object {
-            Copy-Item $_.FullName -Destination $pluginDir -Force
-            Write-Host "Copied: $($_.Name)"
+          # Ensure directories exist
+          $pluginDir = "$env:Qt6_DIR\plugins\sqldrivers"
+          $binDir = "$env:Qt6_DIR\bin"
+          New-Item -ItemType Directory -Force -Path $pluginDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+          
+          # Copy SQL driver plugins
+          if (Test-Path "$driverDir\sqldrivers") {
+            Copy-Item "$driverDir\sqldrivers\*.dll" -Destination $pluginDir -Force
+            Write-Host "Copied SQL driver plugins to $pluginDir"
           }
           
-          # Also copy libmysql.dll to Qt bin directory if present
-          $libmysql = Get-ChildItem -Path $driverDir -Recurse -Filter "libmysql*.dll" | Select-Object -First 1
-          if ($libmysql) {
-            Copy-Item $libmysql.FullName -Destination "$env:Qt6_DIR\bin\" -Force
-            Write-Host "Copied libmysql.dll to Qt bin directory"
+          # Copy runtime DLLs (libmysql, libcrypto, libssl) to bin directory
+          Get-ChildItem -Path $driverDir -Filter "*.dll" -File | ForEach-Object {
+            Copy-Item $_.FullName -Destination $binDir -Force
+            Write-Host "Copied $($_.Name) to bin directory"
           }
 
       - name: Configure CMake
@@ -152,10 +158,11 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'mac'
           target: 'desktop'
           arch: 'clang_64'
           cache: true
+          aqtversion: '==3.1.18'
+          py7zrversion: '==0.20.*'
 
       - name: Install MySQL client
         run: |
@@ -258,10 +265,11 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'mac'
           target: 'desktop'
           arch: 'clang_64'
           cache: true
+          aqtversion: '==3.1.18'
+          py7zrversion: '==0.20.*'
 
       - name: Install MySQL client
         run: |
@@ -374,10 +382,11 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'linux'
           target: 'desktop'
           arch: 'gcc_64'
           cache: true
+          aqtversion: '==3.1.18'
+          py7zrversion: '==0.20.*'
 
       - name: Download Qt MySQL plugin
         run: |
