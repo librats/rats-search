@@ -44,7 +44,7 @@ jobs:
         shell: powershell
         run: |
           # Download pre-built Qt MySQL driver from thecodemonkey86
-          $driverUrl = "https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/${{ env.QT_VERSION }}/qsqlmysql.dll_Qt_SQL_driver_${{ env.QT_VERSION }}_MSVC2022_64-bit.zip"
+          $driverUrl = "https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/qmysql_${{ env.QT_VERSION }}/qsqlmysql.dll_Qt_SQL_driver_${{ env.QT_VERSION }}_MSVC2022_64-bit.zip"
           $driverZip = "$env:TEMP\qsqlmysql.zip"
           $driverDir = "$env:TEMP\qsqlmysql"
           
@@ -382,7 +382,7 @@ jobs:
       - name: Download Qt MySQL plugin
         run: |
           # Download pre-built Qt MySQL driver from thecodemonkey86
-          DRIVER_URL="https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/${{ env.QT_VERSION }}/libqsqlmysql.so_Qt_SQL_driver_${{ env.QT_VERSION }}_gcc_64-bit.zip"
+          DRIVER_URL="https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/qmysql_${{ env.QT_VERSION }}/libqsqlmysql.so_Qt_SQL_driver_${{ env.QT_VERSION }}_gcc_64-bit.zip"
           
           echo "Downloading MySQL driver from: $DRIVER_URL"
           wget -q "$DRIVER_URL" -O /tmp/qsqlmysql.zip
