@@ -432,8 +432,9 @@ jobs:
         run: |
           curl -L -Z \
             -O https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
-            -O https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+            -O https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage \
+            -O https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage linuxdeploy-plugin-appimage-x86_64.AppImage
 
       - name: Create AppImage
         run: |
@@ -456,15 +457,15 @@ jobs:
           fi
           
           # Create desktop file
-          cat > AppDir/usr/share/applications/ratssearch.desktop << EOF
-          [Desktop Entry]
-          Type=Application
-          Name=Rats Search
-          Exec=RatsSearch
-          Icon=ratssearch
-          Categories=Network;P2P;
-          Comment=DHT Torrent Search Engine
-          EOF
+          cat > AppDir/usr/share/applications/ratssearch.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Rats Search
+Exec=RatsSearch
+Icon=ratssearch
+Categories=Network;P2P;
+Comment=DHT Torrent Search Engine
+EOF
           
           # Copy icon
           cp resources/icons/512x512.png AppDir/usr/share/icons/hicolor/512x512/apps/ratssearch.png
@@ -500,12 +501,12 @@ jobs:
             
             # Create launcher script
             cat > RatsSearch-Linux-x64/run.sh << 'EOF'
-          #!/bin/bash
-          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-          export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
-          export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"
-          exec "$SCRIPT_DIR/RatsSearch" "$@"
-          EOF
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
+export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"
+exec "$SCRIPT_DIR/RatsSearch" "$@"
+EOF
             chmod +x RatsSearch-Linux-x64/run.sh
             
             tar -czvf RatsSearch-Linux-x64.tar.gz RatsSearch-Linux-x64
