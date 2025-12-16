@@ -233,7 +233,8 @@ QString SphinxQL::escape(const QString& value)
     result.replace("\n", "\\n");
     result.replace("\r", "\\r");
     result.replace("\t", "\\t");
-    result.replace("\0", "\\0");
+    // Note: Null character escaping requires QChar, not C-string literal
+    result.replace(QChar('\0'), QString("\\0"));
     return result;
 }
 

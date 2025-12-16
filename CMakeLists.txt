@@ -148,11 +148,18 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     WIN32_EXECUTABLE TRUE
 )
 
+# Add tests if enabled
+if(RATS_SEARCH_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 message(STATUS "")
 message(STATUS "=== Rats Search Configuration ===")
 message(STATUS "Qt6 version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Using system librats: ${RATS_SEARCH_USE_SYSTEM_LIBRATS}")
+message(STATUS "Build tests: ${RATS_SEARCH_BUILD_TESTS}")
 message(STATUS "=================================")
 message(STATUS "")
 
