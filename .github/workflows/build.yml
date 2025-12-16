@@ -8,30 +8,29 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.head_ref != '' }}
+
 env:
-  QT_VERSION: '6.8.3'
+  QT_VERSION: '6.10.1'
   BUILD_TYPE: Release
 
 jobs:
   build-windows:
     runs-on: windows-latest
     name: Windows x64
+    permissions:
+      actions: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: ${{ env.QT_VERSION }}
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          cache: true
-          aqtversion: '==3.1.18'
-          py7zrversion: '==0.20.*'
+          persist-credentials: false
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -39,7 +38,17 @@ jobs:
           arch: x64
 
       - name: Install Ninja
-        run: choco install ninja -y
+        run: |
+          if ((Get-Command "ninja.exe" -ErrorAction SilentlyContinue) -eq $null) {
+            choco install ninja
+          }
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: 'win64_msvc2022_64'
+          cache: true
 
       - name: Download Qt MySQL plugin
         shell: powershell
@@ -52,10 +61,6 @@ jobs:
           Write-Host "Downloading MySQL driver from: $driverUrl"
           Invoke-WebRequest -Uri $driverUrl -OutFile $driverZip
           Expand-Archive -Path $driverZip -DestinationPath $driverDir -Force
-          
-          # Archive structure:
-          # - libcrypto-3-x64.dll, libmysql.dll, libssl-3-x64.dll (root)
-          # - sqldrivers/qsqlmysql.dll, sqldrivers/qsqlmysqld.dll
           
           # Ensure directories exist
           $pluginDir = "$env:Qt6_DIR\plugins\sqldrivers"
@@ -135,7 +140,7 @@ jobs:
           Compress-Archive -Path $packageDir -DestinationPath "RatsSearch-Windows-x64.zip" -Force
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-Windows-x64
           path: RatsSearch-Windows-x64.zip
@@ -144,12 +149,15 @@ jobs:
   build-macos-intel:
     runs-on: macos-13
     name: macOS Intel (x64)
+    permissions:
+      actions: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install Ninja
         run: brew install ninja
@@ -158,11 +166,8 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          target: 'desktop'
           arch: 'clang_64'
           cache: true
-          aqtversion: '==3.1.18'
-          py7zrversion: '==0.20.*'
 
       - name: Install MySQL client
         run: |
@@ -237,26 +242,28 @@ jobs:
 
       - name: Create deployment package
         run: |
-          # Create DMG or zip
           cd build/bin
           zip -r ../../RatsSearch-macOS-Intel.zip RatsSearch.app
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-macOS-Intel
           path: RatsSearch-macOS-Intel.zip
           retention-days: 30
 
   build-macos-arm:
-    runs-on: macos-14
+    runs-on: macos-latest
     name: macOS ARM (Apple Silicon)
+    permissions:
+      actions: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install Ninja
         run: brew install ninja
@@ -265,11 +272,8 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          target: 'desktop'
           arch: 'clang_64'
           cache: true
-          aqtversion: '==3.1.18'
-          py7zrversion: '==0.20.*'
 
       - name: Install MySQL client
         run: |
@@ -348,26 +352,29 @@ jobs:
           zip -r ../../RatsSearch-macOS-ARM.zip RatsSearch.app
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-macOS-ARM
           path: RatsSearch-macOS-ARM.zip
           retention-days: 30
 
   build-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Linux x64
+    permissions:
+      actions: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             build-essential \
             ninja-build \
             libgl1-mesa-dev \
@@ -382,11 +389,8 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          target: 'desktop'
-          arch: 'gcc_64'
+          arch: 'linux_gcc_64'
           cache: true
-          aqtversion: '==3.1.18'
-          py7zrversion: '==0.20.*'
 
       - name: Download Qt MySQL plugin
         run: |
@@ -410,6 +414,7 @@ jobs:
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DCMAKE_INSTALL_PREFIX="/usr" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
 
       - name: Build
@@ -426,10 +431,12 @@ jobs:
           echo "Copied Manticore binaries:"
           ls -la "$BIN_DIR/"
 
-      - name: Download linuxdeployqt
+      - name: Install linuxdeploy
         run: |
-          wget -q https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-          chmod +x linuxdeployqt-continuous-x86_64.AppImage
+          curl -L -Z \
+            -O https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+            -O https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
       - name: Create AppImage
         run: |
@@ -452,15 +459,15 @@ jobs:
           fi
           
           # Create desktop file
-          {
-            echo "[Desktop Entry]"
-            echo "Type=Application"
-            echo "Name=Rats Search"
-            echo "Exec=RatsSearch"
-            echo "Icon=ratssearch"
-            echo "Categories=Network;P2P;"
-            echo "Comment=DHT Torrent Search Engine"
-          } > AppDir/usr/share/applications/ratssearch.desktop
+          cat > AppDir/usr/share/applications/ratssearch.desktop << EOF
+          [Desktop Entry]
+          Type=Application
+          Name=Rats Search
+          Exec=RatsSearch
+          Icon=ratssearch
+          Categories=Network;P2P;
+          Comment=DHT Torrent Search Engine
+          EOF
           
           # Copy icon
           cp resources/icons/512x512.png AppDir/usr/share/icons/hicolor/512x512/apps/ratssearch.png
@@ -469,15 +476,18 @@ jobs:
           ln -sf usr/share/applications/ratssearch.desktop AppDir/ratssearch.desktop
           ln -sf usr/share/icons/hicolor/512x512/apps/ratssearch.png AppDir/ratssearch.png
           
-          # Run linuxdeployqt
-          ./linuxdeployqt-continuous-x86_64.AppImage AppDir/usr/bin/RatsSearch \
-            -appimage \
-            -qmake="$Qt6_DIR/bin/qmake" \
-            -extra-plugins=sqldrivers/libqsqlmysql.so \
-            -unsupported-allow-new-glibc || true
+          # Remove problematic plugins if present
+          rm -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmimer.so" 2>/dev/null || true
+          
+          # Run linuxdeploy with Qt plugin
+          OUTPUT=RatsSearch-Linux-x64.AppImage \
+            ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --plugin qt \
+            --output appimage || true
           
           # If AppImage creation failed, create a tar.gz instead
-          if [ ! -f *.AppImage ]; then
+          if [ ! -f RatsSearch-Linux-x64.AppImage ]; then
             echo "AppImage creation failed, creating tar.gz package instead"
             mkdir -p RatsSearch-Linux-x64
             cp -r build/bin/* RatsSearch-Linux-x64/
@@ -492,22 +502,20 @@ jobs:
             fi
             
             # Create launcher script
-            {
-              echo '#!/bin/bash'
-              echo 'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
-              echo 'export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"'
-              echo 'export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"'
-              echo 'exec "$SCRIPT_DIR/RatsSearch" "$@"'
-            } > RatsSearch-Linux-x64/run.sh
+            cat > RatsSearch-Linux-x64/run.sh << 'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          export LD_LIBRARY_PATH="$SCRIPT_DIR/lib:$LD_LIBRARY_PATH"
+          export QT_PLUGIN_PATH="$SCRIPT_DIR/plugins"
+          exec "$SCRIPT_DIR/RatsSearch" "$@"
+          EOF
             chmod +x RatsSearch-Linux-x64/run.sh
             
             tar -czvf RatsSearch-Linux-x64.tar.gz RatsSearch-Linux-x64
-          else
-            mv *.AppImage RatsSearch-Linux-x64.AppImage
           fi
 
       - name: Upload artifact (AppImage)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: hashFiles('RatsSearch-Linux-x64.AppImage') != ''
         with:
           name: RatsSearch-Linux-x64-AppImage
@@ -515,7 +523,7 @@ jobs:
           retention-days: 30
 
       - name: Upload artifact (tar.gz)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: hashFiles('RatsSearch-Linux-x64.tar.gz') != ''
         with:
           name: RatsSearch-Linux-x64
@@ -532,7 +540,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
 
