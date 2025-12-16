@@ -184,7 +184,13 @@ jobs:
 
       - name: Build Qt MySQL plugin (if not available)
         run: |
-          PLUGIN_PATH="$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib"
+          # Qt6_DIR points to lib/cmake/Qt6, get the root
+          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          PLUGIN_PATH="$QT_PLUGIN_DIR/libqsqlmysql.dylib"
+          
+          echo "Qt root: $QT_ROOT"
+          echo "Plugin path: $PLUGIN_PATH"
           
           if [ ! -f "$PLUGIN_PATH" ]; then
             echo "MySQL plugin not found in Qt installation, building from source..."
@@ -196,14 +202,15 @@ jobs:
             
             cmake -B build -G "Ninja" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+              -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
               -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
               -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
             
             cmake --build build --target qsqlmysql --config Release
             
             if [ -f "build/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
-              cp build/plugins/sqldrivers/libqsqlmysql.dylib "$Qt6_DIR/plugins/sqldrivers/"
+              mkdir -p "$QT_PLUGIN_DIR"
+              cp build/plugins/sqldrivers/libqsqlmysql.dylib "$QT_PLUGIN_DIR/"
               echo "Successfully built and installed MySQL plugin"
             fi
             
@@ -216,7 +223,7 @@ jobs:
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
 
       - name: Build
@@ -235,14 +242,18 @@ jobs:
 
       - name: Copy Qt MySQL plugin
         run: |
+          # Qt6_DIR points to lib/cmake/Qt6, get the root
+          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          
           BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
           PLUGIN_DST="$BUNDLE_DIR/PlugIns/sqldrivers"
           
           mkdir -p "$PLUGIN_DST"
           
           # Copy MySQL plugin if it exists
-          if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
-            cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" "$PLUGIN_DST/"
+          if [ -f "$QT_PLUGIN_DIR/libqsqlmysql.dylib" ]; then
+            cp "$QT_PLUGIN_DIR/libqsqlmysql.dylib" "$PLUGIN_DST/"
             echo "Copied libqsqlmysql.dylib"
           fi
 
@@ -290,7 +301,13 @@ jobs:
 
       - name: Build Qt MySQL plugin (if not available)
         run: |
-          PLUGIN_PATH="$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib"
+          # Qt6_DIR points to lib/cmake/Qt6, get the root
+          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          PLUGIN_PATH="$QT_PLUGIN_DIR/libqsqlmysql.dylib"
+          
+          echo "Qt root: $QT_ROOT"
+          echo "Plugin path: $PLUGIN_PATH"
           
           if [ ! -f "$PLUGIN_PATH" ]; then
             echo "MySQL plugin not found in Qt installation, building from source..."
@@ -302,14 +319,15 @@ jobs:
             
             cmake -B build -G "Ninja" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+              -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
               -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
               -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
             
             cmake --build build --target qsqlmysql --config Release
             
             if [ -f "build/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
-              cp build/plugins/sqldrivers/libqsqlmysql.dylib "$Qt6_DIR/plugins/sqldrivers/"
+              mkdir -p "$QT_PLUGIN_DIR"
+              cp build/plugins/sqldrivers/libqsqlmysql.dylib "$QT_PLUGIN_DIR/"
               echo "Successfully built and installed MySQL plugin"
             fi
             
@@ -322,7 +340,7 @@ jobs:
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
 
       - name: Build
@@ -341,14 +359,18 @@ jobs:
 
       - name: Copy Qt MySQL plugin
         run: |
+          # Qt6_DIR points to lib/cmake/Qt6, get the root
+          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          
           BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
           PLUGIN_DST="$BUNDLE_DIR/PlugIns/sqldrivers"
           
           mkdir -p "$PLUGIN_DST"
           
           # Copy MySQL plugin if it exists
-          if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" ]; then
-            cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.dylib" "$PLUGIN_DST/"
+          if [ -f "$QT_PLUGIN_DIR/libqsqlmysql.dylib" ]; then
+            cp "$QT_PLUGIN_DIR/libqsqlmysql.dylib" "$PLUGIN_DST/"
             echo "Copied libqsqlmysql.dylib"
           fi
 
@@ -403,23 +425,31 @@ jobs:
           # Download pre-built Qt MySQL driver from thecodemonkey86
           DRIVER_URL="https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/qmysql_${{ env.QT_VERSION }}/libqsqlmysql.so_Qt_SQL_driver_${{ env.QT_VERSION }}_gcc_64-bit.zip"
           
+          # Qt6_DIR points to lib/cmake/Qt6, get the root
+          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          
           echo "Downloading MySQL driver from: $DRIVER_URL"
+          echo "Qt6_DIR is: ${{ env.Qt6_DIR }}"
+          echo "Qt root is: $QT_ROOT"
+          echo "Plugin dir is: $QT_PLUGIN_DIR"
+          
           wget -q "$DRIVER_URL" -O /tmp/qsqlmysql.zip
           unzip -o /tmp/qsqlmysql.zip -d /tmp/qsqlmysql
           
           # Copy plugin to Qt plugins directory
-          mkdir -p "$Qt6_DIR/plugins/sqldrivers"
-          cp /tmp/qsqlmysql/*.so "$Qt6_DIR/plugins/sqldrivers/" 2>/dev/null || \
-          cp /tmp/qsqlmysql/*/*.so "$Qt6_DIR/plugins/sqldrivers/" 2>/dev/null || true
+          mkdir -p "$QT_PLUGIN_DIR"
+          cp /tmp/qsqlmysql/*.so "$QT_PLUGIN_DIR/" 2>/dev/null || \
+          cp /tmp/qsqlmysql/*/*.so "$QT_PLUGIN_DIR/" 2>/dev/null || true
           
           echo "Installed MySQL plugin:"
-          ls -la "$Qt6_DIR/plugins/sqldrivers/"
+          ls -la "$QT_PLUGIN_DIR/"
 
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_PREFIX_PATH="$Qt6_DIR" \
+            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DCMAKE_INSTALL_PREFIX="/usr" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
 
@@ -447,6 +477,13 @@ jobs:
 
       - name: Create AppImage
         run: |
+          # Qt6_DIR points to lib/cmake/Qt6, get the root
+          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          
+          echo "Qt root: $QT_ROOT"
+          echo "Qt plugin dir: $QT_PLUGIN_DIR"
+          
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/lib
@@ -461,8 +498,8 @@ jobs:
           cp build/bin/indextool AppDir/usr/bin/ 2>/dev/null || true
           
           # Copy MySQL plugin
-          if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" ]; then
-            cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" AppDir/usr/plugins/sqldrivers/
+          if [ -f "$QT_PLUGIN_DIR/libqsqlmysql.so" ]; then
+            cp "$QT_PLUGIN_DIR/libqsqlmysql.so" AppDir/usr/plugins/sqldrivers/
           fi
           
           # Create desktop file
@@ -484,7 +521,7 @@ jobs:
           ln -sf usr/share/icons/hicolor/512x512/apps/ratssearch.png AppDir/ratssearch.png
           
           # Remove problematic plugins if present
-          rm -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmimer.so" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqlmimer.so" 2>/dev/null || true
           
           # Run linuxdeploy with Qt plugin
           OUTPUT=RatsSearch-Linux-x64.AppImage \
@@ -504,8 +541,8 @@ jobs:
             mkdir -p RatsSearch-Linux-x64/plugins/sqldrivers
             
             # Copy MySQL plugin
-            if [ -f "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" ]; then
-              cp "$Qt6_DIR/plugins/sqldrivers/libqsqlmysql.so" RatsSearch-Linux-x64/plugins/sqldrivers/
+            if [ -f "$QT_PLUGIN_DIR/libqsqlmysql.so" ]; then
+              cp "$QT_PLUGIN_DIR/libqsqlmysql.so" RatsSearch-Linux-x64/plugins/sqldrivers/
             fi
             
             # Create launcher script
