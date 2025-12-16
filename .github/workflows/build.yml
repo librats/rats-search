@@ -150,7 +150,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-Windows-x64
-          path: RatsSearch-Windows-x64.zip
+          path: RatsSearch-Windows-x64/
           retention-days: 30
 
   build-macos-intel:
