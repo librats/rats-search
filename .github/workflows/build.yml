@@ -48,6 +48,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: 'win64_msvc2022_64'
+          modules: qtwebsockets
           cache: true
 
       - name: Download Qt MySQL plugin
@@ -271,6 +272,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets
           cache: true
 
       - name: Install MySQL client
@@ -387,6 +389,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
+          modules: qtwebsockets
           cache: true
 
       - name: Download Qt MySQL plugin
