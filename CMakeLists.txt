@@ -149,6 +149,25 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
+# Enable PDB generation for Windows (even in Release builds)
+if(MSVC)
+    # Generate PDB files for debugging
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Release>:/Zi>
+        $<$<CONFIG:RelWithDebInfo>:/Zi>
+    )
+    target_link_options(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Release>:/DEBUG>
+        $<$<CONFIG:Release>:/OPT:REF>
+        $<$<CONFIG:Release>:/OPT:ICF>
+        $<$<CONFIG:Release>:/INCREMENTAL:NO>
+        $<$<CONFIG:RelWithDebInfo>:/DEBUG>
+    )
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+endif()
+
 # Application properties
 set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "RatsSearch"

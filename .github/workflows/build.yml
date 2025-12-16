@@ -137,6 +137,12 @@ jobs:
             Copy-Item "build/bin/config.json" -Destination $packageDir -Force
           }
           
+          # Copy PDB files if they exist
+          Get-ChildItem "build/bin" -Filter "*.pdb" | ForEach-Object {
+            Copy-Item $_.FullName -Destination $packageDir -Force
+            Write-Host "Copied PDB: $($_.Name)"
+          }
+          
           # Create zip
           Compress-Archive -Path $packageDir -DestinationPath "RatsSearch-Windows-x64.zip" -Force
 
