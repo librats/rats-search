@@ -1,12 +1,16 @@
 #include "mainwindow.h"
-#include "searchengine.h"
 #include "torrentdatabase.h"
 #include "torrentspider.h"
 #include "p2pnetwork.h"
+#include "torrentclient.h"
 #include "searchresultmodel.h"
-#include "searchapi.h"
 #include "torrentitemdelegate.h"
 #include "torrentdetailspanel.h"
+
+// New API layer
+#include "api/ratsapi.h"
+#include "api/configmanager.h"
+#include "api/apiserver.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -49,21 +53,21 @@
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
     , ui(nullptr)
-    , p2pPort_(p2pPort)
-    , dhtPort_(dhtPort)
     , dataDirectory_(dataDirectory)
     , servicesStarted_(false)
     , currentSortField_("seeders")
     , currentSortDesc_(true)
     , trayIcon(nullptr)
     , trayMenu(nullptr)
-    , settings_(nullptr)
-    , minimizeToTray_(true)
-    , closeToTray_(false)
-    , startMinimized_(false)
 {
-    // Load settings first
-    settings_ = new QSettings("RatsSearch", "RatsSearch", this);
+    // Initialize configuration manager first
+    config = std::make_unique<ConfigManager>(dataDirectory_ + "/rats.json");
+    config->load();
+    
+    // Apply config overrides from command line args
+    if (p2pPort > 0) config->setP2pPort(p2pPort);
+    if (dhtPort > 0) config->setDhtPort(dhtPort);
+    
     loadSettings();
     
     setWindowTitle("Rats Search - BitTorrent P2P Search Engine");
@@ -81,16 +85,25 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     
     // Initialize core components
     torrentDatabase = std::make_unique<TorrentDatabase>(dataDirectory_);
-    searchEngine = std::make_unique<SearchEngine>(torrentDatabase.get());
+    torrentClient = std::make_unique<TorrentClient>(this);
     
     // P2PNetwork is the single owner of RatsClient
-    p2pNetwork = std::make_unique<P2PNetwork>(p2pPort_, dhtPort_, dataDirectory_);
+    p2pNetwork = std::make_unique<P2PNetwork>(config->p2pPort(), config->dhtPort(), dataDirectory_);
     
     // TorrentSpider uses RatsClient from P2PNetwork (doesn't own it)
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
     
-    // Initialize search API after database
-    searchAPI = std::make_unique<SearchAPI>(torrentDatabase.get(), p2pNetwork.get());
+    // Initialize RatsAPI with all dependencies
+    api = std::make_unique<RatsAPI>(this);
+    api->initialize(torrentDatabase.get(), p2pNetwork.get(), torrentClient.get(), config.get());
+    
+    // Start REST/WebSocket API server if enabled
+    if (config->restApiEnabled()) {
+        apiServer = std::make_unique<ApiServer>(api.get());
+        if (apiServer->start(config->httpPort())) {
+            logActivity(QString("🌐 API server started on port %1").arg(config->httpPort()));
+        }
+    }
     
     connectSignals();
     startServices();
@@ -754,15 +767,22 @@ void MainWindow::performSearch(const QString &query)
     
     orderDesc = sortData.contains("desc");
     
-    // Use SearchAPI for searching
-    QJsonObject navigation;
-    navigation["limit"] = 100;
-    navigation["safeSearch"] = false;
-    navigation["orderBy"] = orderBy;
-    navigation["orderDesc"] = orderDesc;
+    // Use RatsAPI for searching
+    QJsonObject options;
+    options["limit"] = 100;
+    options["safeSearch"] = false;
+    options["orderBy"] = orderBy;
+    options["orderDesc"] = orderDesc;
     
-    searchAPI->searchTorrent(query, navigation, [this, query](const QJsonArray& torrents) {
+    api->searchTorrents(query, options, [this, query](const ApiResponse& response) {
+        if (!response.success) {
+            statusBar()->showMessage(QString("❌ Search failed: %1").arg(response.error), 3000);
+            logActivity(QString("❌ Search failed: %1").arg(response.error));
+            return;
+        }
+        
         // Convert JSON to TorrentInfo for model
+        QJsonArray torrents = response.data.toArray();
         QVector<TorrentInfo> results;
         for (const QJsonValue& val : torrents) {
             QJsonObject obj = val.toObject();
@@ -790,9 +810,14 @@ void MainWindow::performSearch(const QString &query)
 
 void MainWindow::updateStatusBar()
 {
-    if (torrentDatabase) {
-        int count = torrentDatabase->getTorrentCount();
-        torrentCountLabel->setText(QString("📦 Torrents: %1").arg(count));
+    if (api) {
+        api->getStatistics([this](const ApiResponse& response) {
+            if (response.success) {
+                QJsonObject stats = response.data.toObject();
+                qint64 count = stats["torrents"].toVariant().toLongLong();
+                torrentCountLabel->setText(QString("📦 Torrents: %1").arg(count));
+            }
+        });
     }
 }
 
@@ -807,7 +832,8 @@ void MainWindow::logActivity(const QString &message)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     // Hide to tray instead of closing if enabled
-    if (closeToTray_ && trayIcon && trayIcon->isVisible()) {
+    bool closeToTray = config ? config->trayOnClose() : false;
+    if (closeToTray && trayIcon && trayIcon->isVisible()) {
         hide();
         trayIcon->showMessage("Rats Search", 
             "Application is still running in the system tray.",
@@ -827,6 +853,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
             event->ignore();
             return;
         }
+    }
+    
+    // Stop API server
+    if (apiServer) {
+        apiServer->stop();
     }
     
     saveSettings();
@@ -905,9 +936,19 @@ void MainWindow::onMagnetLinkRequested(const QString &hash, const QString &name)
 void MainWindow::onDownloadRequested(const QString &hash)
 {
     logActivity(QString("⬇️ Download requested: %1").arg(hash));
-    // TODO: Implement download via TorrentClient
-    QMessageBox::information(this, "Download", 
-        "Download feature coming soon!\n\nFor now, use the magnet link to download with your preferred torrent client.");
+    
+    // Use RatsAPI to start download
+    if (api) {
+        api->downloadAdd(hash, QString(), [this, hash](const ApiResponse& response) {
+            if (response.success) {
+                logActivity(QString("✅ Download started: %1").arg(hash));
+                statusBar()->showMessage("⬇️ Download started", 2000);
+            } else {
+                logActivity(QString("❌ Download failed: %1").arg(response.error));
+                QMessageBox::warning(this, "Download Failed", response.error);
+            }
+        });
+    }
 }
 
 void MainWindow::showTorrentContextMenu(const QPoint &pos)
@@ -983,9 +1024,11 @@ void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
 
 void MainWindow::showSettings()
 {
+    if (!config) return;
+    
     QDialog dialog(this);
     dialog.setWindowTitle("⚙️ Settings");
-    dialog.setMinimumSize(500, 400);
+    dialog.setMinimumSize(500, 450);
     dialog.setStyleSheet(this->styleSheet());
     
     QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
@@ -1003,16 +1046,20 @@ void MainWindow::showSettings()
     generalLayout->setSpacing(12);
     
     QCheckBox *minimizeToTrayCheck = new QCheckBox("Hide to tray on minimize");
-    minimizeToTrayCheck->setChecked(minimizeToTray_);
+    minimizeToTrayCheck->setChecked(config->trayOnMinimize());
     generalLayout->addRow(minimizeToTrayCheck);
     
     QCheckBox *closeToTrayCheck = new QCheckBox("Hide to tray on close");
-    closeToTrayCheck->setChecked(closeToTray_);
+    closeToTrayCheck->setChecked(config->trayOnClose());
     generalLayout->addRow(closeToTrayCheck);
     
     QCheckBox *startMinimizedCheck = new QCheckBox("Start minimized");
-    startMinimizedCheck->setChecked(startMinimized_);
+    startMinimizedCheck->setChecked(config->startMinimized());
     generalLayout->addRow(startMinimizedCheck);
+    
+    QCheckBox *darkModeCheck = new QCheckBox("Dark mode");
+    darkModeCheck->setChecked(config->darkMode());
+    generalLayout->addRow(darkModeCheck);
     
     mainLayout->addWidget(generalGroup);
     
@@ -1023,15 +1070,38 @@ void MainWindow::showSettings()
     
     QSpinBox *p2pPortSpin = new QSpinBox();
     p2pPortSpin->setRange(1024, 65535);
-    p2pPortSpin->setValue(p2pPort_);
+    p2pPortSpin->setValue(config->p2pPort());
     networkLayout->addRow("P2P Port:", p2pPortSpin);
     
     QSpinBox *dhtPortSpin = new QSpinBox();
     dhtPortSpin->setRange(1024, 65535);
-    dhtPortSpin->setValue(dhtPort_);
+    dhtPortSpin->setValue(config->dhtPort());
     networkLayout->addRow("DHT Port:", dhtPortSpin);
     
+    QSpinBox *httpPortSpin = new QSpinBox();
+    httpPortSpin->setRange(1024, 65535);
+    httpPortSpin->setValue(config->httpPort());
+    networkLayout->addRow("HTTP API Port:", httpPortSpin);
+    
+    QCheckBox *restApiCheck = new QCheckBox("Enable REST API server");
+    restApiCheck->setChecked(config->restApiEnabled());
+    networkLayout->addRow(restApiCheck);
+    
     mainLayout->addWidget(networkGroup);
+    
+    // Indexer Settings Group
+    QGroupBox *indexerGroup = new QGroupBox("Indexer");
+    QFormLayout *indexerLayout = new QFormLayout(indexerGroup);
+    
+    QCheckBox *indexerCheck = new QCheckBox("Enable DHT indexer");
+    indexerCheck->setChecked(config->indexerEnabled());
+    indexerLayout->addRow(indexerCheck);
+    
+    QCheckBox *trackersCheck = new QCheckBox("Enable tracker checking");
+    trackersCheck->setChecked(config->trackersEnabled());
+    indexerLayout->addRow(trackersCheck);
+    
+    mainLayout->addWidget(indexerGroup);
     
     // Database Settings Group
     QGroupBox *dbGroup = new QGroupBox("Database");
@@ -1071,18 +1141,35 @@ void MainWindow::showSettings()
     connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     
     if (dialog.exec() == QDialog::Accepted) {
-        // Save settings
-        minimizeToTray_ = minimizeToTrayCheck->isChecked();
-        closeToTray_ = closeToTrayCheck->isChecked();
-        startMinimized_ = startMinimizedCheck->isChecked();
+        // Track what changed for restart notification
+        int oldP2pPort = config->p2pPort();
+        int oldDhtPort = config->dhtPort();
+        int oldHttpPort = config->httpPort();
+        bool oldRestApi = config->restApiEnabled();
         
-        // Port changes require restart
-        int newP2pPort = p2pPortSpin->value();
-        int newDhtPort = dhtPortSpin->value();
+        // Save settings via ConfigManager
+        config->setTrayOnMinimize(minimizeToTrayCheck->isChecked());
+        config->setTrayOnClose(closeToTrayCheck->isChecked());
+        config->setStartMinimized(startMinimizedCheck->isChecked());
+        config->setDarkMode(darkModeCheck->isChecked());
         
-        if (newP2pPort != p2pPort_ || newDhtPort != dhtPort_) {
+        config->setP2pPort(p2pPortSpin->value());
+        config->setDhtPort(dhtPortSpin->value());
+        config->setHttpPort(httpPortSpin->value());
+        config->setRestApiEnabled(restApiCheck->isChecked());
+        
+        config->setIndexerEnabled(indexerCheck->isChecked());
+        config->setTrackersEnabled(trackersCheck->isChecked());
+        
+        // Check if network settings changed (require restart)
+        bool needsRestart = (p2pPortSpin->value() != oldP2pPort) ||
+                           (dhtPortSpin->value() != oldDhtPort) ||
+                           (httpPortSpin->value() != oldHttpPort) ||
+                           (restApiCheck->isChecked() != oldRestApi);
+        
+        if (needsRestart) {
             QMessageBox::information(this, "Restart Required",
-                "Port changes will take effect after restarting the application.");
+                "Network setting changes will take effect after restarting the application.");
         }
         
         saveSettings();
@@ -1157,7 +1244,7 @@ void MainWindow::setupSystemTray()
     
     QAction *quitAction = trayMenu->addAction("🚪 Quit");
     connect(quitAction, &QAction::triggered, [this]() {
-        closeToTray_ = false;  // Force actual close
+        if (config) config->setTrayOnClose(false);  // Force actual close
         close();
     });
     
@@ -1200,7 +1287,8 @@ void MainWindow::changeEvent(QEvent *event)
     QMainWindow::changeEvent(event);
     
     if (event->type() == QEvent::WindowStateChange) {
-        if (isMinimized() && minimizeToTray_ && trayIcon && trayIcon->isVisible()) {
+        bool minimizeToTray = config ? config->trayOnMinimize() : false;
+        if (isMinimized() && minimizeToTray && trayIcon && trayIcon->isVisible()) {
             // Hide to tray when minimized
             QTimer::singleShot(0, this, &QWidget::hide);
             if (trayIcon) {
@@ -1214,18 +1302,15 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::loadSettings()
 {
-    if (!settings_) return;
+    if (!config) return;
     
-    minimizeToTray_ = settings_->value("general/minimizeToTray", true).toBool();
-    closeToTray_ = settings_->value("general/closeToTray", false).toBool();
-    startMinimized_ = settings_->value("general/startMinimized", false).toBool();
-    
-    // Window geometry
-    if (settings_->contains("window/geometry")) {
-        restoreGeometry(settings_->value("window/geometry").toByteArray());
+    // Window geometry - use QSettings for window-specific state
+    QSettings windowSettings("RatsSearch", "RatsSearch");
+    if (windowSettings.contains("window/geometry")) {
+        restoreGeometry(windowSettings.value("window/geometry").toByteArray());
     }
-    if (settings_->contains("window/state")) {
-        restoreState(settings_->value("window/state").toByteArray());
+    if (windowSettings.contains("window/state")) {
+        restoreState(windowSettings.value("window/state").toByteArray());
     }
     
     qInfo() << "Settings loaded";
@@ -1233,16 +1318,16 @@ void MainWindow::loadSettings()
 
 void MainWindow::saveSettings()
 {
-    if (!settings_) return;
+    if (!config) return;
     
-    settings_->setValue("general/minimizeToTray", minimizeToTray_);
-    settings_->setValue("general/closeToTray", closeToTray_);
-    settings_->setValue("general/startMinimized", startMinimized_);
+    // Save config to file
+    config->save();
     
-    // Window geometry
-    settings_->setValue("window/geometry", saveGeometry());
-    settings_->setValue("window/state", saveState());
+    // Window geometry - use QSettings for window-specific state
+    QSettings windowSettings("RatsSearch", "RatsSearch");
+    windowSettings.setValue("window/geometry", saveGeometry());
+    windowSettings.setValue("window/state", saveState());
+    windowSettings.sync();
     
-    settings_->sync();
     qInfo() << "Settings saved";
 }

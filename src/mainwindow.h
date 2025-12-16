@@ -8,14 +8,20 @@
 #include <QSplitter>
 #include <QComboBox>
 #include <QSystemTrayIcon>
-#include <QSettings>
 #include <memory>
 
-class SearchEngine;
+// Core components
 class TorrentDatabase;
 class TorrentSpider;
 class P2PNetwork;
-class SearchAPI;
+class TorrentClient;
+
+// New API layer
+class RatsAPI;
+class ConfigManager;
+class ApiServer;
+
+// UI components
 class QLineEdit;
 class QPushButton;
 class QTableView;
@@ -96,19 +102,21 @@ private:
     QLabel *spiderStatusLabel;
     
     // Core components
-    std::unique_ptr<SearchEngine> searchEngine;
     std::unique_ptr<TorrentDatabase> torrentDatabase;
     std::unique_ptr<TorrentSpider> torrentSpider;
     std::unique_ptr<P2PNetwork> p2pNetwork;
-    std::unique_ptr<SearchAPI> searchAPI;
+    std::unique_ptr<TorrentClient> torrentClient;
+    
+    // API layer
+    std::unique_ptr<RatsAPI> api;
+    std::unique_ptr<ConfigManager> config;
+    std::unique_ptr<ApiServer> apiServer;
     
     // Models and Delegates
     SearchResultModel *searchResultModel;
     TorrentItemDelegate *torrentDelegate;
     
     // Configuration
-    int p2pPort_;
-    int dhtPort_;
     QString dataDirectory_;
     
     // State
@@ -120,12 +128,6 @@ private:
     // System Tray
     QSystemTrayIcon *trayIcon;
     QMenu *trayMenu;
-    
-    // Settings
-    QSettings *settings_;
-    bool minimizeToTray_;
-    bool closeToTray_;
-    bool startMinimized_;
 };
 
 #endif // MAINWINDOW_H

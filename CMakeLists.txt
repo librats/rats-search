@@ -17,6 +17,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Network
     Sql
     Concurrent
+    WebSockets
 )
 
 # Option to build with system librats or bundled version
@@ -42,7 +43,6 @@ endif()
 set(SOURCES
     src/main.cpp
     src/mainwindow.cpp
-    src/searchengine.cpp
     src/torrentdatabase.cpp
     src/torrentspider.cpp
     src/p2pnetwork.cpp
@@ -50,15 +50,19 @@ set(SOURCES
     src/torrentclient.cpp
     src/manticoremanager.cpp
     src/sphinxql.cpp
-    src/searchapi.cpp
     src/torrentitemdelegate.cpp
     src/torrentdetailspanel.cpp
+    # API layer (replaces old searchapi.cpp and searchengine.cpp)
+    src/api/ratsapi.cpp
+    src/api/configmanager.cpp
+    src/api/feedmanager.cpp
+    src/api/downloadmanager.cpp
+    src/api/apiserver.cpp
 )
 
 # Header files
 set(HEADERS
     src/mainwindow.h
-    src/searchengine.h
     src/torrentdatabase.h
     src/torrentspider.h
     src/p2pnetwork.h
@@ -66,9 +70,14 @@ set(HEADERS
     src/torrentclient.h
     src/manticoremanager.h
     src/sphinxql.h
-    src/searchapi.h
     src/torrentitemdelegate.h
     src/torrentdetailspanel.h
+    # API layer (replaces old searchapi.h and searchengine.h)
+    src/api/ratsapi.h
+    src/api/configmanager.h
+    src/api/feedmanager.h
+    src/api/downloadmanager.h
+    src/api/apiserver.h
 )
 
 # Resources
@@ -97,12 +106,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Network
     Qt6::Sql
     Qt6::Concurrent
+    Qt6::WebSockets
     rats
 )
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/api
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 

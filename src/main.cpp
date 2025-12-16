@@ -12,7 +12,9 @@
 #include "torrentdatabase.h"
 #include "torrentspider.h"
 #include "p2pnetwork.h"
-#include "searchapi.h"
+#include "api/ratsapi.h"
+#include "api/configmanager.h"
+#include "api/apiserver.h"
 #include "librats/src/logger.h"
 
 #ifdef _WIN32
@@ -156,8 +158,22 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
         }
     }
     
-    // Create search API
-    SearchAPI api(&database, &p2p);
+    // Create configuration manager
+    ConfigManager config(dataDir + "/rats.json");
+    config.load();
+    
+    // Create RatsAPI
+    RatsAPI api;
+    api.initialize(&database, &p2p, nullptr, &config);
+    
+    // Start API server if enabled
+    std::unique_ptr<ApiServer> apiServer;
+    if (config.restApiEnabled()) {
+        apiServer = std::make_unique<ApiServer>(&api);
+        if (apiServer->start(config.httpPort())) {
+            qInfo() << "API server started on port" << config.httpPort();
+        }
+    }
     
     // Print statistics periodically
     QTimer statsTimer;
