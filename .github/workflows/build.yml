@@ -166,7 +166,6 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          arch: 'clang_64'
           cache: true
 
       - name: Install MySQL client
@@ -272,7 +271,6 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          arch: 'clang_64'
           cache: true
 
       - name: Install MySQL client
@@ -389,7 +387,6 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          arch: 'linux_gcc_64'
           cache: true
 
       - name: Download Qt MySQL plugin
