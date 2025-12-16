@@ -86,10 +86,16 @@ jobs:
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
             -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
-            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF `
+            -DRATS_SEARCH_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --parallel
 
       - name: Copy Manticore binaries
         shell: powershell
@@ -224,10 +230,16 @@ jobs:
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
-            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF \
+            -DRATS_SEARCH_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --parallel
 
       - name: Copy Manticore binaries
         run: |
@@ -341,10 +353,16 @@ jobs:
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
-            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF \
+            -DRATS_SEARCH_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --parallel
 
       - name: Copy Manticore binaries
         run: |
@@ -451,10 +469,16 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DCMAKE_INSTALL_PREFIX="/usr" \
-            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF
+            -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF \
+            -DRATS_SEARCH_BUILD_TESTS=ON
 
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --parallel
 
       - name: Copy Manticore binaries
         run: |
