@@ -164,6 +164,7 @@ jobs:
           retention-days: 30
 
   build-macos-intel:
+    if: false  # Temporarily disabled
     runs-on: macos-latest
     name: macOS Intel (x64)
     permissions:
@@ -284,6 +285,7 @@ jobs:
           retention-days: 30
 
   build-macos-arm:
+    if: false  # Temporarily disabled
     runs-on: macos-latest
     name: macOS ARM (Apple Silicon)
     permissions:
