@@ -164,7 +164,7 @@ jobs:
           retention-days: 30
 
   build-macos-intel:
-    runs-on: macos-13
+    runs-on: macos-latest
     name: macOS Intel (x64)
     permissions:
       actions: write
