@@ -428,6 +428,7 @@ jobs:
             libxkbcommon-x11-dev \
             libxcb-xinerama0-dev \
             libxcb-cursor-dev \
+            libxcb-cursor0 \
             libfuse2 \
             unzip
 
@@ -477,7 +478,7 @@ jobs:
       - name: Run tests
         run: |
           cd build
-          ctest --output-on-failure --parallel
+          QT_QPA_PLATFORM=offscreen ctest --output-on-failure --parallel
 
       - name: Copy Manticore binaries
         run: |
