@@ -63,9 +63,13 @@ jobs:
           Invoke-WebRequest -Uri $driverUrl -OutFile $driverZip
           Expand-Archive -Path $driverZip -DestinationPath $driverDir -Force
           
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          $qtRoot = "$env:QT_ROOT_DIR"
+          Write-Host "Qt root directory: $qtRoot"
+          
           # Ensure directories exist
-          $pluginDir = "$env:Qt6_DIR\plugins\sqldrivers"
-          $binDir = "$env:Qt6_DIR\bin"
+          $pluginDir = "$qtRoot\plugins\sqldrivers"
+          $binDir = "$qtRoot\bin"
           New-Item -ItemType Directory -Force -Path $pluginDir | Out-Null
           New-Item -ItemType Directory -Force -Path $binDir | Out-Null
           
@@ -85,7 +89,6 @@ jobs:
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR" `
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF `
             -DRATS_SEARCH_BUILD_TESTS=ON
 
@@ -112,7 +115,8 @@ jobs:
         shell: powershell
         run: |
           $binDir = "build/bin"
-          $pluginSrc = "$env:Qt6_DIR/plugins/sqldrivers"
+          $qtRoot = "$env:QT_ROOT_DIR"
+          $pluginSrc = "$qtRoot/plugins/sqldrivers"
           $pluginDst = "$binDir/sqldrivers"
           
           New-Item -ItemType Directory -Force -Path $pluginDst | Out-Null
@@ -124,8 +128,8 @@ jobs:
           }
           
           # Copy libmysql.dll to bin directory
-          if (Test-Path "$env:Qt6_DIR/bin/libmysql.dll") {
-            Copy-Item "$env:Qt6_DIR/bin/libmysql.dll" -Destination $binDir -Force
+          if (Test-Path "$qtRoot/bin/libmysql.dll") {
+            Copy-Item "$qtRoot/bin/libmysql.dll" -Destination $binDir -Force
             Write-Host "Copied libmysql.dll to bin"
           }
 
@@ -190,8 +194,8 @@ jobs:
 
       - name: Build Qt MySQL plugin (if not available)
         run: |
-          # Qt6_DIR points to lib/cmake/Qt6, get the root
-          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           PLUGIN_PATH="$QT_PLUGIN_DIR/libqsqlmysql.dylib"
           
@@ -208,7 +212,6 @@ jobs:
             
             cmake -B build -G "Ninja" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
               -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
               -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
             
@@ -229,7 +232,6 @@ jobs:
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF \
             -DRATS_SEARCH_BUILD_TESTS=ON
 
@@ -254,8 +256,8 @@ jobs:
 
       - name: Copy Qt MySQL plugin
         run: |
-          # Qt6_DIR points to lib/cmake/Qt6, get the root
-          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           
           BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
@@ -313,8 +315,8 @@ jobs:
 
       - name: Build Qt MySQL plugin (if not available)
         run: |
-          # Qt6_DIR points to lib/cmake/Qt6, get the root
-          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           PLUGIN_PATH="$QT_PLUGIN_DIR/libqsqlmysql.dylib"
           
@@ -331,7 +333,6 @@ jobs:
             
             cmake -B build -G "Ninja" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
               -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
               -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
             
@@ -352,7 +353,6 @@ jobs:
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF \
             -DRATS_SEARCH_BUILD_TESTS=ON
 
@@ -377,8 +377,8 @@ jobs:
 
       - name: Copy Qt MySQL plugin
         run: |
-          # Qt6_DIR points to lib/cmake/Qt6, get the root
-          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           
           BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
@@ -443,12 +443,12 @@ jobs:
           # Download pre-built Qt MySQL driver from thecodemonkey86
           DRIVER_URL="https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/qmysql_${{ env.QT_VERSION }}/libqsqlmysql.so_Qt_SQL_driver_${{ env.QT_VERSION }}_gcc_64-bit.zip"
           
-          # Qt6_DIR points to lib/cmake/Qt6, get the root
-          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           
           echo "Downloading MySQL driver from: $DRIVER_URL"
-          echo "Qt6_DIR is: ${{ env.Qt6_DIR }}"
+          echo "QT_ROOT_DIR is: ${{ env.QT_ROOT_DIR }}"
           echo "Qt root is: $QT_ROOT"
           echo "Plugin dir is: $QT_PLUGIN_DIR"
           
@@ -467,7 +467,6 @@ jobs:
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}" \
             -DCMAKE_INSTALL_PREFIX="/usr" \
             -DRATS_SEARCH_USE_SYSTEM_LIBRATS=OFF \
             -DRATS_SEARCH_BUILD_TESTS=ON
@@ -501,8 +500,8 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Qt6_DIR points to lib/cmake/Qt6, get the root
-          QT_ROOT="${{ env.Qt6_DIR }}/../../.."
+          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           
           echo "Qt root: $QT_ROOT"
