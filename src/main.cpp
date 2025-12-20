@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QTextStream>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <iostream>
 #include <csignal>
 #include "mainwindow.h"
@@ -374,7 +375,11 @@ int main(int argc, char *argv[])
     }
     else {
         // GUI mode
+        QElapsedTimer startupTimer;
+        startupTimer.start();
+        
         QApplication app(argc, argv);
+        qInfo() << "QApplication created:" << startupTimer.elapsed() << "ms";
         
         // Set application information
         QApplication::setApplicationName("Rats Search");
@@ -425,9 +430,15 @@ int main(int argc, char *argv[])
         qInfo() << "P2P port:" << p2pPort;
         qInfo() << "DHT port:" << dhtPort;
         
-        // Create and show main window
+        // Create main window (UI setup only, services deferred)
+        qint64 windowStart = startupTimer.elapsed();
         MainWindow mainWindow(p2pPort, dhtPort, dataDir);
+        qInfo() << "MainWindow created:" << (startupTimer.elapsed() - windowStart) << "ms";
+        
+        // Show window immediately (services start in background)
         mainWindow.show();
+        qInfo() << "Window shown, total startup:" << startupTimer.elapsed() << "ms";
+        qInfo() << "Heavy initialization continues in background...";
         
         return app.exec();
     }

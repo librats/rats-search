@@ -49,6 +49,7 @@
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QTimer>
+#include <QElapsedTimer>
 
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
@@ -60,9 +61,14 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     , trayIcon(nullptr)
     , trayMenu(nullptr)
 {
-    // Initialize configuration manager first
+    QElapsedTimer startupTimer;
+    startupTimer.start();
+    
+    // Initialize configuration manager first (fast)
+    qint64 configStart = startupTimer.elapsed();
     config = std::make_unique<ConfigManager>(dataDirectory_ + "/rats.json");
     config->load();
+    qInfo() << "Config load took:" << (startupTimer.elapsed() - configStart) << "ms";
     
     // Apply config overrides from command line args
     if (p2pPort > 0) config->setP2pPort(p2pPort);
@@ -76,39 +82,30 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     // Set application icon
     setWindowIcon(QIcon(":/images/icon.png"));
     
+    // UI setup (show window fast)
+    qint64 uiStart = startupTimer.elapsed();
     applyDarkTheme();
     setupUi();
     setupMenuBar();
     setupToolBar();
     setupStatusBar();
     setupSystemTray();
+    qInfo() << "UI setup took:" << (startupTimer.elapsed() - uiStart) << "ms";
     
-    // Initialize core components
+    // Create lightweight objects (just constructors, no heavy work)
+    qint64 objectsStart = startupTimer.elapsed();
     torrentDatabase = std::make_unique<TorrentDatabase>(dataDirectory_);
     torrentClient = std::make_unique<TorrentClient>(this);
-    
-    // P2PNetwork is the single owner of RatsClient
     p2pNetwork = std::make_unique<P2PNetwork>(config->p2pPort(), config->dhtPort(), dataDirectory_);
-    
-    // TorrentSpider uses RatsClient from P2PNetwork (doesn't own it)
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
-    
-    // Initialize RatsAPI with all dependencies
     api = std::make_unique<RatsAPI>(this);
-    api->initialize(torrentDatabase.get(), p2pNetwork.get(), torrentClient.get(), config.get());
+    qInfo() << "Object creation took:" << (startupTimer.elapsed() - objectsStart) << "ms";
     
-    // Start REST/WebSocket API server if enabled
-    if (config->restApiEnabled()) {
-        apiServer = std::make_unique<ApiServer>(api.get());
-        if (apiServer->start(config->httpPort())) {
-            logActivity(QString("🌐 API server started on port %1").arg(config->httpPort()));
-        }
-    }
+    qInfo() << "MainWindow constructor (before deferred init):" << startupTimer.elapsed() << "ms";
     
-    connectSignals();
-    startServices();
-    
-    logActivity("🚀 Rats Search started");
+    // Defer heavy initialization to after window is shown
+    // This allows the UI to appear immediately
+    QTimer::singleShot(0, this, &MainWindow::initializeServicesDeferred);
 }
 
 MainWindow::~MainWindow()
@@ -696,34 +693,45 @@ void MainWindow::startServices()
         return;
     }
     
+    QElapsedTimer timer;
+    timer.start();
+    
     logActivity("🔧 Initializing services...");
     
-    // Initialize database
+    // Initialize database (this starts Manticore - the slowest part)
+    qint64 dbStart = timer.elapsed();
     if (!torrentDatabase->initialize()) {
         QMessageBox::critical(this, "Error", "Failed to initialize database!");
         logActivity("❌ Database initialization failed");
         return;
     }
+    qInfo() << "Database initialize took:" << (timer.elapsed() - dbStart) << "ms";
     logActivity("✅ Database initialized");
     
     // Start P2P network
+    qint64 p2pStart = timer.elapsed();
     if (!p2pNetwork->start()) {
         QMessageBox::warning(this, "Warning", "Failed to start P2P network. Some features may be limited.");
         logActivity("⚠️ P2P network failed to start");
     } else {
+        qInfo() << "P2P network start took:" << (timer.elapsed() - p2pStart) << "ms";
         logActivity("✅ P2P network started");
     }
     
     // Start torrent spider
+    qint64 spiderStart = timer.elapsed();
     if (!torrentSpider->start()) {
         QMessageBox::warning(this, "Warning", "Failed to start torrent spider. Automatic indexing disabled.");
         logActivity("⚠️ Torrent spider failed to start");
     } else {
+        qInfo() << "Spider start took:" << (timer.elapsed() - spiderStart) << "ms";
         logActivity("✅ Torrent spider started");
     }
     
     servicesStarted_ = true;
     updateStatusBar();
+    
+    qInfo() << "All services started in:" << timer.elapsed() << "ms";
 }
 
 void MainWindow::stopServices()
@@ -744,6 +752,38 @@ void MainWindow::stopServices()
     }
     
     servicesStarted_ = false;
+}
+
+void MainWindow::initializeServicesDeferred()
+{
+    QElapsedTimer timer;
+    timer.start();
+    
+    qInfo() << "Starting deferred initialization...";
+    
+    // Initialize RatsAPI with all dependencies
+    qint64 apiStart = timer.elapsed();
+    api->initialize(torrentDatabase.get(), p2pNetwork.get(), torrentClient.get(), config.get());
+    qInfo() << "RatsAPI initialize took:" << (timer.elapsed() - apiStart) << "ms";
+    
+    // Connect signals before starting services
+    connectSignals();
+    
+    // Start REST/WebSocket API server if enabled
+    if (config->restApiEnabled()) {
+        apiServer = std::make_unique<ApiServer>(api.get());
+        if (apiServer->start(config->httpPort())) {
+            logActivity(QString("🌐 API server started on port %1").arg(config->httpPort()));
+        }
+    }
+    
+    // Start heavy services (database, P2P, spider)
+    qint64 servicesStart = timer.elapsed();
+    startServices();
+    qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
+    
+    qInfo() << "Total deferred initialization:" << timer.elapsed() << "ms";
+    logActivity("🚀 Rats Search started");
 }
 
 void MainWindow::performSearch(const QString &query)

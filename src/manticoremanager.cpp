@@ -9,6 +9,7 @@
 #include <QThread>
 #include <QDebug>
 #include <QRegularExpression>
+#include <QElapsedTimer>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -80,9 +81,12 @@ bool ManticoreManager::start()
         return true;
     }
     
+    QElapsedTimer startupTimer;
+    startupTimer.start();
+    
     isWindowsDaemonMode_ = false;
     
-    // Check if external instance is running via PID file
+    // Check if external instance is running via PID file (fast check first)
     if (QFile::exists(pidFilePath_)) {
         QFile pidFile(pidFilePath_);
         if (pidFile.open(QIODevice::ReadOnly)) {
@@ -92,28 +96,23 @@ bool ManticoreManager::start()
             if (isProcessRunning(pid)) {
                 qInfo() << "Found existing Manticore instance via PID file (pid:" << pid << ")";
                 
-                // Verify it's responding
+                // Verify it's responding with quick timeout
                 if (testConnection()) {
                     isExternalInstance_ = true;
                     setStatus(Status::Running);
                     emit started();
+                    qInfo() << "Manticore startup (existing instance):" << startupTimer.elapsed() << "ms";
                     return true;
                 }
             }
         }
     }
     
-    // Also check if something is already listening on the port
-    if (testConnection()) {
-        qInfo() << "Found existing Manticore instance on port" << port_;
-        isExternalInstance_ = true;
-        setStatus(Status::Running);
-        emit started();
-        return true;
-    }
-    
-    // Find searchd executable
+    // Find searchd executable FIRST (before slow network check)
+    qint64 findStart = startupTimer.elapsed();
     searchdPath_ = findSearchdPath();
+    qInfo() << "findSearchdPath took:" << (startupTimer.elapsed() - findStart) << "ms";
+    
     if (searchdPath_.isEmpty()) {
         emit error("Cannot find searchd executable");
         setStatus(Status::Error);
@@ -123,6 +122,7 @@ bool ManticoreManager::start()
     qInfo() << "Found searchd at:" << searchdPath_;
     
     // Create directories and config
+    qint64 configStart = startupTimer.elapsed();
     if (!createDatabaseDirectories()) {
         emit error("Failed to create database directories");
         setStatus(Status::Error);
@@ -134,6 +134,7 @@ bool ManticoreManager::start()
         setStatus(Status::Error);
         return false;
     }
+    qInfo() << "Config generation took:" << (startupTimer.elapsed() - configStart) << "ms";
     
     // Start process
     setStatus(Status::Starting);
@@ -143,7 +144,6 @@ bool ManticoreManager::start()
     
 #ifdef Q_OS_WIN
     // On Windows, searchd runs as a daemon (forks itself and parent exits)
-    // We need to handle this differently
     isWindowsDaemonMode_ = true;
 #else
     // On Linux/macOS, use --nodetach to keep process in foreground
@@ -152,6 +152,7 @@ bool ManticoreManager::start()
     
     qInfo() << "Starting searchd with args:" << args;
     
+    qint64 processStart = startupTimer.elapsed();
     process_->start(searchdPath_, args);
     
     if (!process_->waitForStarted(5000)) {
@@ -159,16 +160,23 @@ bool ManticoreManager::start()
         setStatus(Status::Error);
         return false;
     }
+    qInfo() << "Process start took:" << (startupTimer.elapsed() - processStart) << "ms";
     
 #ifdef Q_OS_WIN
-    // On Windows, the process will exit quickly as it forks into background
-    // Wait for it to finish forking
-    process_->waitForFinished(3000);
-    qInfo() << "Windows daemon mode: searchd process forked into background";
+    // On Windows, the process forks into background immediately
+    // Don't wait for full finish - just give it a moment to fork
+    // The actual readiness will be detected in waitForReady()
+    process_->waitForFinished(100);  // Reduced from 3000ms to 100ms
+    qInfo() << "Windows daemon mode: searchd forking to background";
 #endif
     
-    // Wait for ready
-    return waitForReady(30000);
+    // Wait for ready with optimized polling
+    qint64 waitStart = startupTimer.elapsed();
+    bool ready = waitForReady(30000);
+    qInfo() << "waitForReady took:" << (startupTimer.elapsed() - waitStart) << "ms";
+    qInfo() << "Total Manticore startup:" << startupTimer.elapsed() << "ms";
+    
+    return ready;
 }
 
 void ManticoreManager::stop()
@@ -237,22 +245,22 @@ QSqlDatabase ManticoreManager::getDatabase() const
 
 bool ManticoreManager::waitForReady(int timeoutMs)
 {
-    int elapsed = 0;
-    const int checkInterval = 200;
+    QElapsedTimer timer;
+    timer.start();
+    
+    // Start with fast polling, then slow down
+    int checkInterval = 50;  // Start with 50ms checks for fast startup detection
     
     qInfo() << "Waiting for Manticore to become ready...";
     
-    while (elapsed < timeoutMs) {
-        if (testConnection()) {
+    while (timer.elapsed() < timeoutMs) {
+        // Check PID file first (faster than network connection)
+        bool pidExists = QFile::exists(pidFilePath_);
+        
+        if (pidExists && testConnection()) {
             setStatus(Status::Running);
             emit started();
-            
-            // Try to get version from PID file existence
-            if (QFile::exists(pidFilePath_)) {
-                qInfo() << "Manticore is ready on port" << port_ << "(PID file exists)";
-            } else {
-                qInfo() << "Manticore is ready on port" << port_;
-            }
+            qInfo() << "Manticore is ready on port" << port_ << "(took" << timer.elapsed() << "ms)";
             
             // Start connection monitoring
             connectionCheckTimer_->start();
@@ -260,7 +268,11 @@ bool ManticoreManager::waitForReady(int timeoutMs)
         }
         
         QThread::msleep(checkInterval);
-        elapsed += checkInterval;
+        
+        // Increase interval after first second to reduce CPU usage
+        if (timer.elapsed() > 1000 && checkInterval < 200) {
+            checkInterval = 200;
+        }
         
         // On Windows with daemon mode, we can't check process state
         // as the original process has already exited
@@ -275,14 +287,14 @@ bool ManticoreManager::waitForReady(int timeoutMs)
             }
         } else {
             // On Windows, check if PID file was created as a sign of startup progress
-            if (elapsed > 5000 && !QFile::exists(pidFilePath_)) {
+            if (timer.elapsed() > 5000 && !pidExists) {
                 qWarning() << "PID file not created after 5 seconds, searchd may have failed to start";
             }
         }
         
         // Log progress every 5 seconds
-        if (elapsed % 5000 == 0) {
-            qInfo() << "Still waiting for Manticore..." << (elapsed / 1000) << "seconds elapsed";
+        if (timer.elapsed() > 0 && (timer.elapsed() / 1000) % 5 == 0 && timer.elapsed() % 1000 < checkInterval) {
+            qInfo() << "Still waiting for Manticore..." << (timer.elapsed() / 1000) << "seconds elapsed";
         }
     }
     
@@ -578,7 +590,7 @@ QString ManticoreManager::findSearchdPath()
 
 bool ManticoreManager::testConnection()
 {
-    // Use a temporary connection for testing
+    // Use a temporary connection for testing with short timeout
     QString testConnName = connectionName_ + "_test";
     bool success = false;
     
@@ -587,6 +599,8 @@ bool ManticoreManager::testConnection()
         db.setHostName("127.0.0.1");
         db.setPort(port_);
         db.setDatabaseName("");
+        // Set short connection timeout (1 second instead of default ~30s)
+        db.setConnectOptions("MYSQL_OPT_CONNECT_TIMEOUT=1");
         
         if (db.open()) {
             QSqlQuery query(db);

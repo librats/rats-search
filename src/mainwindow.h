@@ -67,6 +67,7 @@ private slots:
     void showTorrentContextMenu(const QPoint &pos);
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void toggleWindowVisibility();
+    void initializeServicesDeferred();  // Deferred heavy initialization
 
 private:
     void setupUi();
