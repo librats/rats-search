@@ -1,5 +1,18 @@
 ## Usage
 
+> **Note:** This documentation covers the general usage of Rats Search. Screenshots may show either the legacy Electron UI or the new Qt 2.0 interface. Core functionality remains the same across both versions.
+
+### Rats Search 2.0 (Qt Version)
+
+The new Qt 2.0 version provides a native desktop experience with improved performance. Key features:
+
+* **Modern dark theme** with customizable settings
+* **System tray integration** — minimize to tray, run in background
+* **Built-in REST API** — enabled via Settings → Network → "Enable REST API server"
+* **Improved search** — powered by Manticore Search for fast full-text queries
+
+### Getting Started
+
 After installing the program and running, you should have access to the main program window:
 
 [![After start](img/main_no_torrents.png)](https://github.com/DEgITx/rats-search)
@@ -23,7 +36,17 @@ In the case when the collection of torrents does not occur, or is very slow (1-2
 
 [![Settings](img/settings_ports.png)](https://github.com/DEgITx/rats-search)
 
-For correct operation, it is necessary that ports 4445 and 4446 (or others specified in the settings) are opened. Both types of ports (UDP and TCP) must be opened. On the router, the ports must necessarily be thrown through NAT (if enabled). In the case when router supports UPnP ports will be forwarded automatically. 
+For correct operation, the following ports need to be open (configurable in Settings):
+
+| Port | Protocol | Default | Purpose |
+|------|----------|---------|---------|
+| P2P Port | TCP/UDP | 4445 | P2P communication |
+| DHT Port | UDP | 4446 | DHT operations |
+| HTTP Port | TCP | 8095 | REST API (optional) |
+
+Both UDP and TCP must be open for P2P/DHT ports. On routers with NAT enabled, ports must be forwarded. If your router supports UPnP, ports will be forwarded automatically.
+
+**In Qt 2.0:** Access port settings via **File → Settings → Network**. 
 
 ### Using search
 

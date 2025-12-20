@@ -1,37 +1,64 @@
-# Basic description
+# Rats Search API
 
-Rats Search server using WebSockets for internal communication. It require two way communication and using socket.io internally. As alternative added REST API implementation, but because of one-way limitation, it require periodic check of backward messages with **/api/queue** . You free to choise one of the ways for communication and implementation of your own client.
+Rats Search provides a REST API for integration with external applications and custom clients.
 
-## WebSockets communication (1-way)
+---
 
+## Rats Search 2.0 (Qt Version)
 
-## REST API communication (2-way)
+The Qt 2.0 version includes a built-in REST API server.
 
-### Installation
+### Enabling the API
 
-At first you need to prepare server non-interface version
+**Via Settings UI:**
+1. Open File → Settings
+2. Go to Network section
+3. Enable "Enable REST API server"
+4. Set the HTTP port (default: 8095)
+5. Click Save (restart required)
+
+**Via Configuration File** (`rats.json`):
+
+```json
+{
+    "restApiEnabled": true,
+    "httpPort": 8095
+}
+```
+
+The API server will be available at: `http://localhost:8095`
+
+---
+
+## Legacy Version (Node.js)
+
+For the legacy Electron/Node.js version, the API uses WebSockets (socket.io) for internal communication. A REST API is also available but requires periodic polling of `/api/queue` for responses.
+
+### Legacy Installation
 
 ```bash
-git clone --recurse-submodules https://github.com/DEgITx/rats-search.git
+# From the repository root
+cd legacy
 npm install --force
 npm run buildweb
 npm run server
 ```
 
-### Configuration
+### Legacy Configuration
 
-You need to enable REST API configuration (disabled by default):
+Edit **rats.json**:
 
-edit **rats.json** (change only restApi value):
 ```json
 {
     "restApi": true
 }
 ```
 
-set restApi to true, save
+---
 
-### API usage
+## REST API Reference
+
+## API Endpoints
 
 #### Search of torrents
 
