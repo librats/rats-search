@@ -66,6 +66,16 @@ ManticoreManager::ManticoreManager(const QString& dataDirectory, QObject *parent
 
 ManticoreManager::~ManticoreManager()
 {
+    // Disconnect all signals before stopping to prevent spurious error messages
+    if (process_) {
+        disconnect(process_.get(), nullptr, this, nullptr);
+    }
+    if (connectionCheckTimer_) {
+        connectionCheckTimer_->stop();
+        disconnect(connectionCheckTimer_.get(), nullptr, this, nullptr);
+    }
+    
+    // Stop if not already stopped (stop() has its own guard)
     stop();
     
     // Remove database connection for current thread
@@ -183,6 +193,11 @@ void ManticoreManager::stop()
 {
     connectionCheckTimer_->stop();
     
+    // Guard against double-stop calls
+    if (status_ == Status::Stopped) {
+        return;
+    }
+    
     if (isExternalInstance_) {
         qInfo() << "Not stopping external Manticore instance";
         setStatus(Status::Stopped);
@@ -191,6 +206,11 @@ void ManticoreManager::stop()
     }
     
     qInfo() << "Stopping Manticore...";
+    
+    // Disconnect error signals to prevent spurious "crashed" messages during shutdown
+    disconnect(process_.get(), &QProcess::errorOccurred, this, &ManticoreManager::onProcessError);
+    disconnect(process_.get(), QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+               this, &ManticoreManager::onProcessFinished);
     
 #ifdef Q_OS_WIN
     // On Windows, searchd runs as a daemon, so we need to use stopwait command
