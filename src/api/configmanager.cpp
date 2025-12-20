@@ -86,7 +86,8 @@ void ConfigManager::setDefaults()
         {"darkMode", false},
         {"trayOnClose", false},
         {"trayOnMinimize", true},
-        {"startMinimized", false}
+        {"startMinimized", false},
+        {"checkUpdatesOnStartup", true}
     };
 }
 
@@ -443,6 +444,11 @@ void ConfigManager::setTrayOnMinimize(bool enabled) {
 bool ConfigManager::startMinimized() const { return config_["startMinimized"].toBool(false); }
 void ConfigManager::setStartMinimized(bool enabled) { 
     if (setValue("startMinimized", enabled)) emit startMinimizedChanged(enabled);
+}
+
+bool ConfigManager::checkUpdatesOnStartup() const { return config_["checkUpdatesOnStartup"].toBool(true); }
+void ConfigManager::setCheckUpdatesOnStartup(bool enabled) { 
+    if (setValue("checkUpdatesOnStartup", enabled)) emit checkUpdatesOnStartupChanged(enabled);
 }
 
 // ============================================================================

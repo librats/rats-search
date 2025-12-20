@@ -58,6 +58,7 @@ set(SOURCES
     src/api/feedmanager.cpp
     src/api/downloadmanager.cpp
     src/api/apiserver.cpp
+    src/api/updatemanager.cpp
 )
 
 # Header files
@@ -78,6 +79,7 @@ set(HEADERS
     src/api/feedmanager.h
     src/api/downloadmanager.h
     src/api/apiserver.h
+    src/api/updatemanager.h
 )
 
 # Resources

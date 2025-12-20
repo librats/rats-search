@@ -20,6 +20,7 @@ class TorrentClient;
 class RatsAPI;
 class ConfigManager;
 class ApiServer;
+class UpdateManager;
 
 // UI components
 class QLineEdit;
@@ -68,6 +69,14 @@ private slots:
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void toggleWindowVisibility();
     void initializeServicesDeferred();  // Deferred heavy initialization
+    
+    // Update slots
+    void onUpdateAvailable(const QString& version, const QString& releaseNotes);
+    void onUpdateDownloadProgress(int percent);
+    void onUpdateReady();
+    void onUpdateError(const QString& error);
+    void checkForUpdates();
+    void showUpdateDialog();
 
 private:
     void setupUi();
@@ -112,6 +121,7 @@ private:
     std::unique_ptr<RatsAPI> api;
     std::unique_ptr<ConfigManager> config;
     std::unique_ptr<ApiServer> apiServer;
+    std::unique_ptr<UpdateManager> updateManager;
     
     // Models and Delegates
     SearchResultModel *searchResultModel;

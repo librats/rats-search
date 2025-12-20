@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # Find Qt6 Test
-find_package(Qt6 REQUIRED COMPONENTS Test Core Gui Widgets Sql Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Test Core Gui Widgets Sql Concurrent Network)
 
 # Enable Qt testing
 enable_testing()
@@ -16,6 +16,8 @@ add_library(rats_testable STATIC
     ${SRC_DIR}/torrentdatabase.cpp
     ${SRC_DIR}/sphinxql.cpp
     ${SRC_DIR}/manticoremanager.cpp
+    ${SRC_DIR}/api/updatemanager.cpp
+    ${SRC_DIR}/api/configmanager.cpp
 )
 target_include_directories(rats_testable PUBLIC ${SRC_DIR})
 target_link_libraries(rats_testable PUBLIC
@@ -24,6 +26,7 @@ target_link_libraries(rats_testable PUBLIC
     Qt6::Widgets
     Qt6::Sql
     Qt6::Concurrent
+    Qt6::Network
 )
 
 # Helper function to add a test with minimal boilerplate
@@ -38,11 +41,12 @@ add_rats_test(test_torrentinfo)
 add_rats_test(test_searchresultmodel)
 add_rats_test(test_sphinxql)
 add_rats_test(test_utils)
+add_rats_test(test_updatemanager)
 
 # Custom target to run all tests
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils
+    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager
     COMMENT "Running all tests..."
 )
 

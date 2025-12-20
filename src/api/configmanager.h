@@ -47,6 +47,7 @@ class ConfigManager : public QObject
     Q_PROPERTY(bool trayOnClose READ trayOnClose WRITE setTrayOnClose NOTIFY trayOnCloseChanged)
     Q_PROPERTY(bool trayOnMinimize READ trayOnMinimize WRITE setTrayOnMinimize NOTIFY trayOnMinimizeChanged)
     Q_PROPERTY(bool startMinimized READ startMinimized WRITE setStartMinimized NOTIFY startMinimizedChanged)
+    Q_PROPERTY(bool checkUpdatesOnStartup READ checkUpdatesOnStartup WRITE setCheckUpdatesOnStartup NOTIFY checkUpdatesOnStartupChanged)
 
 public:
     explicit ConfigManager(const QString& configPath = QString(), QObject *parent = nullptr);
@@ -213,6 +214,9 @@ public:
     bool startMinimized() const;
     void setStartMinimized(bool enabled);
     
+    bool checkUpdatesOnStartup() const;
+    void setCheckUpdatesOnStartup(bool enabled);
+    
     // =========================================================================
     // Generic Access (for API)
     // =========================================================================
@@ -258,6 +262,7 @@ signals:
     void trayOnCloseChanged(bool enabled);
     void trayOnMinimizeChanged(bool enabled);
     void startMinimizedChanged(bool enabled);
+    void checkUpdatesOnStartupChanged(bool enabled);
 
 private:
     void setDefaults();

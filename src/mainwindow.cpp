@@ -11,6 +11,7 @@
 #include "api/ratsapi.h"
 #include "api/configmanager.h"
 #include "api/apiserver.h"
+#include "api/updatemanager.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -99,6 +100,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     p2pNetwork = std::make_unique<P2PNetwork>(config->p2pPort(), config->dhtPort(), dataDirectory_);
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
     api = std::make_unique<RatsAPI>(this);
+    updateManager = std::make_unique<UpdateManager>(this);
     qInfo() << "Object creation took:" << (startupTimer.elapsed() - objectsStart) << "ms";
     
     qInfo() << "MainWindow constructor (before deferred init):" << startupTimer.elapsed() << "ms";
@@ -609,6 +611,11 @@ void MainWindow::setupMenuBar()
     // Help menu
     QMenu *helpMenu = menuBar()->addMenu("&Help");
     
+    QAction *checkUpdateAction = helpMenu->addAction("🔄 Check for &Updates...");
+    connect(checkUpdateAction, &QAction::triggered, this, &MainWindow::checkForUpdates);
+    
+    helpMenu->addSeparator();
+    
     QAction *aboutAction = helpMenu->addAction("ℹ️ &About");
     connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 }
@@ -784,6 +791,28 @@ void MainWindow::initializeServicesDeferred()
     
     qInfo() << "Total deferred initialization:" << timer.elapsed() << "ms";
     logActivity("🚀 Rats Search started");
+    
+    // Setup update manager and check for updates on startup
+    if (updateManager) {
+        connect(updateManager.get(), &UpdateManager::updateAvailable, 
+                this, [this](const UpdateManager::UpdateInfo& info) {
+                    onUpdateAvailable(info.version, info.releaseNotes);
+                });
+        connect(updateManager.get(), &UpdateManager::downloadProgressChanged,
+                this, &MainWindow::onUpdateDownloadProgress);
+        connect(updateManager.get(), &UpdateManager::updateReady,
+                this, &MainWindow::onUpdateReady);
+        connect(updateManager.get(), &UpdateManager::errorOccurred,
+                this, &MainWindow::onUpdateError);
+        
+        // Check for updates after a short delay
+        if (config->checkUpdatesOnStartup()) {
+            QTimer::singleShot(5000, this, [this]() {
+                logActivity("🔍 Checking for updates...");
+                updateManager->checkForUpdates();
+            });
+        }
+    }
 }
 
 void MainWindow::performSearch(const QString &query)
@@ -1102,6 +1131,10 @@ void MainWindow::showSettings()
     darkModeCheck->setChecked(config->darkMode());
     generalLayout->addRow(darkModeCheck);
     
+    QCheckBox *checkUpdatesCheck = new QCheckBox("Check for updates on startup");
+    checkUpdatesCheck->setChecked(config->checkUpdatesOnStartup());
+    generalLayout->addRow(checkUpdatesCheck);
+    
     mainLayout->addWidget(generalGroup);
     
     // Network Settings Group
@@ -1193,6 +1226,7 @@ void MainWindow::showSettings()
         config->setTrayOnClose(closeToTrayCheck->isChecked());
         config->setStartMinimized(startMinimizedCheck->isChecked());
         config->setDarkMode(darkModeCheck->isChecked());
+        config->setCheckUpdatesOnStartup(checkUpdatesCheck->isChecked());
         
         config->setP2pPort(p2pPortSpin->value());
         config->setDhtPort(dhtPortSpin->value());
@@ -1355,6 +1389,208 @@ void MainWindow::loadSettings()
     }
     
     qInfo() << "Settings loaded";
+}
+
+// ============================================================================
+// Update Management
+// ============================================================================
+
+void MainWindow::checkForUpdates()
+{
+    if (!updateManager) return;
+    
+    logActivity("🔍 Checking for updates...");
+    statusBar()->showMessage("Checking for updates...", 3000);
+    
+    // Disconnect previous connections to avoid duplicates
+    disconnect(updateManager.get(), &UpdateManager::noUpdateAvailable, nullptr, nullptr);
+    disconnect(updateManager.get(), &UpdateManager::checkComplete, nullptr, nullptr);
+    
+    // Connect for this manual check
+    connect(updateManager.get(), &UpdateManager::noUpdateAvailable, this, [this]() {
+        logActivity("✅ You have the latest version");
+        QMessageBox::information(this, tr("No Updates Available"),
+            tr("You are running the latest version of Rats Search (%1).")
+                .arg(UpdateManager::currentVersion()));
+    }, Qt::SingleShotConnection);
+    
+    updateManager->checkForUpdates();
+}
+
+void MainWindow::onUpdateAvailable(const QString& version, const QString& releaseNotes)
+{
+    logActivity(QString("🆕 Update available: version %1").arg(version));
+    
+    // Show update dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Update Available"));
+    dialog.setMinimumSize(500, 400);
+    dialog.setStyleSheet(this->styleSheet());
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(16);
+    layout->setContentsMargins(24, 24, 24, 24);
+    
+    // Header
+    QLabel* headerLabel = new QLabel(QString("🎉 %1").arg(tr("New Version Available!")));
+    headerLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #4a9eff;");
+    layout->addWidget(headerLabel);
+    
+    // Version info
+    QLabel* versionLabel = new QLabel(
+        tr("A new version of Rats Search is available.\n\n"
+           "Current version: %1\n"
+           "New version: %2")
+        .arg(UpdateManager::currentVersion(), version));
+    versionLabel->setStyleSheet("font-size: 14px;");
+    layout->addWidget(versionLabel);
+    
+    // Release notes
+    if (!releaseNotes.isEmpty()) {
+        QLabel* notesHeaderLabel = new QLabel(tr("What's new:"));
+        notesHeaderLabel->setStyleSheet("font-weight: bold; margin-top: 8px;");
+        layout->addWidget(notesHeaderLabel);
+        
+        QTextEdit* notesEdit = new QTextEdit();
+        notesEdit->setReadOnly(true);
+        notesEdit->setMarkdown(releaseNotes);
+        notesEdit->setMaximumHeight(150);
+        layout->addWidget(notesEdit);
+    }
+    
+    // Progress bar (hidden initially)
+    QProgressBar* progressBar = new QProgressBar();
+    progressBar->setVisible(false);
+    progressBar->setTextVisible(true);
+    progressBar->setFormat(tr("Downloading... %p%"));
+    layout->addWidget(progressBar);
+    
+    // Status label
+    QLabel* statusLabel = new QLabel();
+    statusLabel->setStyleSheet("color: #888888;");
+    layout->addWidget(statusLabel);
+    
+    layout->addStretch();
+    
+    // Buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    QPushButton* laterBtn = new QPushButton(tr("Remind Me Later"));
+    laterBtn->setStyleSheet("background-color: #3c3f41;");
+    
+    QPushButton* downloadBtn = new QPushButton(tr("Download && Install"));
+    downloadBtn->setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #27ae60, stop:1 #2ecc71);");
+    
+    buttonLayout->addWidget(laterBtn);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(downloadBtn);
+    layout->addLayout(buttonLayout);
+    
+    // Connect buttons
+    connect(laterBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    
+    connect(downloadBtn, &QPushButton::clicked, [&]() {
+        downloadBtn->setEnabled(false);
+        laterBtn->setText(tr("Cancel"));
+        progressBar->setVisible(true);
+        statusLabel->setText(tr("Starting download..."));
+        
+        // Connect progress updates for this dialog
+        connect(updateManager.get(), &UpdateManager::downloadProgressChanged, 
+                progressBar, &QProgressBar::setValue);
+        
+        connect(updateManager.get(), &UpdateManager::stateChanged,
+                [statusLabel](UpdateManager::UpdateState state) {
+                    switch (state) {
+                    case UpdateManager::UpdateState::Downloading:
+                        statusLabel->setText(tr("Downloading update..."));
+                        break;
+                    case UpdateManager::UpdateState::Extracting:
+                        statusLabel->setText(tr("Extracting update..."));
+                        break;
+                    case UpdateManager::UpdateState::ReadyToInstall:
+                        statusLabel->setText(tr("Ready to install!"));
+                        break;
+                    case UpdateManager::UpdateState::Error:
+                        statusLabel->setText(tr("Error occurred"));
+                        statusLabel->setStyleSheet("color: #e74c3c;");
+                        break;
+                    default:
+                        break;
+                    }
+                });
+        
+        updateManager->downloadUpdate();
+    });
+    
+    // Connect update ready signal
+    connect(updateManager.get(), &UpdateManager::updateReady, &dialog, [&dialog, this]() {
+        dialog.accept();
+        onUpdateReady();
+    });
+    
+    // Connect error signal
+    connect(updateManager.get(), &UpdateManager::errorOccurred, &dialog, 
+            [&dialog, statusLabel, downloadBtn, laterBtn](const QString& error) {
+        statusLabel->setText(tr("Error: %1").arg(error));
+        statusLabel->setStyleSheet("color: #e74c3c;");
+        downloadBtn->setEnabled(true);
+        downloadBtn->setText(tr("Retry"));
+        laterBtn->setText(tr("Close"));
+    });
+    
+    dialog.exec();
+}
+
+void MainWindow::onUpdateDownloadProgress(int percent)
+{
+    statusBar()->showMessage(tr("Downloading update: %1%").arg(percent), 1000);
+}
+
+void MainWindow::onUpdateReady()
+{
+    logActivity("✅ Update downloaded and ready to install");
+    
+    QMessageBox::StandardButton reply = QMessageBox::question(this,
+        tr("Install Update"),
+        tr("The update has been downloaded and is ready to install.\n\n"
+           "The application will close and restart automatically.\n\n"
+           "Do you want to install the update now?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::Yes);
+    
+    if (reply == QMessageBox::Yes) {
+        logActivity("🔄 Installing update and restarting...");
+        
+        // Save settings before update
+        saveSettings();
+        
+        // Stop services gracefully
+        stopServices();
+        
+        // Execute the update script (this will close the app)
+        if (updateManager) {
+            // Access private method through a workaround - call applyUpdate which leads to ready state
+            // Actually we need to call executeUpdateScript, let's make it public or use a signal
+            QMetaObject::invokeMethod(updateManager.get(), "executeUpdateScript", Qt::DirectConnection);
+        }
+    }
+}
+
+void MainWindow::onUpdateError(const QString& error)
+{
+    logActivity(QString("❌ Update error: %1").arg(error));
+    statusBar()->showMessage(tr("Update error: %1").arg(error), 5000);
+}
+
+void MainWindow::showUpdateDialog()
+{
+    if (updateManager && updateManager->isUpdateAvailable()) {
+        const auto& info = updateManager->updateInfo();
+        onUpdateAvailable(info.version, info.releaseNotes);
+    } else {
+        checkForUpdates();
+    }
 }
 
 void MainWindow::saveSettings()
