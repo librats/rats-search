@@ -10,9 +10,13 @@ P2PNetwork::P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObj
     , dataDirectory_(dataDirectory)
     , running_(false)
     , bitTorrentEnabled_(false)
+    , spiderModeEnabled_(false)
 {
     updateTimer_ = new QTimer(this);
     connect(updateTimer_, &QTimer::timeout, this, &P2PNetwork::updatePeerCount);
+    
+    spiderWalkTimer_ = new QTimer(this);
+    connect(spiderWalkTimer_, &QTimer::timeout, this, &P2PNetwork::onSpiderWalkTimer);
 }
 
 P2PNetwork::~P2PNetwork()
@@ -36,6 +40,8 @@ bool P2PNetwork::start()
         ratsClient_->set_protocol_name("rats-search");
         ratsClient_->set_protocol_version("2.0");
         
+        ratsClient_->set_log_level(librats::LogLevel::DEBUG);
+
         // Set data directory
         std::string dataDir = dataDirectory_.toStdString();
         ratsClient_->set_data_directory(dataDir);
@@ -101,6 +107,8 @@ void P2PNetwork::stop()
     qInfo() << "Stopping P2P network...";
     
     updateTimer_->stop();
+    spiderWalkTimer_->stop();
+    spiderModeEnabled_ = false;
     
     if (ratsClient_) {
         // Save configuration and peers
@@ -362,6 +370,75 @@ void P2PNetwork::disableBitTorrent()
         ratsClient_->disable_bittorrent();
         bitTorrentEnabled_ = false;
         qInfo() << "BitTorrent disabled";
+    }
+#endif
+}
+
+void P2PNetwork::enableSpiderMode(int intervalMs)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!ratsClient_) {
+        qWarning() << "Cannot enable spider mode: RatsClient not started";
+        return;
+    }
+    
+    if (spiderModeEnabled_) {
+        qInfo() << "Spider mode already enabled";
+        return;
+    }
+    
+    // Enable spider mode on DHT
+    ratsClient_->set_spider_mode(true);
+    
+    // Set up spider announce callback
+    ratsClient_->set_spider_announce_callback(
+        [this](const std::string& info_hash, const std::string& peer_address) {
+            // Emit signal for spider announce (use Qt invokeMethod for thread safety)
+            QMetaObject::invokeMethod(this, [this, info_hash, peer_address]() {
+                emit spiderAnnounce(QString::fromStdString(info_hash), 
+                                   QString::fromStdString(peer_address));
+            }, Qt::QueuedConnection);
+        });
+    
+    // Start the spider walk timer
+    spiderWalkTimer_->start(intervalMs);
+    spiderModeEnabled_ = true;
+    
+    qInfo() << "Spider mode enabled with interval" << intervalMs << "ms";
+#else
+    Q_UNUSED(intervalMs);
+    qWarning() << "Spider mode features not compiled in";
+#endif
+}
+
+void P2PNetwork::disableSpiderMode()
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!spiderModeEnabled_) {
+        return;
+    }
+    
+    spiderWalkTimer_->stop();
+    
+    if (ratsClient_) {
+        ratsClient_->set_spider_mode(false);
+    }
+    
+    spiderModeEnabled_ = false;
+    qInfo() << "Spider mode disabled";
+#endif
+}
+
+bool P2PNetwork::isSpiderModeEnabled() const
+{
+    return spiderModeEnabled_;
+}
+
+void P2PNetwork::onSpiderWalkTimer()
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (ratsClient_ && spiderModeEnabled_) {
+        ratsClient_->spider_walk();
     }
 #endif
 }
