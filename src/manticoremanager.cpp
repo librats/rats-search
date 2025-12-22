@@ -537,24 +537,22 @@ QString ManticoreManager::findSearchdPath()
     searchPaths << appDir + "/searchd"
                 << appDir + "/searchd.exe";
     
-    // For development builds from build/bin directory
-    // Go up to project root and check imports
-    searchPaths << appDir + "/../../imports/win/x64/searchd.exe"
-                << appDir + "/../../../imports/win/x64/searchd.exe"
-                << appDir + "/../../imports/linux/x64/searchd"
-                << appDir + "/../../../imports/linux/x64/searchd";
-    
     // Check imports directory based on platform
+    // For both deployed and development builds (from build/bin directory)
 #ifdef Q_OS_WIN
     #ifdef Q_PROCESSOR_X86_64
     searchPaths << appDir + "/../imports/win/x64/searchd.exe"
                 << appDir + "/imports/win/x64/searchd.exe"
+                << appDir + "/../../imports/win/x64/searchd.exe"
+                << appDir + "/../../../imports/win/x64/searchd.exe"
                 << "imports/win/x64/searchd.exe"
                 << "../imports/win/x64/searchd.exe"
                 << "../../imports/win/x64/searchd.exe";
     #else
     searchPaths << appDir + "/../imports/win/ia32/searchd.exe"
                 << appDir + "/imports/win/ia32/searchd.exe"
+                << appDir + "/../../imports/win/ia32/searchd.exe"
+                << appDir + "/../../../imports/win/ia32/searchd.exe"
                 << "imports/win/ia32/searchd.exe"
                 << "../imports/win/ia32/searchd.exe"
                 << "../../imports/win/ia32/searchd.exe";
@@ -562,21 +560,31 @@ QString ManticoreManager::findSearchdPath()
 #elif defined(Q_OS_MACOS)
     #ifdef Q_PROCESSOR_ARM
     searchPaths << appDir + "/../imports/darwin/arm64/searchd"
+                << appDir + "/../../imports/darwin/arm64/searchd"
+                << appDir + "/../../../imports/darwin/arm64/searchd"
                 << "imports/darwin/arm64/searchd"
-                << "../imports/darwin/arm64/searchd";
+                << "../imports/darwin/arm64/searchd"
+                << "../../imports/darwin/arm64/searchd";
     #else
     searchPaths << appDir + "/../imports/darwin/x64/searchd"
+                << appDir + "/../../imports/darwin/x64/searchd"
+                << appDir + "/../../../imports/darwin/x64/searchd"
                 << "imports/darwin/x64/searchd"
-                << "../imports/darwin/x64/searchd";
+                << "../imports/darwin/x64/searchd"
+                << "../../imports/darwin/x64/searchd";
     #endif
 #else  // Linux
     #ifdef Q_PROCESSOR_X86_64
     searchPaths << appDir + "/../imports/linux/x64/searchd"
+                << appDir + "/../../imports/linux/x64/searchd"
+                << appDir + "/../../../imports/linux/x64/searchd"
                 << "imports/linux/x64/searchd"
                 << "../imports/linux/x64/searchd"
                 << "../../imports/linux/x64/searchd";
     #else
     searchPaths << appDir + "/../imports/linux/ia32/searchd"
+                << appDir + "/../../imports/linux/ia32/searchd"
+                << appDir + "/../../../imports/linux/ia32/searchd"
                 << "imports/linux/ia32/searchd"
                 << "../imports/linux/ia32/searchd"
                 << "../../imports/linux/ia32/searchd";
