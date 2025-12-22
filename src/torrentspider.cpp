@@ -328,17 +328,17 @@ void TorrentSpider::fetchMetadata(const QString& infoHash)
             // Extract file list
             QVector<QPair<QString, qint64>> filesList;
             for (const auto& file : torrentInfo.get_files()) {
-                filesList.append({QString::fromStdString(file.path), static_cast<qint64>(file.size)});
+                filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.length)));
             }
             
             // Call handler on main thread
             QMetaObject::invokeMethod(this, [this, infoHash, 
                                              name = QString::fromStdString(torrentInfo.get_name()),
-                                             size = static_cast<qint64>(torrentInfo.get_total_size()),
+                                             totalSize = static_cast<qint64>(torrentInfo.get_total_length()),
                                              files = static_cast<int>(torrentInfo.get_files().size()),
                                              pieceLength = static_cast<int>(torrentInfo.get_piece_length()),
                                              filesList]() {
-                onMetadataReceived(infoHash, name, size, files, pieceLength, filesList);
+                onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
             }, Qt::QueuedConnection);
         });
 #else
