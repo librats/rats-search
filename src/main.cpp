@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
         
         // Set application information
         QCoreApplication::setApplicationName("Rats Search");
-        QCoreApplication::setOrganizationName("Rats Search");
+        QCoreApplication::setOrganizationName("");  // Empty to avoid nested folder
         QCoreApplication::setApplicationVersion("2.0.0");
         
         // Command line parser
@@ -393,7 +393,7 @@ int main(int argc, char *argv[])
         
         // Set application information
         QApplication::setApplicationName("Rats Search");
-        QApplication::setOrganizationName("Rats Search");
+        QApplication::setOrganizationName("");  // Empty to avoid nested folder
         QApplication::setApplicationVersion("2.0.0");
         
         // Command line parser
