@@ -371,6 +371,16 @@ int main(int argc, char *argv[])
             return 1;
         }
         
+        // Enable file logging
+        auto& logger = librats::Logger::getInstance();
+        QString logFilePath = dataDir + "/rats-search.log";
+        logger.set_log_file_path(logFilePath.toStdString());
+        logger.set_log_rotation_size(0);  // No rotation
+        logger.set_file_logging_enabled(true);
+        logger.set_log_level(librats::LogLevel::DEBUG);  // Log everything to file
+        
+        qInfo() << "Log file:" << logFilePath;
+        
         return runConsoleMode(app, p2pPort, dhtPort, dataDir, enableSpider);
     }
     else {
@@ -425,8 +435,17 @@ int main(int argc, char *argv[])
             return 1;
         }
         
+        // Enable file logging
+        auto& logger = librats::Logger::getInstance();
+        QString logFilePath = dataDir + "/rats-search.log";
+        logger.set_log_file_path(logFilePath.toStdString());
+        logger.set_log_rotation_size(0);  // No rotation
+        logger.set_file_logging_enabled(true);
+        logger.set_log_level(librats::LogLevel::DEBUG);  // Log everything to file
+        
         qInfo() << "Rats Search starting...";
         qInfo() << "Data directory:" << dataDir;
+        qInfo() << "Log file:" << logFilePath;
         qInfo() << "P2P port:" << p2pPort;
         qInfo() << "DHT port:" << dhtPort;
         
