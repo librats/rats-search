@@ -72,23 +72,6 @@ public:
      */
     void disableBitTorrent();
     
-    /**
-     * @brief Enable spider mode for DHT
-     * Spider mode enables aggressive node discovery and collects announce_peer requests
-     * @param intervalMs Interval between spider_walk calls in milliseconds (default: 100ms)
-     */
-    void enableSpiderMode(int intervalMs = 100);
-    
-    /**
-     * @brief Disable spider mode
-     */
-    void disableSpiderMode();
-    
-    /**
-     * @brief Check if spider mode is enabled
-     */
-    bool isSpiderModeEnabled() const;
-    
     // Search torrents in P2P network
     void searchTorrents(const QString& query);
     
@@ -108,13 +91,9 @@ signals:
                              qint64 size, int seeders, int leechers);
     
     void error(const QString& errorMessage);
-    
-    // Spider mode signals
-    void spiderAnnounce(const QString& infoHash, const QString& peerAddress);
 
 private slots:
     void updatePeerCount();
-    void onSpiderWalkTimer();
 
 private:
     void setupCallbacks();
@@ -126,10 +105,8 @@ private:
     QString dataDirectory_;
     bool running_;
     bool bitTorrentEnabled_;
-    bool spiderModeEnabled_;
     
     QTimer *updateTimer_;
-    QTimer *spiderWalkTimer_;
 };
 
 #endif // P2PNETWORK_H

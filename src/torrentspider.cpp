@@ -80,11 +80,40 @@ bool TorrentSpider::start()
                 // Continue anyway, we can still discover hashes
             }
         }
+        
+        // Enable spider mode with announce callback
+        client->set_spider_mode(true);
+        
+        // Set up spider announce callback to handle announce_peer messages
+        client->set_spider_announce_callback(
+            [this](const std::string& info_hash_hex, const std::string& peer_address) {
+                // Parse peer address (ip:port)
+                std::string ip;
+                uint16_t port = 0;
+                size_t colon_pos = peer_address.find(':');
+                if (colon_pos != std::string::npos) {
+                    ip = peer_address.substr(0, colon_pos);
+                    port = static_cast<uint16_t>(std::stoi(peer_address.substr(colon_pos + 1)));
+                }
+                
+                // Convert hex string to array
+                std::array<uint8_t, 20> infoHash;
+                for (size_t i = 0; i < 20 && i * 2 + 1 < info_hash_hex.size(); ++i) {
+                    infoHash[i] = static_cast<uint8_t>(std::stoi(info_hash_hex.substr(i * 2, 2), nullptr, 16));
+                }
+                
+                // Call onAnnounce on main thread
+                QMetaObject::invokeMethod(this, [this, infoHash, ip, port]() {
+                    onAnnounce(infoHash, ip, port);
+                }, Qt::QueuedConnection);
+            });
+        
+        qInfo() << "Spider mode enabled with announce callback";
 #endif
         
         running_ = true;
         
-        // Start timers
+        // Start timers - use walk timer for spider_walk
         walkTimer_->start(walkIntervalMs_);
         ignoreTimer_->start(ignoreIntervalMs_);
         metadataQueueTimer_->start(100);  // Process queue every 100ms
@@ -113,6 +142,14 @@ void TorrentSpider::stop()
     walkTimer_->stop();
     ignoreTimer_->stop();
     metadataQueueTimer_->stop();
+    
+#ifdef RATS_SEARCH_FEATURES
+    // Disable spider mode
+    librats::RatsClient* client = getRatsClient();
+    if (client) {
+        client->set_spider_mode(false);
+    }
+#endif
     
     // Note: We don't stop the RatsClient here - P2PNetwork owns it
     
@@ -179,14 +216,27 @@ void TorrentSpider::onSpiderWalk()
         return;
     }
     
-    // The DHT discovery in librats already performs periodic walks
-    // Here we can add additional logic if needed
+#ifdef RATS_SEARCH_FEATURES
+    // Trigger spider walk to expand DHT routing table
+    librats::RatsClient* client = getRatsClient();
+    if (client) {
+        client->spider_walk();
+    }
+#endif
 }
 
 void TorrentSpider::onIgnoreToggle()
 {
-    // Rate limiting logic
+#ifdef RATS_SEARCH_FEATURES
+    // Rate limiting logic - toggle spider ignore mode
     // In legacy code, this toggled spider_ignore to manage incoming request rate
+    librats::RatsClient* client = getRatsClient();
+    if (client && client->is_spider_mode()) {
+        // Toggle ignore mode - this limits incoming DHT requests
+        bool currentIgnore = client->is_spider_ignoring();
+        client->set_spider_ignore(!currentIgnore);
+    }
+#endif
 }
 
 void TorrentSpider::processMetadataQueue()
