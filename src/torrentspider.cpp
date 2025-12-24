@@ -88,12 +88,18 @@ bool TorrentSpider::start()
         client->set_spider_announce_callback(
             [this](const std::string& info_hash_hex, const std::string& peer_address) {
                 // Parse peer address (ip:port)
+                // Use rfind to find the LAST colon - important for IPv6 addresses like ::ffff:1.2.3.4:port
                 std::string ip;
                 uint16_t port = 0;
-                size_t colon_pos = peer_address.find(':');
+                size_t colon_pos = peer_address.rfind(':');
                 if (colon_pos != std::string::npos) {
                     ip = peer_address.substr(0, colon_pos);
-                    port = static_cast<uint16_t>(std::stoi(peer_address.substr(colon_pos + 1)));
+                    try {
+                        port = static_cast<uint16_t>(std::stoi(peer_address.substr(colon_pos + 1)));
+                    } catch (const std::exception& e) {
+                        qWarning() << "Failed to parse port from peer address:" << QString::fromStdString(peer_address);
+                        return;
+                    }
                 }
                 
                 // Convert hex string to array
