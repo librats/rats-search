@@ -297,6 +297,8 @@ void TorrentSpider::onAnnounce(const std::array<uint8_t, 20>& infoHash,
     if (database_ && database_->hasTorrent(hashHex)) {
         return;
     }
+
+    qDebug() << "Discovered torrent:" << hashHex;
     
     // Add to metadata queue
     {
