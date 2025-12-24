@@ -7,8 +7,13 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QSocketNotifier>
 #include <iostream>
 #include <csignal>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include "mainwindow.h"
 #include "torrentdatabase.h"
 #include "torrentspider.h"
@@ -194,13 +199,15 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     
     qInfo() << "Console mode running. Press Ctrl+C to stop.";
     
-    // Interactive command loop (optional)
+    // Interactive command loop using non-blocking stdin
+    // Use QSocketNotifier to get notified when stdin has data ready
     QTextStream in(stdin);
-    QTimer commandTimer;
     
-    QObject::connect(&commandTimer, &QTimer::timeout, [&]() {
-        if (in.atEnd()) return;
-        
+#ifndef _WIN32
+    // On Unix-like systems, use QSocketNotifier for non-blocking stdin
+    QSocketNotifier stdinNotifier(STDIN_FILENO, QSocketNotifier::Read);
+    
+    QObject::connect(&stdinNotifier, &QSocketNotifier::activated, [&]() {
         QString line = in.readLine().trimmed();
         if (line.isEmpty()) return;
         
@@ -290,7 +297,12 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
             std::cout << "Unknown command: " << cmd.toStdString() << ". Type 'help' for commands." << std::endl;
         }
     });
-    commandTimer.start(100);
+#else
+    // On Windows, stdin notification is tricky - skip interactive commands
+    // The application will still work, just without interactive console
+    qInfo() << "Interactive commands not available on Windows console mode.";
+    qInfo() << "Use Ctrl+C to stop.";
+#endif
     
     return app.exec();
 }
