@@ -94,6 +94,16 @@ public:
      */
     size_t getDhtNodeCount() const;
 
+    /**
+     * @brief Get spider pool size (separate from routing table)
+     */
+    size_t getSpiderPoolSize() const;
+
+    /**
+     * @brief Get number of visited nodes in spider mode
+     */
+    size_t getSpiderVisitedCount() const;
+
 signals:
     void started();
     void stopped();

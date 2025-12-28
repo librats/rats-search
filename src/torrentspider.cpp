@@ -216,6 +216,28 @@ size_t TorrentSpider::getDhtNodeCount() const
     return p2pNetwork_->getDhtNodeCount();
 }
 
+size_t TorrentSpider::getSpiderPoolSize() const
+{
+#ifdef RATS_SEARCH_FEATURES
+    librats::RatsClient* client = getRatsClient();
+    if (client) {
+        return client->get_spider_pool_size();
+    }
+#endif
+    return 0;
+}
+
+size_t TorrentSpider::getSpiderVisitedCount() const
+{
+#ifdef RATS_SEARCH_FEATURES
+    librats::RatsClient* client = getRatsClient();
+    if (client) {
+        return client->get_spider_visited_count();
+    }
+#endif
+    return 0;
+}
+
 void TorrentSpider::onSpiderWalk()
 {
     if (!running_) {
