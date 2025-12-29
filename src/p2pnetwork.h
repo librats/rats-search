@@ -5,24 +5,26 @@
 #include <QString>
 #include <QThread>
 #include <QTimer>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <memory>
+#include <functional>
 
 namespace librats {
     class RatsClient;
 }
 
 /**
- * @brief P2PNetwork - Central owner of librats RatsClient for Qt integration
+ * @brief P2PNetwork - Transport layer for P2P communication
  * 
- * This class is the SINGLE owner of RatsClient. All other components
- * that need access to RatsClient should get it through this class.
- * 
- * Handles P2P networking using librats library, including:
+ * This class is purely a transport layer - it handles:
+ * - Managing librats RatsClient lifecycle
  * - Peer discovery (DHT, mDNS)
- * - Torrent search in P2P network
- * - Torrent data exchange
+ * - Sending/receiving messages
  * - GossipSub pub-sub messaging
- * - BitTorrent functionality (when enabled)
+ * 
+ * All business logic (search handling, response generation) belongs in RatsAPI.
+ * P2PNetwork emits signals when messages arrive, and RatsAPI handles them.
  */
 class P2PNetwork : public QObject
 {
@@ -32,71 +34,101 @@ public:
     explicit P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObject *parent = nullptr);
     ~P2PNetwork();
 
+    // =========================================================================
+    // Lifecycle
+    // =========================================================================
     bool start();
     void stop();
     bool isRunning() const;
     bool isConnected() const;
     
+    // =========================================================================
+    // Peer Info
+    // =========================================================================
     int getPeerCount() const;
     QString getOurPeerId() const;
-    
-    /**
-     * @brief Get the RatsClient instance
-     * @note This is the only RatsClient instance - do not create others!
-     * @return Pointer to RatsClient, or nullptr if not started
-     */
-    librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }
-    
-    /**
-     * @brief Get DHT routing table size
-     */
     size_t getDhtNodeCount() const;
-    
-    /**
-     * @brief Check if DHT is running
-     */
     bool isDhtRunning() const;
     
-    /**
-     * @brief Check if BitTorrent is enabled
-     */
-    bool isBitTorrentEnabled() const;
+    // =========================================================================
+    // Message Sending (Transport Layer)
+    // =========================================================================
     
     /**
-     * @brief Enable BitTorrent functionality
+     * @brief Send a message to a specific peer
      */
-    bool enableBitTorrent();
+    bool sendMessage(const QString& peerId, const QString& messageType, const QJsonObject& data);
     
     /**
-     * @brief Disable BitTorrent functionality
+     * @brief Broadcast a message to all connected peers
      */
-    void disableBitTorrent();
+    int broadcastMessage(const QString& messageType, const QJsonObject& data);
     
-    // Search torrents in P2P network
+    /**
+     * @brief Publish message to GossipSub topic
+     */
+    bool publishToTopic(const QString& topic, const QJsonObject& data);
+    
+    /**
+     * @brief Send search request to all peers and publish to GossipSub
+     * Convenience method for torrent search
+     */
     void searchTorrents(const QString& query);
     
-    // Announce torrent
+    /**
+     * @brief Announce a torrent to the network
+     */
     void announceTorrent(const QString& infoHash, const QString& name);
+    
+    // =========================================================================
+    // Message Handler Registration
+    // =========================================================================
+    
+    using MessageHandler = std::function<void(const QString& peerId, const QJsonObject& data)>;
+    
+    /**
+     * @brief Register a handler for a specific message type
+     * This allows RatsAPI to register handlers without P2PNetwork knowing the business logic
+     */
+    void registerMessageHandler(const QString& messageType, MessageHandler handler);
+    
+    /**
+     * @brief Unregister handler for a message type
+     */
+    void unregisterMessageHandler(const QString& messageType);
+    
+    // =========================================================================
+    // BitTorrent (optional feature)
+    // =========================================================================
+    bool isBitTorrentEnabled() const;
+    bool enableBitTorrent();
+    void disableBitTorrent();
+    
+    /**
+     * @brief Get the RatsClient instance (for advanced usage)
+     */
+    librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }
 
 signals:
+    // Lifecycle signals
     void started();
     void stopped();
     void statusChanged(const QString& status);
+    void error(const QString& errorMessage);
+    
+    // Peer signals
     void peerCountChanged(int count);
     void peerConnected(const QString& peerId);
     void peerDisconnected(const QString& peerId);
     
-    // Search results from other peers
-    void searchResultReceived(const QString& infoHash, const QString& name, 
-                             qint64 size, int seeders, int leechers);
-    
-    void error(const QString& errorMessage);
+    // Generic message signal (for messages without registered handlers)
+    void messageReceived(const QString& peerId, const QString& messageType, const QJsonObject& data);
 
 private slots:
     void updatePeerCount();
 
 private:
-    void setupCallbacks();
+    void setupLibratsCallbacks();
     void setupGossipSub();
     
     std::unique_ptr<librats::RatsClient> ratsClient_;
@@ -106,8 +138,10 @@ private:
     bool running_;
     bool bitTorrentEnabled_;
     
+    // Registered message handlers
+    QHash<QString, MessageHandler> messageHandlers_;
+    
     QTimer *updateTimer_;
 };
 
 #endif // P2PNETWORK_H
-

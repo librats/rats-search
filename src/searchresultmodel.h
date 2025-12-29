@@ -33,9 +33,12 @@ public:
     
     // Custom methods
     void setResults(const QVector<TorrentInfo> &results);
+    void addResult(const TorrentInfo &result);
+    void addResults(const QVector<TorrentInfo> &results);
     void clearResults();
     TorrentInfo getTorrent(int row) const;
     QString getInfoHash(int row) const;
+    int resultCount() const { return results_.size(); }
 
 private:
     QString formatSize(qint64 bytes) const;

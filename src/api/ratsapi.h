@@ -14,6 +14,8 @@ class P2PNetwork;
 class TorrentClient;
 class ConfigManager;
 class FeedManager;
+struct TorrentInfo;
+struct TorrentFile;
 
 /**
  * @brief ApiResponse - Standard response wrapper for all API calls
@@ -94,6 +96,11 @@ public:
     
     /**
      * @brief Initialize the API with required dependencies
+     * 
+     * This method:
+     * - Sets up all required dependencies
+     * - Registers P2P message handlers for remote API calls
+     * - Initializes download manager, feed manager, etc.
      */
     void initialize(TorrentDatabase* database,
                    P2PNetwork* p2p,
@@ -104,6 +111,26 @@ public:
      * @brief Check if API is ready
      */
     bool isReady() const;
+    
+    // =========================================================================
+    // P2P API (Remote peer requests - like legacy api.js)
+    // =========================================================================
+    
+    /**
+     * @brief Setup all P2P message handlers
+     * 
+     * This registers handlers for remote API calls from other peers:
+     * - torrent_search / searchTorrent
+     * - searchFiles
+     * - topTorrents
+     * - torrent (get single torrent)
+     * - feed
+     * - vote
+     * 
+     * Called automatically during initialize(), but can be called again
+     * if P2P network is restarted.
+     */
+    void setupP2PHandlers();
     
     // =========================================================================
     // Generic API call (for REST/WebSocket routing)
@@ -346,6 +373,22 @@ private:
     void registerMethods();
     using MethodHandler = std::function<void(const QJsonObject&, ApiCallback)>;
     QHash<QString, MethodHandler> methods_;
+    
+    // =========================================================================
+    // P2P Message Handlers (remote peer requests)
+    // These handle incoming requests from other peers and send responses
+    // =========================================================================
+    
+    void handleP2PSearchRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PSearchFilesRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PTopTorrentsRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PTorrentRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PFeedRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PSearchResult(const QString& peerId, const QJsonObject& data);
+    void handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject& data);
+    
+    // Helper to convert TorrentInfo to JSON for P2P responses
+    static QJsonObject torrentToP2PJson(const TorrentInfo& torrent);
 };
 
 #endif // RATSAPI_H

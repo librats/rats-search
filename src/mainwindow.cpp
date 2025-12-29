@@ -769,12 +769,37 @@ void MainWindow::initializeServicesDeferred()
     qInfo() << "Starting deferred initialization...";
     
     // Initialize RatsAPI with all dependencies
+    // RatsAPI::initialize() automatically sets up P2P message handlers
+    // All P2P API logic is centralized in RatsAPI (like legacy api.js)
     qint64 apiStart = timer.elapsed();
     api->initialize(torrentDatabase.get(), p2pNetwork.get(), torrentClient.get(), config.get());
     qInfo() << "RatsAPI initialize took:" << (timer.elapsed() - apiStart) << "ms";
     
     // Connect signals before starting services
     connectSignals();
+    
+    // Connect RatsAPI remote search results to UI
+    // When RatsAPI receives search results from other peers, update UI
+    connect(api.get(), &RatsAPI::remoteSearchResults,
+            this, [this](const QString& /*searchId*/, const QJsonArray& torrents) {
+        // Add remote results to current search
+        for (const QJsonValue& val : torrents) {
+            QJsonObject obj = val.toObject();
+            TorrentInfo info;
+            info.hash = obj["hash"].toString();
+            if (info.hash.isEmpty()) {
+                info.hash = obj["info_hash"].toString();
+            }
+            info.name = obj["name"].toString();
+            info.size = obj["size"].toVariant().toLongLong();
+            info.seeders = obj["seeders"].toInt();
+            info.leechers = obj["leechers"].toInt();
+            
+            if (info.isValid()) {
+                searchResultModel->addResult(info);
+            }
+        }
+    });
     
     // Start REST/WebSocket API server if enabled
     if (config->restApiEnabled()) {

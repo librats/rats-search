@@ -2,6 +2,25 @@
 #include "librats.h"
 #include <QTimer>
 #include <QDebug>
+#include <QJsonDocument>
+#include <QDateTime>
+
+// Helper: Convert nlohmann::json to QJsonObject
+static QJsonObject nlohmannToQt(const nlohmann::json& j) {
+    if (j.is_null() || !j.is_object()) {
+        return QJsonObject();
+    }
+    QString jsonStr = QString::fromStdString(j.dump());
+    QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+    return doc.object();
+}
+
+// Helper: Convert QJsonObject to nlohmann::json
+static nlohmann::json qtToNlohmann(const QJsonObject& obj) {
+    QJsonDocument doc(obj);
+    std::string jsonStr = doc.toJson(QJsonDocument::Compact).toStdString();
+    return nlohmann::json::parse(jsonStr);
+}
 
 P2PNetwork::P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObject *parent)
     : QObject(parent)
@@ -45,8 +64,8 @@ bool P2PNetwork::start()
         // Load configuration
         ratsClient_->load_configuration();
         
-        // Setup callbacks
-        setupCallbacks();
+        // Setup librats callbacks
+        setupLibratsCallbacks();
         
         // Start the client
         if (!ratsClient_->start()) {
@@ -151,6 +170,60 @@ QString P2PNetwork::getOurPeerId() const
     return QString::fromStdString(ratsClient_->get_our_peer_id());
 }
 
+size_t P2PNetwork::getDhtNodeCount() const
+{
+    if (!ratsClient_) {
+        return 0;
+    }
+    return ratsClient_->get_dht_routing_table_size();
+}
+
+bool P2PNetwork::isDhtRunning() const
+{
+    if (!ratsClient_) {
+        return false;
+    }
+    return ratsClient_->is_dht_running();
+}
+
+// =========================================================================
+// Message Sending (Transport Layer)
+// =========================================================================
+
+bool P2PNetwork::sendMessage(const QString& peerId, const QString& messageType, const QJsonObject& data)
+{
+    if (!isRunning()) {
+        qWarning() << "Cannot send message: P2P network not running";
+        return false;
+    }
+    
+    nlohmann::json jsonData = qtToNlohmann(data);
+    ratsClient_->send(peerId.toStdString(), messageType.toStdString(), jsonData);
+    return true;
+}
+
+int P2PNetwork::broadcastMessage(const QString& messageType, const QJsonObject& data)
+{
+    if (!isRunning()) {
+        qWarning() << "Cannot broadcast: P2P network not running";
+        return 0;
+    }
+    
+    nlohmann::json jsonData = qtToNlohmann(data);
+    ratsClient_->send(messageType.toStdString(), jsonData);
+    return getPeerCount();  // Approximate count
+}
+
+bool P2PNetwork::publishToTopic(const QString& topic, const QJsonObject& data)
+{
+    if (!isRunning()) {
+        return false;
+    }
+    
+    nlohmann::json jsonData = qtToNlohmann(data);
+    return ratsClient_->publish_json_to_topic(topic.toStdString(), jsonData);
+}
+
 void P2PNetwork::searchTorrents(const QString& query)
 {
     if (!isRunning()) {
@@ -160,16 +233,15 @@ void P2PNetwork::searchTorrents(const QString& query)
     
     qInfo() << "Searching P2P network for:" << query;
     
-    // Create search message
-    nlohmann::json searchMsg;
-    searchMsg["query"] = query.toStdString();
-    searchMsg["timestamp"] = std::chrono::system_clock::now().time_since_epoch().count();
+    QJsonObject searchMsg;
+    searchMsg["query"] = query;
+    searchMsg["timestamp"] = QDateTime::currentMSecsSinceEpoch();
     
     // Send search request to all peers
-    ratsClient_->send("torrent_search", searchMsg);
+    broadcastMessage("torrent_search", searchMsg);
     
     // Also publish to GossipSub topic for wider dissemination
-    ratsClient_->publish_json_to_topic("rats-search", searchMsg);
+    publishToTopic("rats-search", searchMsg);
 }
 
 void P2PNetwork::announceTorrent(const QString& infoHash, const QString& name)
@@ -180,19 +252,65 @@ void P2PNetwork::announceTorrent(const QString& infoHash, const QString& name)
     
     qInfo() << "Announcing torrent:" << name;
     
-    nlohmann::json announceMsg;
-    announceMsg["info_hash"] = infoHash.toStdString();
-    announceMsg["name"] = name.toStdString();
-    announceMsg["timestamp"] = std::chrono::system_clock::now().time_since_epoch().count();
+    QJsonObject announceMsg;
+    announceMsg["info_hash"] = infoHash;
+    announceMsg["name"] = name;
+    announceMsg["timestamp"] = QDateTime::currentMSecsSinceEpoch();
     
     // Broadcast to all peers
-    ratsClient_->send("torrent_announce", announceMsg);
+    broadcastMessage("torrent_announce", announceMsg);
     
     // Publish to GossipSub
-    ratsClient_->publish_json_to_topic("rats-announcements", announceMsg);
+    publishToTopic("rats-announcements", announceMsg);
 }
 
-void P2PNetwork::setupCallbacks()
+// =========================================================================
+// Message Handler Registration
+// =========================================================================
+
+void P2PNetwork::registerMessageHandler(const QString& messageType, MessageHandler handler)
+{
+    if (!ratsClient_) {
+        // Store handler for later registration when client starts
+        messageHandlers_[messageType] = handler;
+        return;
+    }
+    
+    messageHandlers_[messageType] = handler;
+    
+    // Register with librats
+    ratsClient_->on(messageType.toStdString(), 
+        [this, messageType](const std::string& peer_id, const nlohmann::json& data) {
+            QString peerId = QString::fromStdString(peer_id);
+            QJsonObject jsonData = nlohmannToQt(data);
+            
+            // Call registered handler
+            auto it = messageHandlers_.find(messageType);
+            if (it != messageHandlers_.end() && it.value()) {
+                it.value()(peerId, jsonData);
+            } else {
+                // Emit signal for unhandled messages
+                emit messageReceived(peerId, messageType, jsonData);
+            }
+        });
+    
+    qDebug() << "Registered P2P message handler for:" << messageType;
+}
+
+void P2PNetwork::unregisterMessageHandler(const QString& messageType)
+{
+    messageHandlers_.remove(messageType);
+    
+    if (ratsClient_) {
+        ratsClient_->off(messageType.toStdString());
+    }
+}
+
+// =========================================================================
+// Private Implementation
+// =========================================================================
+
+void P2PNetwork::setupLibratsCallbacks()
 {
     if (!ratsClient_) {
         return;
@@ -214,45 +332,22 @@ void P2PNetwork::setupCallbacks()
         emit peerCountChanged(ratsClient_->get_peer_count());
     });
     
-    // Handle torrent search requests
-    ratsClient_->on("torrent_search", [this](const std::string& peer_id, const nlohmann::json& data) {
-        Q_UNUSED(peer_id);
-        qDebug() << "Received torrent search request from peer";
-        
-        // TODO: Search local database and respond
-        if (data.contains("query")) {
-            QString query = QString::fromStdString(data["query"].get<std::string>());
-            qDebug() << "Search query:" << query;
-        }
-    });
-    
-    // Handle torrent search responses
-    ratsClient_->on("torrent_search_result", [this](const std::string& peer_id, const nlohmann::json& data) {
-        Q_UNUSED(peer_id);
-        
-        if (data.contains("info_hash") && data.contains("name")) {
-            QString infoHash = QString::fromStdString(data["info_hash"].get<std::string>());
-            QString name = QString::fromStdString(data["name"].get<std::string>());
-            qint64 size = data.value("size", 0);
-            int seeders = data.value("seeders", 0);
-            int leechers = data.value("leechers", 0);
-            
-            emit searchResultReceived(infoHash, name, size, seeders, leechers);
-        }
-    });
-    
-    // Handle torrent announcements
-    ratsClient_->on("torrent_announce", [this](const std::string& peer_id, const nlohmann::json& data) {
-        Q_UNUSED(peer_id);
-        
-        if (data.contains("info_hash") && data.contains("name")) {
-            QString infoHash = QString::fromStdString(data["info_hash"].get<std::string>());
-            QString name = QString::fromStdString(data["name"].get<std::string>());
-            
-            qDebug() << "Received torrent announcement:" << name;
-            // TODO: Add to database
-        }
-    });
+    // Re-register any handlers that were added before start()
+    for (auto it = messageHandlers_.begin(); it != messageHandlers_.end(); ++it) {
+        const QString& messageType = it.key();
+        ratsClient_->on(messageType.toStdString(),
+            [this, messageType](const std::string& peer_id, const nlohmann::json& data) {
+                QString peerId = QString::fromStdString(peer_id);
+                QJsonObject jsonData = nlohmannToQt(data);
+                
+                auto handler = messageHandlers_.find(messageType);
+                if (handler != messageHandlers_.end() && handler.value()) {
+                    handler.value()(peerId, jsonData);
+                } else {
+                    emit messageReceived(peerId, messageType, jsonData);
+                }
+            });
+    }
 }
 
 void P2PNetwork::setupGossipSub()
@@ -272,30 +367,8 @@ void P2PNetwork::setupGossipSub()
         qInfo() << "Subscribed to rats-announcements topic";
     }
     
-    // Handle messages on rats-search topic
-    ratsClient_->on_topic_json_message("rats-search", 
-        [this](const std::string& peer_id, const std::string& topic, const nlohmann::json& data) {
-            Q_UNUSED(peer_id);
-            Q_UNUSED(topic);
-            
-            if (data.contains("query")) {
-                QString query = QString::fromStdString(data["query"].get<std::string>());
-                qDebug() << "GossipSub search query:" << query;
-            }
-        });
-    
-    // Handle messages on rats-announcements topic
-    ratsClient_->on_topic_json_message("rats-announcements",
-        [this](const std::string& peer_id, const std::string& topic, const nlohmann::json& data) {
-            Q_UNUSED(peer_id);
-            Q_UNUSED(topic);
-            
-            if (data.contains("info_hash") && data.contains("name")) {
-                QString infoHash = QString::fromStdString(data["info_hash"].get<std::string>());
-                QString name = QString::fromStdString(data["name"].get<std::string>());
-                qDebug() << "GossipSub torrent announcement:" << name;
-            }
-        });
+    // GossipSub messages are forwarded via messageReceived signal
+    // RatsAPI can register handlers for specific topics
 }
 
 void P2PNetwork::updatePeerCount()
@@ -310,21 +383,9 @@ void P2PNetwork::updatePeerCount()
     }
 }
 
-size_t P2PNetwork::getDhtNodeCount() const
-{
-    if (!ratsClient_) {
-        return 0;
-    }
-    return ratsClient_->get_dht_routing_table_size();
-}
-
-bool P2PNetwork::isDhtRunning() const
-{
-    if (!ratsClient_) {
-        return false;
-    }
-    return ratsClient_->is_dht_running();
-}
+// =========================================================================
+// BitTorrent (optional)
+// =========================================================================
 
 bool P2PNetwork::isBitTorrentEnabled() const
 {
@@ -367,4 +428,3 @@ void P2PNetwork::disableBitTorrent()
     }
 #endif
 }
-

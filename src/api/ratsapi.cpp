@@ -126,8 +126,80 @@ void RatsAPI::initialize(TorrentDatabase* database,
         });
     }
     
+    // Setup P2P message handlers for remote API calls
+    setupP2PHandlers();
+    
     d->ready = true;
     qInfo() << "RatsAPI initialized";
+}
+
+// ============================================================================
+// P2P API Setup (like legacy api.js)
+// ============================================================================
+
+void RatsAPI::setupP2PHandlers()
+{
+    if (!d->p2p) {
+        qWarning() << "Cannot setup P2P handlers: P2P network not available";
+        return;
+    }
+    
+    qInfo() << "Setting up P2P API handlers...";
+    
+    // Handler for torrent search requests from remote peers
+    // Legacy: p2p.on('searchTorrent', ...)
+    d->p2p->registerMessageHandler("torrent_search", 
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PSearchRequest(peerId, data);
+        });
+    
+    // Also register legacy name for compatibility
+    d->p2p->registerMessageHandler("searchTorrent",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PSearchRequest(peerId, data);
+        });
+    
+    // Handler for file search requests
+    // Legacy: p2p.on('searchFiles', ...)
+    d->p2p->registerMessageHandler("searchFiles",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PSearchFilesRequest(peerId, data);
+        });
+    
+    // Handler for top torrents requests
+    // Legacy: p2p.on('topTorrents', ...)
+    d->p2p->registerMessageHandler("topTorrents",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PTopTorrentsRequest(peerId, data);
+        });
+    
+    // Handler for single torrent requests
+    // Legacy: p2p.on('torrent', ...)
+    d->p2p->registerMessageHandler("torrent",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PTorrentRequest(peerId, data);
+        });
+    
+    // Handler for feed requests
+    // Legacy: p2p.on('feed', ...)
+    d->p2p->registerMessageHandler("feed",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PFeedRequest(peerId, data);
+        });
+    
+    // Handler for search results from other peers (incoming results)
+    d->p2p->registerMessageHandler("torrent_search_result",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PSearchResult(peerId, data);
+        });
+    
+    // Handler for torrent announcements
+    d->p2p->registerMessageHandler("torrent_announce",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PTorrentAnnounce(peerId, data);
+        });
+    
+    qInfo() << "P2P API handlers registered";
 }
 
 bool RatsAPI::isReady() const
@@ -764,4 +836,279 @@ void RatsAPI::getFeed(int index, int limit, ApiCallback callback)
     
     QJsonArray feed = d->feedManager->toJsonArray(index, limit);
     if (callback) callback(ApiResponse::ok(feed));
+}
+
+// ============================================================================
+// P2P Message Handlers Implementation
+// These handle incoming requests from other peers and send responses back
+// Similar to legacy api.js: p2p.on('searchTorrent', ...)
+// ============================================================================
+
+QJsonObject RatsAPI::torrentToP2PJson(const TorrentInfo& torrent)
+{
+    QJsonObject obj;
+    obj["hash"] = torrent.hash;
+    obj["info_hash"] = torrent.hash;  // Legacy compatibility
+    obj["name"] = torrent.name;
+    obj["size"] = torrent.size;
+    obj["files"] = torrent.files;
+    obj["seeders"] = torrent.seeders;
+    obj["leechers"] = torrent.leechers;
+    obj["completed"] = torrent.completed;
+    obj["contentType"] = torrent.contentTypeString();
+    obj["contentCategory"] = torrent.contentCategoryString();
+    obj["added"] = torrent.added.isValid() ? torrent.added.toMSecsSinceEpoch() : 0;
+    obj["good"] = torrent.good;
+    obj["bad"] = torrent.bad;
+    return obj;
+}
+
+void RatsAPI::handleP2PSearchRequest(const QString& peerId, const QJsonObject& data)
+{
+    if (!d->database || !d->p2p) {
+        return;
+    }
+    
+    // Parse query from different possible formats
+    QString query = data["text"].toString();
+    if (query.isEmpty()) {
+        query = data["query"].toString();
+    }
+    
+    if (query.length() <= 2) {
+        qDebug() << "P2P search query too short, ignoring";
+        return;
+    }
+    
+    qInfo() << "Processing P2P search request for:" << query << "from peer" << peerId.left(8);
+    
+    // Build search options from navigation object (legacy format)
+    SearchOptions opts;
+    opts.query = query;
+    opts.limit = 10;
+    opts.index = 0;
+    opts.orderDesc = true;
+    
+    // Parse navigation object (legacy format)
+    if (data.contains("navigation")) {
+        QJsonObject nav = data["navigation"].toObject();
+        opts.limit = nav["limit"].toInt(10);
+        opts.index = nav["index"].toInt(0);
+        opts.orderBy = nav["orderBy"].toString();
+        opts.orderDesc = nav["orderDesc"].toBool(true);
+        opts.safeSearch = nav["safeSearch"].toBool(false);
+        opts.contentType = nav["type"].toString();
+    } else {
+        // New format - params at top level
+        opts.limit = data["limit"].toInt(10);
+        opts.index = data["index"].toInt(0);
+        opts.orderBy = data["orderBy"].toString();
+        opts.orderDesc = data["orderDesc"].toBool(true);
+        opts.safeSearch = data["safeSearch"].toBool(false);
+    }
+    
+    // Execute search
+    QVector<TorrentInfo> results = d->database->searchTorrents(opts);
+    
+    qInfo() << "Found" << results.size() << "results for P2P search from" << peerId.left(8);
+    
+    // Send each result back to the requester
+    for (const TorrentInfo& torrent : results) {
+        QJsonObject result = torrentToP2PJson(torrent);
+        d->p2p->sendMessage(peerId, "torrent_search_result", result);
+    }
+}
+
+void RatsAPI::handleP2PSearchFilesRequest(const QString& peerId, const QJsonObject& data)
+{
+    if (!d->database || !d->p2p) {
+        return;
+    }
+    
+    QString query = data["text"].toString();
+    if (query.length() <= 2) {
+        return;
+    }
+    
+    qInfo() << "Processing P2P searchFiles request for:" << query << "from" << peerId.left(8);
+    
+    SearchOptions opts;
+    opts.query = query;
+    opts.limit = data["limit"].toInt(10);
+    opts.index = data["index"].toInt(0);
+    
+    if (data.contains("navigation")) {
+        QJsonObject nav = data["navigation"].toObject();
+        opts.limit = nav["limit"].toInt(10);
+        opts.index = nav["index"].toInt(0);
+    }
+    
+    QVector<TorrentInfo> results = d->database->searchFiles(opts);
+    
+    // Send results
+    for (const TorrentInfo& torrent : results) {
+        QJsonObject result = torrentToP2PJson(torrent);
+        
+        // Add file paths if available
+        if (!torrent.filesList.isEmpty()) {
+            QJsonArray paths;
+            for (const TorrentFile& f : torrent.filesList) {
+                paths.append(f.path);
+            }
+            result["path"] = paths;
+        }
+        
+        d->p2p->sendMessage(peerId, "searchFiles_result", result);
+    }
+}
+
+void RatsAPI::handleP2PTopTorrentsRequest(const QString& peerId, const QJsonObject& data)
+{
+    if (!d->database || !d->p2p) {
+        return;
+    }
+    
+    QString type = data["type"].toString();
+    QString time;
+    int index = 0;
+    int limit = 20;
+    
+    if (data.contains("navigation")) {
+        QJsonObject nav = data["navigation"].toObject();
+        time = nav["time"].toString();
+        index = nav["index"].toInt(0);
+        limit = nav["limit"].toInt(20);
+    } else {
+        time = data["time"].toString();
+        index = data["index"].toInt(0);
+        limit = data["limit"].toInt(20);
+    }
+    
+    qInfo() << "Processing P2P topTorrents request from" << peerId.left(8);
+    
+    QVector<TorrentInfo> results = d->database->getTopTorrents(type, time, index, limit);
+    
+    // Build response array
+    QJsonArray torrentsArray;
+    for (const TorrentInfo& torrent : results) {
+        torrentsArray.append(torrentToP2PJson(torrent));
+    }
+    
+    QJsonObject response;
+    response["torrents"] = torrentsArray;
+    response["type"] = type;
+    response["time"] = time;
+    
+    d->p2p->sendMessage(peerId, "topTorrents_response", response);
+    
+    // Also emit for UI (like legacy remoteTopTorrents)
+    emit remoteSearchResults("top_" + type, torrentsArray);
+}
+
+void RatsAPI::handleP2PTorrentRequest(const QString& peerId, const QJsonObject& data)
+{
+    if (!d->database || !d->p2p) {
+        return;
+    }
+    
+    QString hash = data["hash"].toString();
+    if (hash.length() != 40) {
+        return;
+    }
+    
+    bool includeFiles = false;
+    if (data.contains("options")) {
+        includeFiles = data["options"].toObject()["files"].toBool(false);
+    } else {
+        includeFiles = data["files"].toBool(false);
+    }
+    
+    qInfo() << "Processing P2P torrent request for" << hash.left(8) << "from" << peerId.left(8);
+    
+    TorrentInfo torrent = d->database->getTorrent(hash, includeFiles);
+    
+    if (!torrent.isValid()) {
+        // Torrent not found, don't respond
+        return;
+    }
+    
+    QJsonObject response = torrentToP2PJson(torrent);
+    
+    if (includeFiles && !torrent.filesList.isEmpty()) {
+        QJsonArray filesArray;
+        for (const TorrentFile& f : torrent.filesList) {
+            QJsonObject fileObj;
+            fileObj["path"] = f.path;
+            fileObj["size"] = f.size;
+            filesArray.append(fileObj);
+        }
+        response["filesList"] = filesArray;
+    }
+    
+    d->p2p->sendMessage(peerId, "torrent_response", response);
+}
+
+void RatsAPI::handleP2PFeedRequest(const QString& peerId, const QJsonObject& data)
+{
+    Q_UNUSED(data);
+    
+    if (!d->p2p) {
+        return;
+    }
+    
+    qInfo() << "Processing P2P feed request from" << peerId.left(8);
+    
+    QJsonObject response;
+    
+    if (d->feedManager) {
+        response["feed"] = d->feedManager->toJsonArray();
+        response["feedDate"] = d->feedManager->feedDate();
+    } else {
+        response["feed"] = QJsonArray();
+        response["feedDate"] = 0;
+    }
+    
+    d->p2p->sendMessage(peerId, "feed_response", response);
+}
+
+void RatsAPI::handleP2PSearchResult(const QString& peerId, const QJsonObject& data)
+{
+    // Received search result from another peer
+    QString hash = data["info_hash"].toString();
+    if (hash.isEmpty()) {
+        hash = data["hash"].toString();
+    }
+    
+    if (hash.isEmpty()) {
+        return;
+    }
+    
+    qDebug() << "Received P2P search result from" << peerId.left(8) << ":" << data["name"].toString();
+    
+    // Mark as remote result
+    QJsonObject result = data;
+    result["remote"] = true;
+    result["peer"] = peerId;
+    
+    QJsonArray results;
+    results.append(result);
+    
+    // Emit for UI handling
+    emit remoteSearchResults(QString(), results);
+}
+
+void RatsAPI::handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject& data)
+{
+    QString hash = data["info_hash"].toString();
+    QString name = data["name"].toString();
+    
+    if (hash.isEmpty() || name.isEmpty()) {
+        return;
+    }
+    
+    qDebug() << "Received torrent announcement from" << peerId.left(8) << ":" << name;
+    
+    // TODO: Optionally add to local database (replication)
+    // For now, just emit the event
+    emit torrentIndexed(hash, name);
 }

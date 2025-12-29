@@ -123,6 +123,47 @@ void SearchResultModel::setResults(const QVector<TorrentInfo> &results)
     endResetModel();
 }
 
+void SearchResultModel::addResult(const TorrentInfo &result)
+{
+    // Check for duplicates by hash
+    for (const TorrentInfo& existing : results_) {
+        if (existing.hash == result.hash) {
+            return;  // Already exists
+        }
+    }
+    
+    beginInsertRows(QModelIndex(), results_.size(), results_.size());
+    results_.append(result);
+    endInsertRows();
+}
+
+void SearchResultModel::addResults(const QVector<TorrentInfo> &results)
+{
+    QVector<TorrentInfo> newResults;
+    
+    // Filter out duplicates
+    for (const TorrentInfo& result : results) {
+        bool exists = false;
+        for (const TorrentInfo& existing : results_) {
+            if (existing.hash == result.hash) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            newResults.append(result);
+        }
+    }
+    
+    if (newResults.isEmpty()) {
+        return;
+    }
+    
+    beginInsertRows(QModelIndex(), results_.size(), results_.size() + newResults.size() - 1);
+    results_.append(newResults);
+    endInsertRows();
+}
+
 void SearchResultModel::clearResults()
 {
     beginResetModel();
