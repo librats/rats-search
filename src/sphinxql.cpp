@@ -341,6 +341,11 @@ QString SphinxQL::buildWhereSql(const QVariantMap& where)
 
 QVariant SphinxQL::convertValue(const QVariant& value)
 {
+    // Handle null/invalid values - Manticore doesn't support NULL, use defaults
+    if (value.isNull() || !value.isValid()) {
+        return QString("");  // Return empty string instead of NULL
+    }
+    
     // Convert QJsonObject/QJsonArray to string
     if (value.typeId() == QMetaType::QJsonObject) {
         return QString::fromUtf8(QJsonDocument(value.toJsonObject()).toJson(QJsonDocument::Compact));
@@ -350,6 +355,11 @@ QVariant SphinxQL::convertValue(const QVariant& value)
     }
     if (value.typeId() == QMetaType::QVariantMap) {
         return QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(value.toMap())).toJson(QJsonDocument::Compact));
+    }
+    
+    // Ensure QString values are not treated as NULL
+    if (value.typeId() == QMetaType::QString) {
+        return value.toString();  // Force conversion to non-null QString
     }
     
     return value;

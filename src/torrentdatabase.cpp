@@ -93,7 +93,7 @@ bool TorrentDatabase::addTorrent(const TorrentInfo& torrent)
     values["piecelength"] = torrent.piecelength;
     values["added"] = torrent.added.isValid() ? torrent.added.toSecsSinceEpoch() 
                                                : QDateTime::currentSecsSinceEpoch();
-    values["ipv4"] = torrent.ipv4;
+    values["ipv4"] = torrent.ipv4.isEmpty() ? QString("") : torrent.ipv4;  // Ensure non-null for Manticore
     values["port"] = torrent.port;
     values["contentType"] = torrent.contentTypeId;
     values["contentCategory"] = torrent.contentCategoryId;
