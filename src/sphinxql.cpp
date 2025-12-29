@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QtConcurrent>
 #include <QRegularExpression>
+#include <QElapsedTimer>
 
 SphinxQL::SphinxQL(ManticoreManager* manager, QObject *parent)
     : QObject(parent)
@@ -25,6 +26,8 @@ QSqlDatabase SphinxQL::getDb()
 SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params)
 {
     Results results;
+    QElapsedTimer timer;
+    timer.start();
     
     qDebug() << "SphinxQL query:" << sql;
     if (!params.isEmpty()) {
@@ -35,7 +38,7 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL: Database not open:" << lastError_;
+        qWarning() << "SphinxQL: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
         return results;
     }
     
@@ -51,17 +54,19 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
         if (!q.exec()) {
             lastError_ = q.lastError().text();
             emit queryError(lastError_);
-            qWarning() << "SphinxQL query error:" << lastError_ << "SQL:" << sql;
+            qWarning() << "SphinxQL query error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
             return results;
         }
     } else {
         if (!q.exec(sql)) {
             lastError_ = q.lastError().text();
             emit queryError(lastError_);
-            qWarning() << "SphinxQL query error:" << lastError_ << "SQL:" << sql;
+            qWarning() << "SphinxQL query error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
             return results;
         }
     }
+    
+    qint64 execTime = timer.elapsed();
     
     // Fetch results
     QSqlRecord record = q.record();
@@ -73,6 +78,10 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
         }
         results.append(row);
     }
+    
+    qint64 totalTime = timer.elapsed();
+    qInfo() << "SphinxQL:" << sql.left(100) << (sql.length() > 100 ? "..." : "") 
+            << "| exec:" << execTime << "ms | fetch:" << (totalTime - execTime) << "ms | total:" << totalTime << "ms | rows:" << results.size();
     
     emit queryCompleted(q.numRowsAffected());
     return results;
@@ -90,6 +99,9 @@ void SphinxQL::queryAsync(const QString& sql, const QVariantList& params, QueryC
 
 bool SphinxQL::insertValues(const QString& table, const QVariantMap& values)
 {
+    QElapsedTimer timer;
+    timer.start();
+    
     QString sql = buildInsertSql(table, values, false);
     
     QVariantList params;
@@ -101,6 +113,7 @@ bool SphinxQL::insertValues(const QString& table, const QVariantMap& values)
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
+        qWarning() << "SphinxQL insert: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -113,9 +126,11 @@ bool SphinxQL::insertValues(const QString& table, const QVariantMap& values)
     if (!q.exec()) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL insert error:" << lastError_;
+        qWarning() << "SphinxQL insert error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
         return false;
     }
+    
+    qInfo() << "SphinxQL INSERT into" << table << "| time:" << timer.elapsed() << "ms";
     
     emit queryCompleted(q.numRowsAffected());
     return true;
@@ -123,6 +138,9 @@ bool SphinxQL::insertValues(const QString& table, const QVariantMap& values)
 
 bool SphinxQL::replaceValues(const QString& table, const QVariantMap& values)
 {
+    QElapsedTimer timer;
+    timer.start();
+    
     QString sql = buildInsertSql(table, values, true);
     
     QVariantList params;
@@ -134,6 +152,7 @@ bool SphinxQL::replaceValues(const QString& table, const QVariantMap& values)
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
+        qWarning() << "SphinxQL replace: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -146,9 +165,11 @@ bool SphinxQL::replaceValues(const QString& table, const QVariantMap& values)
     if (!q.exec()) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL replace error:" << lastError_;
+        qWarning() << "SphinxQL replace error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
         return false;
     }
+    
+    qInfo() << "SphinxQL REPLACE into" << table << "| time:" << timer.elapsed() << "ms";
     
     emit queryCompleted(q.numRowsAffected());
     return true;
@@ -156,6 +177,9 @@ bool SphinxQL::replaceValues(const QString& table, const QVariantMap& values)
 
 bool SphinxQL::updateValues(const QString& table, const QVariantMap& values, const QVariantMap& where)
 {
+    QElapsedTimer timer;
+    timer.start();
+    
     QString sql = buildUpdateSql(table, values, where);
     
     QVariantList params;
@@ -170,6 +194,7 @@ bool SphinxQL::updateValues(const QString& table, const QVariantMap& values, con
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
+        qWarning() << "SphinxQL update: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -182,9 +207,11 @@ bool SphinxQL::updateValues(const QString& table, const QVariantMap& values, con
     if (!q.exec()) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL update error:" << lastError_;
+        qWarning() << "SphinxQL update error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
         return false;
     }
+    
+    qInfo() << "SphinxQL UPDATE" << table << "| time:" << timer.elapsed() << "ms | affected:" << q.numRowsAffected();
     
     emit queryCompleted(q.numRowsAffected());
     return true;
@@ -192,6 +219,9 @@ bool SphinxQL::updateValues(const QString& table, const QVariantMap& values, con
 
 bool SphinxQL::deleteFrom(const QString& table, const QVariantMap& where)
 {
+    QElapsedTimer timer;
+    timer.start();
+    
     QString whereSql = buildWhereSql(where);
     QString sql = QString("DELETE FROM %1 WHERE %2").arg(table, whereSql);
     
@@ -204,6 +234,7 @@ bool SphinxQL::deleteFrom(const QString& table, const QVariantMap& where)
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
+        qWarning() << "SphinxQL delete: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -216,9 +247,11 @@ bool SphinxQL::deleteFrom(const QString& table, const QVariantMap& where)
     if (!q.exec()) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL delete error:" << lastError_;
+        qWarning() << "SphinxQL delete error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
         return false;
     }
+    
+    qInfo() << "SphinxQL DELETE from" << table << "| time:" << timer.elapsed() << "ms | affected:" << q.numRowsAffected();
     
     emit queryCompleted(q.numRowsAffected());
     return true;
@@ -250,10 +283,14 @@ bool SphinxQL::isConnected() const
 
 bool SphinxQL::exec(const QString& sql)
 {
+    QElapsedTimer timer;
+    timer.start();
+    
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
+        qWarning() << "SphinxQL exec: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -261,9 +298,12 @@ bool SphinxQL::exec(const QString& sql)
     if (!q.exec(sql)) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL exec error:" << lastError_;
+        qWarning() << "SphinxQL exec error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
         return false;
     }
+    
+    qInfo() << "SphinxQL exec:" << sql.left(100) << (sql.length() > 100 ? "..." : "") 
+            << "| time:" << timer.elapsed() << "ms | affected:" << q.numRowsAffected();
     
     emit queryCompleted(q.numRowsAffected());
     return true;
