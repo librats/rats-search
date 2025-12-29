@@ -132,8 +132,14 @@ private:
 
     /**
      * @brief Fetch metadata for an info hash
+     * @param infoHash The info hash to fetch metadata for
+     * @param peerIp IP address of peer to connect to (optional, for fast path)
+     * @param peerPort Port of peer to connect to (optional, for fast path)
+     * 
+     * If peerIp and peerPort are provided, connects directly to that peer (fast path).
+     * Otherwise, uses DHT to discover peers (slow path).
      */
-    void fetchMetadata(const QString& infoHash);
+    void fetchMetadata(const QString& infoHash, const QString& peerIp = QString(), uint16_t peerPort = 0);
 
     /**
      * @brief Handle metadata retrieval result

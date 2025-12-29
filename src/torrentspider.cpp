@@ -275,27 +275,34 @@ void TorrentSpider::processMetadataQueue()
     
     // Process metadata queue
     while (activeFetches_.load() < MAX_CONCURRENT_METADATA_FETCHES) {
-        QString hash;
+        QString queueEntry;
         {
             std::lock_guard<std::mutex> lock(queueMutex_);
             if (metadataQueue_.empty()) {
                 break;
             }
-            hash = metadataQueue_.front();
+            queueEntry = metadataQueue_.front();
             metadataQueue_.pop();
             pendingCount_ = static_cast<int>(metadataQueue_.size());
         }
         
-        fetchMetadata(hash);
+        // Parse queue entry (format: "hash|ip|port")
+        QStringList parts = queueEntry.split('|');
+        if (parts.size() == 3) {
+            QString hash = parts[0];
+            QString peerIp = parts[1];
+            uint16_t peerPort = static_cast<uint16_t>(parts[2].toUInt());
+            fetchMetadata(hash, peerIp, peerPort);
+        } else {
+            // Fallback for old format (just hash) - use DHT search
+            fetchMetadata(queueEntry, QString(), 0);
+        }
     }
 }
 
 void TorrentSpider::onAnnounce(const std::array<uint8_t, 20>& infoHash,
                                const std::string& ip, uint16_t port)
 {
-    Q_UNUSED(ip);
-    Q_UNUSED(port);
-    
     // Convert info hash to hex string
     QString hashHex;
     for (uint8_t byte : infoHash) {
@@ -326,17 +333,18 @@ void TorrentSpider::onAnnounce(const std::array<uint8_t, 20>& infoHash,
         return;
     }
 
-    qDebug() << "Discovered torrent:" << hashHex;
+    qDebug() << "Discovered torrent:" << hashHex << "from peer" << QString::fromStdString(ip) << ":" << port;
     
-    // Add to metadata queue
+    // Add to metadata queue with peer address (format: "hash|ip|port")
     {
         std::lock_guard<std::mutex> lock(queueMutex_);
-        metadataQueue_.push(hashHex);
+        QString queueEntry = QString("%1|%2|%3").arg(hashHex).arg(QString::fromStdString(ip)).arg(port);
+        metadataQueue_.push(queueEntry);
         pendingCount_ = static_cast<int>(metadataQueue_.size());
     }
 }
 
-void TorrentSpider::fetchMetadata(const QString& infoHash)
+void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp, uint16_t peerPort)
 {
     librats::RatsClient* client = getRatsClient();
     if (!client) {
@@ -346,33 +354,73 @@ void TorrentSpider::fetchMetadata(const QString& infoHash)
 #ifdef RATS_SEARCH_FEATURES
     activeFetches_++;
     
-    client->get_torrent_metadata(infoHash.toStdString(),
-        [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success, const std::string& error) {
-            activeFetches_--;
-            
-            if (!success) {
-                qDebug() << "Failed to get metadata for" << infoHash.left(8) << ":" << QString::fromStdString(error);
-                return;
-            }
-            
-            // Extract file list
-            QVector<QPair<QString, qint64>> filesList;
-            for (const auto& file : torrentInfo.get_files()) {
-                filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.length)));
-            }
-            
-            // Call handler on main thread
-            QMetaObject::invokeMethod(this, [this, infoHash, 
-                                             name = QString::fromStdString(torrentInfo.get_name()),
-                                             totalSize = static_cast<qint64>(torrentInfo.get_total_length()),
-                                             files = static_cast<int>(torrentInfo.get_files().size()),
-                                             pieceLength = static_cast<int>(torrentInfo.get_piece_length()),
-                                             filesList]() {
-                onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
-            }, Qt::QueuedConnection);
-        });
+    // Use direct peer connection if we have peer address (fast path - no DHT search)
+    // Otherwise fall back to DHT search (slow path)
+    if (!peerIp.isEmpty() && peerPort > 0) {
+        // Fast path: Connect directly to the announcing peer
+        qDebug() << "Fetching metadata for" << infoHash.left(8) << "directly from" << peerIp << ":" << peerPort;
+        
+        client->get_torrent_metadata_from_peer(infoHash.toStdString(), 
+            peerIp.toStdString(), 
+            peerPort,
+            [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success, const std::string& error) {
+                activeFetches_--;
+                
+                if (!success) {
+                    qDebug() << "Failed to get metadata (direct) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
+                    return;
+                }
+                
+                // Extract file list
+                QVector<QPair<QString, qint64>> filesList;
+                for (const auto& file : torrentInfo.get_files()) {
+                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.length)));
+                }
+                
+                // Call handler on main thread
+                QMetaObject::invokeMethod(this, [this, infoHash, 
+                                                 name = QString::fromStdString(torrentInfo.get_name()),
+                                                 totalSize = static_cast<qint64>(torrentInfo.get_total_length()),
+                                                 files = static_cast<int>(torrentInfo.get_files().size()),
+                                                 pieceLength = static_cast<int>(torrentInfo.get_piece_length()),
+                                                 filesList]() {
+                    onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
+                }, Qt::QueuedConnection);
+            });
+    } else {
+        // Slow path: Use DHT to find peers
+        qDebug() << "Fetching metadata for" << infoHash.left(8) << "via DHT search";
+        
+        client->get_torrent_metadata(infoHash.toStdString(),
+            [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success, const std::string& error) {
+                activeFetches_--;
+                
+                if (!success) {
+                    qDebug() << "Failed to get metadata (DHT) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
+                    return;
+                }
+                
+                // Extract file list
+                QVector<QPair<QString, qint64>> filesList;
+                for (const auto& file : torrentInfo.get_files()) {
+                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.length)));
+                }
+                
+                // Call handler on main thread
+                QMetaObject::invokeMethod(this, [this, infoHash, 
+                                                 name = QString::fromStdString(torrentInfo.get_name()),
+                                                 totalSize = static_cast<qint64>(torrentInfo.get_total_length()),
+                                                 files = static_cast<int>(torrentInfo.get_files().size()),
+                                                 pieceLength = static_cast<int>(torrentInfo.get_piece_length()),
+                                                 filesList]() {
+                    onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
+                }, Qt::QueuedConnection);
+            });
+    }
 #else
     Q_UNUSED(infoHash);
+    Q_UNUSED(peerIp);
+    Q_UNUSED(peerPort);
     qWarning() << "BitTorrent features not enabled, cannot fetch metadata";
 #endif
 }
