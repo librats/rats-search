@@ -18,6 +18,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Sql
     Concurrent
     WebSockets
+    LinguistTools
 )
 
 # Option to build with system librats or bundled version
@@ -59,6 +60,7 @@ set(SOURCES
     src/api/downloadmanager.cpp
     src/api/apiserver.cpp
     src/api/updatemanager.cpp
+    src/api/translationmanager.cpp
 )
 
 # Header files
@@ -80,12 +82,33 @@ set(HEADERS
     src/api/downloadmanager.h
     src/api/apiserver.h
     src/api/updatemanager.h
+    src/api/translationmanager.h
 )
 
 # Resources
 set(RESOURCES
     resources/resources.qrc
 )
+
+# Translation files
+set(TS_FILES
+    translations/ratssearch_ru.ts
+    translations/ratssearch_de.ts
+    translations/ratssearch_es.ts
+    translations/ratssearch_fr.ts
+)
+
+# Generate .qm files from .ts files
+qt6_add_translation(QM_FILES ${TS_FILES})
+
+# Add generated .qm files to resources via custom qrc
+set(TRANSLATION_QRC "${CMAKE_BINARY_DIR}/translations.qrc")
+file(WRITE ${TRANSLATION_QRC} "<RCC>\n    <qresource prefix=\"/translations\">\n")
+foreach(QM_FILE ${QM_FILES})
+    get_filename_component(QM_NAME ${QM_FILE} NAME)
+    file(APPEND ${TRANSLATION_QRC} "        <file alias=\"${QM_NAME}\">${QM_FILE}</file>\n")
+endforeach()
+file(APPEND ${TRANSLATION_QRC} "    </qresource>\n</RCC>\n")
 
 # Windows application icon
 if(WIN32)
@@ -97,6 +120,8 @@ add_executable(${PROJECT_NAME} WIN32 MACOSX_BUNDLE
     ${SOURCES}
     ${HEADERS}
     ${RESOURCES}
+    ${TRANSLATION_QRC}
+    ${QM_FILES}
     ${WIN_RC_FILE}
 )
 

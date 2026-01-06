@@ -12,6 +12,7 @@
 #include "api/configmanager.h"
 #include "api/apiserver.h"
 #include "api/updatemanager.h"
+#include "api/translationmanager.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -77,7 +78,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     
     loadSettings();
     
-    setWindowTitle("Rats Search - BitTorrent P2P Search Engine");
+    setWindowTitle(tr("Rats Search - BitTorrent P2P Search Engine"));
     resize(1400, 900);
     
     // Set application icon
@@ -461,28 +462,28 @@ void MainWindow::setupUi()
     searchLayout->addSpacing(20);
     
     searchLineEdit = new QLineEdit(this);
-    searchLineEdit->setPlaceholderText("🔍 Search for torrents...");
+    searchLineEdit->setPlaceholderText(tr("Search for torrents..."));
     searchLineEdit->setMinimumHeight(44);
     searchLineEdit->setMinimumWidth(400);
     QFont searchFont = searchLineEdit->font();
     searchFont.setPointSize(12);
     searchLineEdit->setFont(searchFont);
     
-    searchButton = new QPushButton("Search", this);
+    searchButton = new QPushButton(tr("Search"), this);
     searchButton->setMinimumSize(120, 44);
     searchButton->setDefault(true);
     searchButton->setCursor(Qt::PointingHandCursor);
     
     // Sort combo box
     sortComboBox = new QComboBox(this);
-    sortComboBox->addItem("Sort: Seeders ↓", "seeders_desc");
-    sortComboBox->addItem("Sort: Seeders ↑", "seeders_asc");
-    sortComboBox->addItem("Sort: Size ↓", "size_desc");
-    sortComboBox->addItem("Sort: Size ↑", "size_asc");
-    sortComboBox->addItem("Sort: Date ↓", "added_desc");
-    sortComboBox->addItem("Sort: Date ↑", "added_asc");
-    sortComboBox->addItem("Sort: Name A-Z", "name_asc");
-    sortComboBox->addItem("Sort: Name Z-A", "name_desc");
+    sortComboBox->addItem(tr("Sort: Seeders ↓"), "seeders_desc");
+    sortComboBox->addItem(tr("Sort: Seeders ↑"), "seeders_asc");
+    sortComboBox->addItem(tr("Sort: Size ↓"), "size_desc");
+    sortComboBox->addItem(tr("Sort: Size ↑"), "size_asc");
+    sortComboBox->addItem(tr("Sort: Date ↓"), "added_desc");
+    sortComboBox->addItem(tr("Sort: Date ↑"), "added_asc");
+    sortComboBox->addItem(tr("Sort: Name A-Z"), "name_asc");
+    sortComboBox->addItem(tr("Sort: Name Z-A"), "name_desc");
     sortComboBox->setMinimumHeight(44);
     
     searchLayout->addWidget(searchLineEdit, 1);
@@ -534,7 +535,7 @@ void MainWindow::setupUi()
     emptyLabel->setStyleSheet("font-size: 16px; color: #666666; padding: 40px;");
     
     searchTabLayout->addWidget(resultsTableView);
-    tabWidget->addTab(searchTab, "🔍 Search Results");
+    tabWidget->addTab(searchTab, tr("Search Results"));
     
     // Activity tab
     QWidget *activityTab = new QWidget();
@@ -543,10 +544,10 @@ void MainWindow::setupUi()
     
     activityLog = new QTextEdit();
     activityLog->setReadOnly(true);
-    activityLog->setPlaceholderText("Activity log will appear here...");
+    activityLog->setPlaceholderText(tr("Activity log will appear here..."));
     activityTabLayout->addWidget(activityLog);
     
-    tabWidget->addTab(activityTab, "📋 Activity");
+    tabWidget->addTab(activityTab, tr("Activity"));
     
     // Statistics tab
     QWidget *statsTab = new QWidget();
@@ -555,16 +556,20 @@ void MainWindow::setupUi()
     statsTabLayout->setSpacing(16);
     
     // P2P Stats
-    QGroupBox *p2pGroup = new QGroupBox("🌐 P2P Network");
+    QGroupBox *p2pGroup = new QGroupBox(tr("P2P Network"));
     QVBoxLayout *p2pLayout = new QVBoxLayout(p2pGroup);
-    QLabel *p2pStatsLabel = new QLabel("Connected peers: 0\nDHT nodes: 0\nTotal data exchanged: 0 MB");
+    QLabel *p2pStatsLabel = new QLabel(tr("Connected peers: %1").arg(0) + "\n" + 
+                                        tr("DHT nodes: %1").arg(0) + "\n" + 
+                                        tr("Total data exchanged: %1 MB").arg(0));
     p2pStatsLabel->setStyleSheet("color: #cccccc;");
     p2pLayout->addWidget(p2pStatsLabel);
     
     // Database Stats
-    QGroupBox *dbGroup = new QGroupBox("💾 Database");
+    QGroupBox *dbGroup = new QGroupBox(tr("Database"));
     QVBoxLayout *dbLayout = new QVBoxLayout(dbGroup);
-    QLabel *dbStatsLabel = new QLabel("Indexed torrents: 0\nTotal files: 0\nDatabase size: 0 MB");
+    QLabel *dbStatsLabel = new QLabel(tr("Indexed torrents: %1").arg(0) + "\n" + 
+                                       tr("Total files: %1").arg(0) + "\n" + 
+                                       tr("Database size: %1 MB").arg(0));
     dbStatsLabel->setStyleSheet("color: #cccccc;");
     dbLayout->addWidget(dbStatsLabel);
     
@@ -572,7 +577,7 @@ void MainWindow::setupUi()
     statsTabLayout->addWidget(dbGroup);
     statsTabLayout->addStretch();
     
-    tabWidget->addTab(statsTab, "📊 Statistics");
+    tabWidget->addTab(statsTab, tr("Statistics"));
     
     mainSplitter->addWidget(tabWidget);
     
@@ -591,44 +596,44 @@ void MainWindow::setupUi()
 void MainWindow::setupMenuBar()
 {
     // File menu
-    QMenu *fileMenu = menuBar()->addMenu("&File");
+    QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
     
-    QAction *settingsAction = fileMenu->addAction("⚙️ &Settings");
+    QAction *settingsAction = fileMenu->addAction(tr("&Settings"));
     connect(settingsAction, &QAction::triggered, this, &MainWindow::showSettings);
     
     fileMenu->addSeparator();
     
-    QAction *quitAction = fileMenu->addAction("🚪 &Quit");
+    QAction *quitAction = fileMenu->addAction(tr("&Quit"));
     quitAction->setShortcut(QKeySequence::Quit);
     connect(quitAction, &QAction::triggered, this, &QMainWindow::close);
     
     // View menu
-    QMenu *viewMenu = menuBar()->addMenu("&View");
+    QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
     
-    QAction *statsAction = viewMenu->addAction("📊 &Statistics");
+    QAction *statsAction = viewMenu->addAction(tr("&Statistics"));
     connect(statsAction, &QAction::triggered, this, &MainWindow::showStatistics);
     
     // Help menu
-    QMenu *helpMenu = menuBar()->addMenu("&Help");
+    QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     
-    QAction *checkUpdateAction = helpMenu->addAction("🔄 Check for &Updates...");
+    QAction *checkUpdateAction = helpMenu->addAction(tr("Check for &Updates..."));
     connect(checkUpdateAction, &QAction::triggered, this, &MainWindow::checkForUpdates);
     
     helpMenu->addSeparator();
     
-    QAction *aboutAction = helpMenu->addAction("ℹ️ &About");
+    QAction *aboutAction = helpMenu->addAction(tr("&About"));
     connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 }
 
 void MainWindow::setupToolBar()
 {
-    QToolBar *toolBar = addToolBar("Main Toolbar");
+    QToolBar *toolBar = addToolBar(tr("Main Toolbar"));
     toolBar->setObjectName("MainToolBar");
     toolBar->setMovable(false);
     toolBar->setIconSize(QSize(20, 20));
     
     // Add actions to toolbar
-    QAction *refreshAction = toolBar->addAction("🔄 Refresh");
+    QAction *refreshAction = toolBar->addAction(tr("Refresh"));
     connect(refreshAction, &QAction::triggered, [this]() {
         if (!currentSearchQuery_.isEmpty()) {
             performSearch(currentSearchQuery_);
@@ -637,7 +642,7 @@ void MainWindow::setupToolBar()
     
     toolBar->addSeparator();
     
-    QAction *clearAction = toolBar->addAction("🗑️ Clear");
+    QAction *clearAction = toolBar->addAction(tr("Clear"));
     connect(clearAction, &QAction::triggered, [this]() {
         searchResultModel->clearResults();
         detailsPanel->clear();
@@ -647,16 +652,16 @@ void MainWindow::setupToolBar()
 
 void MainWindow::setupStatusBar()
 {
-    p2pStatusLabel = new QLabel("🔌 P2P: Starting...");
-    peerCountLabel = new QLabel("👥 Peers: 0");
-    torrentCountLabel = new QLabel("📦 Torrents: 0");
-    spiderStatusLabel = new QLabel("🕷️ Spider: Idle");
+    p2pStatusLabel = new QLabel(tr("P2P: Starting..."));
+    peerCountLabel = new QLabel(tr("Peers: %1").arg(0));
+    torrentCountLabel = new QLabel(tr("Torrents: %1").arg(0));
+    spiderStatusLabel = new QLabel(tr("Spider: Idle"));
     
     statusBar()->addWidget(p2pStatusLabel);
     statusBar()->addWidget(peerCountLabel);
     statusBar()->addWidget(torrentCountLabel);
     statusBar()->addWidget(spiderStatusLabel);
-    statusBar()->addPermanentWidget(new QLabel("✅ Ready"));
+    statusBar()->addPermanentWidget(new QLabel(tr("Ready")));
 }
 
 void MainWindow::connectSignals()
@@ -940,8 +945,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // Confirm close if services are running
     if (servicesStarted_) {
         QMessageBox::StandardButton reply = QMessageBox::question(this, 
-            "Confirm Exit",
-            "Are you sure you want to exit Rats Search?",
+            tr("Confirm Exit"),
+            tr("Are you sure you want to exit Rats Search?"),
             QMessageBox::Yes | QMessageBox::No);
             
         if (reply == QMessageBox::No) {
@@ -1060,33 +1065,33 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
     
     QMenu contextMenu(this);
     
-    QAction *magnetAction = contextMenu.addAction("🧲 Open Magnet Link");
+    QAction *magnetAction = contextMenu.addAction(tr("Open Magnet Link"));
     connect(magnetAction, &QAction::triggered, [this, torrent]() {
         QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
             .arg(torrent.hash)
             .arg(QUrl::toPercentEncoding(torrent.name));
         QDesktopServices::openUrl(QUrl(magnetLink));
-        logActivity(QString("🧲 Opened magnet link for: %1").arg(torrent.name));
+        logActivity(tr("Opened magnet link for: %1").arg(torrent.name));
     });
     
-    QAction *copyHashAction = contextMenu.addAction("📋 Copy Info Hash");
+    QAction *copyHashAction = contextMenu.addAction(tr("Copy Info Hash"));
     connect(copyHashAction, &QAction::triggered, [this, torrent]() {
         QApplication::clipboard()->setText(torrent.hash);
-        statusBar()->showMessage("✅ Hash copied to clipboard", 2000);
+        statusBar()->showMessage(tr("Hash copied to clipboard"), 2000);
     });
     
-    QAction *copyMagnetAction = contextMenu.addAction("📋 Copy Magnet Link");
+    QAction *copyMagnetAction = contextMenu.addAction(tr("Copy Magnet Link"));
     connect(copyMagnetAction, &QAction::triggered, [this, torrent]() {
         QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
             .arg(torrent.hash)
             .arg(QUrl::toPercentEncoding(torrent.name));
         QApplication::clipboard()->setText(magnetLink);
-        statusBar()->showMessage("✅ Magnet link copied to clipboard", 2000);
+        statusBar()->showMessage(tr("Magnet link copied to clipboard"), 2000);
     });
     
     contextMenu.addSeparator();
     
-    QAction *detailsAction = contextMenu.addAction("ℹ️ Show Details");
+    QAction *detailsAction = contextMenu.addAction(tr("Show Details"));
     connect(detailsAction, &QAction::triggered, [this, index]() {
         onTorrentSelected(index);
     });
@@ -1096,18 +1101,18 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
 
 void MainWindow::onP2PStatusChanged(const QString &status)
 {
-    p2pStatusLabel->setText("🔌 P2P: " + status);
-    logActivity(QString("🔌 P2P status: %1").arg(status));
+    p2pStatusLabel->setText(tr("P2P: %1").arg(status));
+    logActivity(tr("P2P status: %1").arg(status));
 }
 
 void MainWindow::onPeerCountChanged(int count)
 {
-    peerCountLabel->setText(QString("👥 Peers: %1").arg(count));
+    peerCountLabel->setText(tr("Peers: %1").arg(count));
 }
 
 void MainWindow::onSpiderStatusChanged(const QString &status)
 {
-    spiderStatusLabel->setText("🕷️ Spider: " + status);
+    spiderStatusLabel->setText(tr("Spider: %1").arg(status));
 }
 
 void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
@@ -1122,8 +1127,8 @@ void MainWindow::showSettings()
     if (!config) return;
     
     QDialog dialog(this);
-    dialog.setWindowTitle("⚙️ Settings");
-    dialog.setMinimumSize(500, 450);
+    dialog.setWindowTitle(tr("Settings"));
+    dialog.setMinimumSize(500, 500);
     dialog.setStyleSheet(this->styleSheet());
     
     QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
@@ -1131,88 +1136,106 @@ void MainWindow::showSettings()
     mainLayout->setContentsMargins(24, 24, 24, 24);
     
     // Title
-    QLabel *titleLabel = new QLabel("🐀 Rats Search Settings");
+    QLabel *titleLabel = new QLabel(tr("Rats Search Settings"));
     titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4a9eff;");
     mainLayout->addWidget(titleLabel);
     
     // General Settings Group
-    QGroupBox *generalGroup = new QGroupBox("General");
+    QGroupBox *generalGroup = new QGroupBox(tr("General"));
     QFormLayout *generalLayout = new QFormLayout(generalGroup);
     generalLayout->setSpacing(12);
     
-    QCheckBox *minimizeToTrayCheck = new QCheckBox("Hide to tray on minimize");
+    // Language selector
+    QComboBox *languageCombo = new QComboBox();
+    languageCombo->addItem("🇬🇧 English", "en");
+    languageCombo->addItem("🇷🇺 Русский", "ru");
+    languageCombo->addItem("🇩🇪 Deutsch", "de");
+    languageCombo->addItem("🇪🇸 Español", "es");
+    languageCombo->addItem("🇫🇷 Français", "fr");
+    
+    // Set current language
+    QString currentLang = config->language();
+    for (int i = 0; i < languageCombo->count(); ++i) {
+        if (languageCombo->itemData(i).toString() == currentLang) {
+            languageCombo->setCurrentIndex(i);
+            break;
+        }
+    }
+    generalLayout->addRow(tr("Language:"), languageCombo);
+    
+    QCheckBox *minimizeToTrayCheck = new QCheckBox(tr("Hide to tray on minimize"));
     minimizeToTrayCheck->setChecked(config->trayOnMinimize());
     generalLayout->addRow(minimizeToTrayCheck);
     
-    QCheckBox *closeToTrayCheck = new QCheckBox("Hide to tray on close");
+    QCheckBox *closeToTrayCheck = new QCheckBox(tr("Hide to tray on close"));
     closeToTrayCheck->setChecked(config->trayOnClose());
     generalLayout->addRow(closeToTrayCheck);
     
-    QCheckBox *startMinimizedCheck = new QCheckBox("Start minimized");
+    QCheckBox *startMinimizedCheck = new QCheckBox(tr("Start minimized"));
     startMinimizedCheck->setChecked(config->startMinimized());
     generalLayout->addRow(startMinimizedCheck);
     
-    QCheckBox *darkModeCheck = new QCheckBox("Dark mode");
+    QCheckBox *darkModeCheck = new QCheckBox(tr("Dark mode"));
     darkModeCheck->setChecked(config->darkMode());
     generalLayout->addRow(darkModeCheck);
     
-    QCheckBox *checkUpdatesCheck = new QCheckBox("Check for updates on startup");
+    QCheckBox *checkUpdatesCheck = new QCheckBox(tr("Check for updates on startup"));
     checkUpdatesCheck->setChecked(config->checkUpdatesOnStartup());
     generalLayout->addRow(checkUpdatesCheck);
     
     mainLayout->addWidget(generalGroup);
     
     // Network Settings Group
-    QGroupBox *networkGroup = new QGroupBox("Network");
+    QGroupBox *networkGroup = new QGroupBox(tr("Network"));
     QFormLayout *networkLayout = new QFormLayout(networkGroup);
     networkLayout->setSpacing(12);
     
     QSpinBox *p2pPortSpin = new QSpinBox();
     p2pPortSpin->setRange(1024, 65535);
     p2pPortSpin->setValue(config->p2pPort());
-    networkLayout->addRow("P2P Port:", p2pPortSpin);
+    networkLayout->addRow(tr("P2P Port:"), p2pPortSpin);
     
     QSpinBox *dhtPortSpin = new QSpinBox();
     dhtPortSpin->setRange(1024, 65535);
     dhtPortSpin->setValue(config->dhtPort());
-    networkLayout->addRow("DHT Port:", dhtPortSpin);
+    networkLayout->addRow(tr("DHT Port:"), dhtPortSpin);
     
     QSpinBox *httpPortSpin = new QSpinBox();
     httpPortSpin->setRange(1024, 65535);
     httpPortSpin->setValue(config->httpPort());
-    networkLayout->addRow("HTTP API Port:", httpPortSpin);
+    networkLayout->addRow(tr("HTTP API Port:"), httpPortSpin);
     
-    QCheckBox *restApiCheck = new QCheckBox("Enable REST API server");
+    QCheckBox *restApiCheck = new QCheckBox(tr("Enable REST API server"));
     restApiCheck->setChecked(config->restApiEnabled());
     networkLayout->addRow(restApiCheck);
     
     mainLayout->addWidget(networkGroup);
     
     // Indexer Settings Group
-    QGroupBox *indexerGroup = new QGroupBox("Indexer");
+    QGroupBox *indexerGroup = new QGroupBox(tr("Indexer"));
     QFormLayout *indexerLayout = new QFormLayout(indexerGroup);
     
-    QCheckBox *indexerCheck = new QCheckBox("Enable DHT indexer");
+    QCheckBox *indexerCheck = new QCheckBox(tr("Enable DHT indexer"));
     indexerCheck->setChecked(config->indexerEnabled());
     indexerLayout->addRow(indexerCheck);
     
-    QCheckBox *trackersCheck = new QCheckBox("Enable tracker checking");
+    QCheckBox *trackersCheck = new QCheckBox(tr("Enable tracker checking"));
     trackersCheck->setChecked(config->trackersEnabled());
     indexerLayout->addRow(trackersCheck);
     
     mainLayout->addWidget(indexerGroup);
     
     // Database Settings Group
-    QGroupBox *dbGroup = new QGroupBox("Database");
+    QGroupBox *dbGroup = new QGroupBox(tr("Database"));
     QFormLayout *dbLayout = new QFormLayout(dbGroup);
     
     QHBoxLayout *pathLayout = new QHBoxLayout();
     QLineEdit *dataPathEdit = new QLineEdit(dataDirectory_);
     dataPathEdit->setReadOnly(true);
-    QPushButton *browseBtn = new QPushButton("Browse...");
+    QPushButton *browseBtn = new QPushButton(tr("Browse..."));
     pathLayout->addWidget(dataPathEdit);
     pathLayout->addWidget(browseBtn);
-    dbLayout->addRow("Data Directory:", pathLayout);
+    dbLayout->addRow(tr("Data Directory:"), pathLayout);
     
     connect(browseBtn, &QPushButton::clicked, [&dataPathEdit, this]() {
         QString dir = QFileDialog::getExistingDirectory(this, "Select Data Directory", dataDirectory_);
@@ -1245,8 +1268,12 @@ void MainWindow::showSettings()
         int oldDhtPort = config->dhtPort();
         int oldHttpPort = config->httpPort();
         bool oldRestApi = config->restApiEnabled();
+        QString oldLanguage = config->language();
         
         // Save settings via ConfigManager
+        QString newLanguage = languageCombo->currentData().toString();
+        config->setLanguage(newLanguage);
+        
         config->setTrayOnMinimize(minimizeToTrayCheck->isChecked());
         config->setTrayOnClose(closeToTrayCheck->isChecked());
         config->setStartMinimized(startMinimizedCheck->isChecked());
@@ -1267,13 +1294,19 @@ void MainWindow::showSettings()
                            (httpPortSpin->value() != oldHttpPort) ||
                            (restApiCheck->isChecked() != oldRestApi);
         
-        if (needsRestart) {
-            QMessageBox::information(this, "Restart Required",
-                "Network setting changes will take effect after restarting the application.");
+        // Check if language changed (require restart)
+        bool languageChanged = (newLanguage != oldLanguage);
+        
+        if (needsRestart || languageChanged) {
+            QString message = tr("Network setting changes will take effect after restarting the application.");
+            if (languageChanged) {
+                message = tr("Language and other setting changes will take effect after restarting the application.");
+            }
+            QMessageBox::information(this, tr("Restart Required"), message);
         }
         
         saveSettings();
-        logActivity("✅ Settings saved");
+        logActivity(tr("Settings saved"));
     }
 }
 
@@ -1321,19 +1354,19 @@ void MainWindow::setupSystemTray()
     trayMenu = new QMenu(this);
     trayMenu->setStyleSheet(this->styleSheet());
     
-    QAction *showAction = trayMenu->addAction("🔍 Show Window");
+    QAction *showAction = trayMenu->addAction(tr("Show Window"));
     connect(showAction, &QAction::triggered, this, &MainWindow::toggleWindowVisibility);
     
     trayMenu->addSeparator();
     
-    QAction *statsAction = trayMenu->addAction("📊 Statistics");
+    QAction *statsAction = trayMenu->addAction(tr("Statistics"));
     connect(statsAction, &QAction::triggered, [this]() {
         show();
         activateWindow();
         showStatistics();
     });
     
-    QAction *settingsAction = trayMenu->addAction("⚙️ Settings");
+    QAction *settingsAction = trayMenu->addAction(tr("Settings"));
     connect(settingsAction, &QAction::triggered, [this]() {
         show();
         activateWindow();
@@ -1342,7 +1375,7 @@ void MainWindow::setupSystemTray()
     
     trayMenu->addSeparator();
     
-    QAction *quitAction = trayMenu->addAction("🚪 Quit");
+    QAction *quitAction = trayMenu->addAction(tr("Quit"));
     connect(quitAction, &QAction::triggered, [this]() {
         if (config) config->setTrayOnClose(false);  // Force actual close
         close();

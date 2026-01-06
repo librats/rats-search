@@ -121,7 +121,7 @@ void TorrentDetailsPanel::setupUi()
     headerLayout->addWidget(contentTypeIcon_);
     
     // Title
-    titleLabel_ = new QLabel("Select a torrent");
+    titleLabel_ = new QLabel(tr("Select a torrent"));
     titleLabel_->setWordWrap(true);
     titleLabel_->setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff;");
     headerLayout->addWidget(titleLabel_, 1);
@@ -149,7 +149,7 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addWidget(sep1);
     
     // Stats section (seeders, leechers, completed)
-    QLabel *statsTitle = new QLabel("Statistics");
+    QLabel *statsTitle = new QLabel(tr("Statistics"));
     statsTitle->setObjectName("sectionTitle");
     mainLayout->addWidget(statsTitle);
     
@@ -161,7 +161,7 @@ void TorrentDetailsPanel::setupUi()
     seedersLabel_ = new QLabel("0");
     seedersLabel_->setStyleSheet("font-size: 20px; font-weight: bold; color: #00C853;");
     seedersLabel_->setAlignment(Qt::AlignCenter);
-    QLabel *seedersText = new QLabel("Seeders");
+    QLabel *seedersText = new QLabel(tr("Seeders"));
     seedersText->setStyleSheet("font-size: 10px; color: #888888;");
     seedersText->setAlignment(Qt::AlignCenter);
     seedersLayout->addWidget(seedersLabel_);
@@ -173,7 +173,7 @@ void TorrentDetailsPanel::setupUi()
     leechersLabel_ = new QLabel("0");
     leechersLabel_->setStyleSheet("font-size: 20px; font-weight: bold; color: #AA00FF;");
     leechersLabel_->setAlignment(Qt::AlignCenter);
-    QLabel *leechersText = new QLabel("Leechers");
+    QLabel *leechersText = new QLabel(tr("Leechers"));
     leechersText->setStyleSheet("font-size: 10px; color: #888888;");
     leechersText->setAlignment(Qt::AlignCenter);
     leechersLayout->addWidget(leechersLabel_);
@@ -185,7 +185,7 @@ void TorrentDetailsPanel::setupUi()
     completedLabel_ = new QLabel("0");
     completedLabel_->setStyleSheet("font-size: 20px; font-weight: bold; color: #FF6D00;");
     completedLabel_->setAlignment(Qt::AlignCenter);
-    QLabel *completedText = new QLabel("Completed");
+    QLabel *completedText = new QLabel(tr("Completed"));
     completedText->setStyleSheet("font-size: 10px; color: #888888;");
     completedText->setAlignment(Qt::AlignCenter);
     completedLayout->addWidget(completedLabel_);
@@ -208,13 +208,13 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addLayout(ratingLayout);
     
     // Info section
-    QLabel *infoTitle = new QLabel("Information");
+    QLabel *infoTitle = new QLabel(tr("Information"));
     infoTitle->setObjectName("sectionTitle");
     mainLayout->addWidget(infoTitle);
     
     // Size
     QHBoxLayout *sizeRow = new QHBoxLayout();
-    QLabel *sizeTitle = new QLabel("Size:");
+    QLabel *sizeTitle = new QLabel(tr("Size:"));
     sizeTitle->setObjectName("infoLabel");
     sizeTitle->setFixedWidth(80);
     sizeLabel_ = new QLabel("-");
@@ -225,7 +225,7 @@ void TorrentDetailsPanel::setupUi()
     
     // Files
     QHBoxLayout *filesRow = new QHBoxLayout();
-    QLabel *filesTitle = new QLabel("Files:");
+    QLabel *filesTitle = new QLabel(tr("Files:"));
     filesTitle->setObjectName("infoLabel");
     filesTitle->setFixedWidth(80);
     filesLabel_ = new QLabel("-");
@@ -236,7 +236,7 @@ void TorrentDetailsPanel::setupUi()
     
     // Date
     QHBoxLayout *dateRow = new QHBoxLayout();
-    QLabel *dateTitle = new QLabel("Added:");
+    QLabel *dateTitle = new QLabel(tr("Added:"));
     dateTitle->setObjectName("infoLabel");
     dateTitle->setFixedWidth(80);
     dateLabel_ = new QLabel("-");
@@ -247,7 +247,7 @@ void TorrentDetailsPanel::setupUi()
     
     // Category
     QHBoxLayout *categoryRow = new QHBoxLayout();
-    QLabel *categoryTitle = new QLabel("Category:");
+    QLabel *categoryTitle = new QLabel(tr("Category:"));
     categoryTitle->setObjectName("infoLabel");
     categoryTitle->setFixedWidth(80);
     categoryLabel_ = new QLabel("-");
@@ -257,7 +257,7 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addLayout(categoryRow);
     
     // Hash section
-    QLabel *hashTitle = new QLabel("Info Hash");
+    QLabel *hashTitle = new QLabel(tr("Info Hash"));
     hashTitle->setObjectName("sectionTitle");
     mainLayout->addWidget(hashTitle);
     
@@ -271,12 +271,12 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addStretch();
     
     // Action buttons
-    QLabel *actionsTitle = new QLabel("Actions");
+    QLabel *actionsTitle = new QLabel(tr("Actions"));
     actionsTitle->setObjectName("sectionTitle");
     mainLayout->addWidget(actionsTitle);
     
     // Magnet button
-    magnetButton_ = new QPushButton("🧲  Open Magnet Link");
+    magnetButton_ = new QPushButton(tr("Open Magnet Link"));
     magnetButton_->setObjectName("magnetButton");
     magnetButton_->setCursor(Qt::PointingHandCursor);
     magnetButton_->setStyleSheet(R"(
@@ -299,7 +299,7 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addWidget(magnetButton_);
     
     // Download button
-    downloadButton_ = new QPushButton("⬇  Download");
+    downloadButton_ = new QPushButton(tr("Download"));
     downloadButton_->setObjectName("downloadButton");
     downloadButton_->setCursor(Qt::PointingHandCursor);
     downloadButton_->setStyleSheet(R"(
@@ -322,7 +322,7 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addWidget(downloadButton_);
     
     // Copy hash button
-    copyHashButton_ = new QPushButton("📋  Copy Info Hash");
+    copyHashButton_ = new QPushButton(tr("Copy Info Hash"));
     copyHashButton_->setObjectName("secondaryButton");
     copyHashButton_->setCursor(Qt::PointingHandCursor);
     copyHashButton_->setStyleSheet(R"(
@@ -364,9 +364,9 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     
     // Info
     sizeLabel_->setText(formatBytes(torrent.size));
-    filesLabel_->setText(QString::number(torrent.files) + " files");
+    filesLabel_->setText(tr("%1 files").arg(torrent.files));
     dateLabel_->setText(torrent.added.isValid() ? torrent.added.toString("MMMM d, yyyy") : "-");
-    categoryLabel_->setText(torrent.contentCategory.isEmpty() ? "General" : torrent.contentCategory);
+    categoryLabel_->setText(torrent.contentCategory.isEmpty() ? tr("General") : torrent.contentCategory);
     
     // Hash
     hashLabel_->setText(torrent.hash);
@@ -382,7 +382,7 @@ void TorrentDetailsPanel::clear()
     currentHash_.clear();
     currentTorrent_ = TorrentInfo();
     
-    titleLabel_->setText("Select a torrent");
+    titleLabel_->setText(tr("Select a torrent"));
     contentTypeIcon_->setStyleSheet("background-color: #888888; border-radius: 6px;");
     contentTypeLabel_->clear();
     
@@ -408,7 +408,7 @@ void TorrentDetailsPanel::updateRatingDisplay()
     if (good == 0 && bad == 0) {
         ratingBar_->setValue(0);
         ratingBar_->setStyleSheet("QProgressBar::chunk { background-color: #444444; }");
-        ratingLabel_->setText("No ratings");
+        ratingLabel_->setText(tr("No ratings"));
         return;
     }
     
@@ -474,9 +474,9 @@ void TorrentDetailsPanel::onCopyHashClicked()
     clipboard->setText(currentHash_);
     
     // Visual feedback
-    copyHashButton_->setText("✓  Copied!");
+    copyHashButton_->setText(tr("Copied!"));
     QTimer::singleShot(2000, this, [this]() {
-        copyHashButton_->setText("📋  Copy Info Hash");
+        copyHashButton_->setText(tr("Copy Info Hash"));
     });
 }
 

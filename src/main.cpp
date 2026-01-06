@@ -21,6 +21,7 @@
 #include "api/ratsapi.h"
 #include "api/configmanager.h"
 #include "api/apiserver.h"
+#include "api/translationmanager.h"
 #include "librats/src/logger.h"
 
 #ifdef _WIN32
@@ -460,6 +461,23 @@ int main(int argc, char *argv[])
         qInfo() << "Log file:" << logFilePath;
         qInfo() << "P2P port:" << p2pPort;
         qInfo() << "DHT port:" << dhtPort;
+        
+        // Initialize translation system
+        qint64 translationStart = startupTimer.elapsed();
+        auto& translationManager = TranslationManager::instance();
+        translationManager.initialize(&app, dataDir + "/translations");
+        
+        // Load saved language preference
+        ConfigManager tempConfig(dataDir + "/rats.json");
+        tempConfig.load();
+        QString savedLanguage = tempConfig.language();
+        if (savedLanguage.isEmpty()) {
+            // Try system language
+            savedLanguage = TranslationManager::systemLanguage();
+        }
+        translationManager.setLanguage(savedLanguage);
+        qInfo() << "Translation init took:" << (startupTimer.elapsed() - translationStart) << "ms";
+        qInfo() << "Language:" << savedLanguage;
         
         // Create main window (UI setup only, services deferred)
         qint64 windowStart = startupTimer.elapsed();
