@@ -208,4 +208,4 @@ docker run -p 8095:8095 rats-search:legacy
 
 ## License
 
-[MIT License](https://github.com/DEgITx/rats-search/blob/master/LICENSE) © 2025
+[MIT License](https://github.com/DEgITx/rats-search/blob/master/LICENSE) © 2026

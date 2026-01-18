@@ -1324,7 +1324,7 @@ void MainWindow::showAbout()
         "<p>A powerful decentralized torrent search engine<br>"
         "with DHT crawling and full-text search.</p>"
         "<hr>"
-        "<p style='color: #888;'>Copyright © 2025</p>"
+        "<p style='color: #888;'>Copyright © 2026</p>"
         "<p><a href='https://github.com/DEgITx/rats-search' style='color: #4a9eff;'>GitHub Repository</a></p>"
         "</div>"
     );
