@@ -323,6 +323,16 @@ public:
     void removeTorrents(bool checkOnly, ApiCallback callback);
     
     /**
+     * @brief Import torrent from .torrent file data
+     * 
+     * Parses the bencode data, extracts metadata, and adds to database.
+     * This is equivalent to the legacy dropTorrents API.
+     * 
+     * @param torrentData Raw .torrent file content
+     */
+    void dropTorrents(const QByteArray& torrentData, ApiCallback callback);
+    
+    /**
      * @brief Check if a torrent passes the configured filters
      * @param torrent Torrent info to check
      * @return true if torrent passes all filters, false if should be rejected

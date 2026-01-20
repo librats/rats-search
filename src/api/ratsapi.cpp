@@ -8,10 +8,17 @@
 #include "../p2pnetwork.h"
 #include "../torrentclient.h"
 
+// librats for torrent parsing and DHT metadata lookup
+#ifdef RATS_SEARCH_FEATURES
+#include "../librats/src/bittorrent.h"
+#include "../librats/src/librats.h"
+#endif
+
 #include <QDebug>
 #include <QtConcurrent>
 #include <QJsonDocument>
 #include <QRegularExpression>
+#include <QStandardPaths>
 
 // ============================================================================
 // Helper functions (declared first for use throughout)
@@ -77,7 +84,15 @@ RatsAPI::RatsAPI(QObject *parent)
     registerMethods();
 }
 
-RatsAPI::~RatsAPI() = default;
+RatsAPI::~RatsAPI()
+{
+    // Save download session before destruction
+    if (d->downloadManager) {
+        QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QString sessionPath = dataPath + "/downloads_session.json";
+        d->downloadManager->saveSession(sessionPath);
+    }
+}
 
 void RatsAPI::initialize(TorrentDatabase* database,
                          P2PNetwork* p2p,
@@ -110,6 +125,14 @@ void RatsAPI::initialize(TorrentDatabase* database,
                 this, [this](const QString& hash) {
             emit downloadCompleted(hash, true);
         });
+        
+        // Restore previous download session
+        QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QString sessionPath = dataPath + "/downloads_session.json";
+        int restored = d->downloadManager->restoreSession(sessionPath);
+        if (restored > 0) {
+            qInfo() << "Restored" << restored << "downloads from previous session";
+        }
     }
     
     // Initialize feed manager
@@ -354,6 +377,11 @@ void RatsAPI::registerMethods()
     methods_["torrent.remove"] = [this](const QJsonObject& params, ApiCallback cb) {
         removeTorrents(params["checkOnly"].toBool(false), cb);
     };
+    methods_["torrent.drop"] = [this](const QJsonObject& params, ApiCallback cb) {
+        // Accept base64-encoded torrent data
+        QByteArray data = QByteArray::fromBase64(params["data"].toString().toLatin1());
+        dropTorrents(data, cb);
+    };
     
     // Feed
     methods_["feed.get"] = [this](const QJsonObject& params, ApiCallback cb) {
@@ -520,6 +548,77 @@ void RatsAPI::getTorrent(const QString& hash,
         TorrentInfo torrent = d->database->getTorrent(hash, includeFiles);
         
         if (!torrent.isValid()) {
+            // Torrent not in database - try DHT metadata lookup (like legacy api.js:346-373)
+#ifdef RATS_SEARCH_FEATURES
+            if (d->p2p && d->p2p->isBitTorrentEnabled()) {
+                auto* client = d->p2p->getRatsClient();
+                if (client && client->is_bittorrent_enabled()) {
+                    qInfo() << "Torrent" << hash.left(8) << "not in DB, trying DHT metadata lookup...";
+                    
+                    // Use get_torrent_metadata to fetch via DHT/BEP9
+                    client->get_torrent_metadata(hash.toStdString(),
+                        [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
+                            if (success && libratsTorrent.is_valid()) {
+                                qInfo() << "DHT metadata lookup succeeded for" << hash.left(8);
+                                
+                                // Create TorrentInfo for database
+                                TorrentInfo torrent;
+                                torrent.hash = hash;
+                                torrent.name = QString::fromStdString(libratsTorrent.get_name());
+                                torrent.size = static_cast<qint64>(libratsTorrent.get_total_length());
+                                torrent.files = static_cast<int>(libratsTorrent.get_files().size());
+                                torrent.piecelength = static_cast<int>(libratsTorrent.get_piece_length());
+                                torrent.added = QDateTime::currentDateTime();
+                                
+                                // Build file list
+                                const auto& files = libratsTorrent.get_files();
+                                for (const auto& f : files) {
+                                    TorrentFile tf;
+                                    tf.path = QString::fromStdString(f.path);
+                                    tf.size = static_cast<qint64>(f.length);
+                                    torrent.filesList.append(tf);
+                                }
+                                
+                                // Detect content type
+                                TorrentDatabase::detectContentType(torrent);
+                                
+                                // Insert into database for future lookups
+                                if (d->database) {
+                                    d->database->insertTorrent(torrent);
+                                }
+                                
+                                QJsonObject result = torrentInfoToJson(torrent);
+                                result["fromDHT"] = true;
+                                
+                                // Add files to result
+                                if (!torrent.filesList.isEmpty()) {
+                                    QJsonArray filesArr;
+                                    for (const TorrentFile& f : torrent.filesList) {
+                                        QJsonObject fileObj;
+                                        fileObj["path"] = f.path;
+                                        fileObj["size"] = f.size;
+                                        filesArr.append(fileObj);
+                                    }
+                                    result["filesList"] = filesArr;
+                                }
+                                
+                                QMetaObject::invokeMethod(this, [this, callback, result, hash, torrent]() {
+                                    emit torrentIndexed(hash, torrent.name);
+                                    if (callback) callback(ApiResponse::ok(result));
+                                }, Qt::QueuedConnection);
+                            } else {
+                                qInfo() << "DHT metadata lookup failed for" << hash.left(8) 
+                                        << ":" << QString::fromStdString(error);
+                                QMetaObject::invokeMethod(this, [callback]() {
+                                    if (callback) callback(ApiResponse::fail("Torrent not found"));
+                                }, Qt::QueuedConnection);
+                            }
+                        });
+                    return;  // Async operation in progress
+                }
+            }
+#endif
+            // No DHT available or not enabled
             if (callback) {
                 QMetaObject::invokeMethod(this, [callback]() {
                     callback(ApiResponse::fail("Torrent not found"));
@@ -1012,6 +1111,92 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
     result["checkOnly"] = checkOnly;
     
     if (callback) callback(ApiResponse::ok(result));
+}
+
+void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (torrentData.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Empty torrent data"));
+        return;
+    }
+    
+    if (!d->database) {
+        if (callback) callback(ApiResponse::fail("Database not initialized"));
+        return;
+    }
+    
+    // Parse torrent data using librats TorrentInfo
+    std::vector<uint8_t> data(torrentData.begin(), torrentData.end());
+    
+    librats::TorrentInfo libratsTorrent;
+    if (!libratsTorrent.load_from_data(data)) {
+        if (callback) callback(ApiResponse::fail("Failed to parse torrent file"));
+        return;
+    }
+    
+    if (!libratsTorrent.is_valid()) {
+        if (callback) callback(ApiResponse::fail("Invalid torrent file"));
+        return;
+    }
+    
+    // Convert info hash to hex string
+    QString hash = QString::fromStdString(
+        librats::info_hash_to_hex(libratsTorrent.get_info_hash()));
+    
+    // Check if torrent already exists
+    TorrentInfo existing = d->database->getTorrent(hash);
+    if (existing.isValid()) {
+        // Return existing torrent info
+        QJsonObject result = torrentInfoToJson(existing);
+        result["alreadyExists"] = true;
+        if (callback) callback(ApiResponse::ok(result));
+        return;
+    }
+    
+    // Create TorrentInfo for database
+    TorrentInfo torrent;
+    torrent.hash = hash;
+    torrent.name = QString::fromStdString(libratsTorrent.get_name());
+    torrent.size = static_cast<qint64>(libratsTorrent.get_total_length());
+    torrent.files = static_cast<int>(libratsTorrent.get_files().size());
+    torrent.piecelength = static_cast<int>(libratsTorrent.get_piece_length());
+    torrent.added = QDateTime::currentDateTime();
+    
+    // Build file list
+    const auto& files = libratsTorrent.get_files();
+    for (const auto& f : files) {
+        TorrentFile tf;
+        tf.path = QString::fromStdString(f.path);
+        tf.size = static_cast<qint64>(f.length);
+        torrent.filesList.append(tf);
+    }
+    
+    // Detect content type from files
+    TorrentDatabase::detectContentType(torrent);
+    
+    // Check filters before inserting
+    QString rejectionReason = getTorrentRejectionReason(torrent);
+    if (!rejectionReason.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Torrent rejected: " + rejectionReason));
+        return;
+    }
+    
+    // Insert into database (this also handles files via addFilesToDatabase)
+    d->database->insertTorrent(torrent);
+    
+    qInfo() << "Imported torrent:" << torrent.name.left(50) << "hash:" << hash.left(8);
+    
+    emit torrentIndexed(hash, torrent.name);
+    
+    QJsonObject result = torrentInfoToJson(torrent);
+    result["imported"] = true;
+    
+    if (callback) callback(ApiResponse::ok(result));
+#else
+    Q_UNUSED(torrentData);
+    if (callback) callback(ApiResponse::fail("BitTorrent features not enabled"));
+#endif
 }
 
 bool RatsAPI::checkTorrentFilters(const TorrentInfo& torrent) const

@@ -3,6 +3,10 @@
 #include "../torrentdatabase.h"
 #include <QStandardPaths>
 #include <QDebug>
+#include <QFile>
+#include <QJsonDocument>
+#include <QFileInfo>
+#include <QDir>
 
 // ============================================================================
 // DownloadFile
@@ -404,3 +408,168 @@ void DownloadManager::onTorrentError(const QString& hash, const QString& error)
     emit downloadError(hash, error);
 }
 
+// ============================================================================
+// Session Persistence
+// ============================================================================
+
+bool DownloadManager::saveSession(const QString& filePath)
+{
+    if (downloads_.isEmpty()) {
+        // No downloads to save - remove old session file if exists
+        QFile::remove(filePath);
+        return true;
+    }
+    
+    QJsonArray sessionsArray;
+    
+    for (auto it = downloads_.constBegin(); it != downloads_.constEnd(); ++it) {
+        const DownloadInfo& info = it.value();
+        
+        // Only save incomplete downloads
+        if (info.completed) {
+            continue;
+        }
+        
+        QJsonObject session;
+        session["hash"] = info.hash;
+        session["name"] = info.name;
+        session["size"] = info.size;
+        session["savePath"] = info.savePath;
+        session["paused"] = info.paused;
+        session["removeOnDone"] = info.removeOnDone;
+        session["downloaded"] = info.downloaded;
+        session["progress"] = info.progress;
+        
+        // Save file selection
+        QJsonArray filesArr;
+        for (const DownloadFile& f : info.files) {
+            QJsonObject fileObj;
+            fileObj["path"] = f.path;
+            fileObj["size"] = f.size;
+            fileObj["index"] = f.index;
+            fileObj["selected"] = f.selected;
+            filesArr.append(fileObj);
+        }
+        session["files"] = filesArr;
+        
+        sessionsArray.append(session);
+    }
+    
+    if (sessionsArray.isEmpty()) {
+        QFile::remove(filePath);
+        return true;
+    }
+    
+    // Ensure directory exists
+    QFileInfo fileInfo(filePath);
+    QDir dir = fileInfo.dir();
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly)) {
+        qWarning() << "Failed to save download session to" << filePath;
+        return false;
+    }
+    
+    QJsonDocument doc(sessionsArray);
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+    
+    qInfo() << "Saved" << sessionsArray.size() << "downloads to session file";
+    return true;
+}
+
+int DownloadManager::restoreSession(const QString& filePath)
+{
+    QFile file(filePath);
+    if (!file.exists()) {
+        return 0;
+    }
+    
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning() << "Failed to open download session file:" << filePath;
+        return 0;
+    }
+    
+    QByteArray data = file.readAll();
+    file.close();
+    
+    QJsonParseError parseError;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+    
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "Failed to parse download session file:" << parseError.errorString();
+        return 0;
+    }
+    
+    if (!doc.isArray()) {
+        qWarning() << "Invalid download session file format";
+        return 0;
+    }
+    
+    QJsonArray sessions = doc.array();
+    int restored = 0;
+    
+    for (const QJsonValue& val : sessions) {
+        if (!val.isObject()) {
+            continue;
+        }
+        
+        QJsonObject session = val.toObject();
+        QString hash = session["hash"].toString();
+        
+        if (hash.length() != 40) {
+            continue;
+        }
+        
+        // Check if already downloading
+        if (downloads_.contains(hash)) {
+            continue;
+        }
+        
+        QString name = session["name"].toString();
+        qint64 size = session["size"].toVariant().toLongLong();
+        QString savePath = session["savePath"].toString();
+        bool paused = session["paused"].toBool();
+        bool removeOnDone = session["removeOnDone"].toBool();
+        
+        qInfo() << "Restoring download:" << name.left(50) << "hash:" << hash.left(8);
+        
+        // Add the download
+        if (addWithInfo(hash, name, size, savePath)) {
+            DownloadInfo& info = downloads_[hash];
+            info.paused = paused;
+            info.removeOnDone = removeOnDone;
+            
+            // Restore file selection
+            QJsonArray filesArr = session["files"].toArray();
+            if (!filesArr.isEmpty() && info.files.isEmpty()) {
+                // Populate files from session
+                for (const QJsonValue& fVal : filesArr) {
+                    QJsonObject fObj = fVal.toObject();
+                    DownloadFile df;
+                    df.path = fObj["path"].toString();
+                    df.size = fObj["size"].toVariant().toLongLong();
+                    df.index = fObj["index"].toInt();
+                    df.selected = fObj["selected"].toBool(true);
+                    info.files.append(df);
+                }
+            }
+            
+            // If was paused, pause it
+            if (paused && client_) {
+                pause(hash);
+            }
+            
+            restored++;
+        }
+    }
+    
+    if (restored > 0) {
+        qInfo() << "Restored" << restored << "downloads from session";
+    }
+    
+    return restored;
+}

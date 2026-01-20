@@ -179,6 +179,32 @@ public:
      */
     int count() const;
     
+    // =========================================================================
+    // Session Persistence
+    // =========================================================================
+    
+    /**
+     * @brief Save current downloads to a session file
+     * 
+     * Saves all active downloads state to JSON file for later restoration.
+     * This is called when the application exits.
+     * 
+     * @param filePath Path to session file
+     * @return true if session was saved successfully
+     */
+    bool saveSession(const QString& filePath);
+    
+    /**
+     * @brief Restore downloads from a session file
+     * 
+     * Loads and restarts downloads from a previously saved session.
+     * This is called when the application starts.
+     * 
+     * @param filePath Path to session file
+     * @return Number of downloads restored
+     */
+    int restoreSession(const QString& filePath);
+    
 signals:
     /**
      * @brief Emitted when download starts (ready with metadata)
