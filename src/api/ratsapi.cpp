@@ -1204,6 +1204,11 @@ P2PStoreManager* RatsAPI::p2pStore() const
     return d->p2pStore.get();
 }
 
+DownloadManager* RatsAPI::getDownloadManager() const
+{
+    return d->downloadManager.get();
+}
+
 void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
 {
     if (hash.length() != 40) {

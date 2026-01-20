@@ -7,12 +7,18 @@
 #include "torrentitemdelegate.h"
 #include "torrentdetailspanel.h"
 
+// New tab widgets (migrated from legacy)
+#include "toptorrentswidget.h"
+#include "feedwidget.h"
+#include "downloadswidget.h"
+
 // New API layer
 #include "api/ratsapi.h"
 #include "api/configmanager.h"
 #include "api/apiserver.h"
 #include "api/updatemanager.h"
 #include "api/translationmanager.h"
+#include "api/downloadmanager.h"
 
 #include <QMenuBar>
 #include <QToolBar>
@@ -579,6 +585,44 @@ void MainWindow::setupUi()
     
     tabWidget->addTab(statsTab, tr("Statistics"));
     
+    // Top Torrents tab (migrated from legacy/app/top-page.js)
+    topTorrentsWidget = new TopTorrentsWidget(this);
+    connect(topTorrentsWidget, &TopTorrentsWidget::torrentSelected,
+            this, [this](const TorrentInfo& torrent) {
+                detailsPanel->setTorrent(torrent);
+                detailsPanel->show();
+            });
+    connect(topTorrentsWidget, &TopTorrentsWidget::torrentDoubleClicked,
+            this, [this](const TorrentInfo& torrent) {
+                QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
+                    .arg(torrent.hash)
+                    .arg(QUrl::toPercentEncoding(torrent.name));
+                QDesktopServices::openUrl(QUrl(magnetLink));
+                logActivity(QString("🧲 Opened magnet link for: %1").arg(torrent.name));
+            });
+    tabWidget->addTab(topTorrentsWidget, tr("🔥 Top"));
+    
+    // Feed tab (migrated from legacy/app/feed-page.js)
+    feedWidget = new FeedWidget(this);
+    connect(feedWidget, &FeedWidget::torrentSelected,
+            this, [this](const TorrentInfo& torrent) {
+                detailsPanel->setTorrent(torrent);
+                detailsPanel->show();
+            });
+    connect(feedWidget, &FeedWidget::torrentDoubleClicked,
+            this, [this](const TorrentInfo& torrent) {
+                QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
+                    .arg(torrent.hash)
+                    .arg(QUrl::toPercentEncoding(torrent.name));
+                QDesktopServices::openUrl(QUrl(magnetLink));
+                logActivity(QString("🧲 Opened magnet link for: %1").arg(torrent.name));
+            });
+    tabWidget->addTab(feedWidget, tr("📰 Feed"));
+    
+    // Downloads tab (migrated from legacy/app/download-page.js)
+    downloadsWidget = new DownloadsWidget(this);
+    tabWidget->addTab(downloadsWidget, tr("📥 Downloads"));
+    
     mainSplitter->addWidget(tabWidget);
     
     // Right side - Details panel
@@ -805,6 +849,26 @@ void MainWindow::initializeServicesDeferred()
             }
         }
     });
+    
+    // Initialize new tab widgets with API
+    if (topTorrentsWidget) {
+        topTorrentsWidget->setApi(api.get());
+        // Connect remote top torrents signal
+        connect(api.get(), &RatsAPI::remoteTopTorrents,
+                topTorrentsWidget, &TopTorrentsWidget::handleRemoteTopTorrents);
+    }
+    
+    if (feedWidget) {
+        feedWidget->setApi(api.get());
+    }
+    
+    if (downloadsWidget) {
+        downloadsWidget->setApi(api.get());
+        DownloadManager* downloadManager = api->getDownloadManager();
+        if (downloadManager) {
+            downloadsWidget->setDownloadManager(downloadManager);
+        }
+    }
     
     // Start REST/WebSocket API server if enabled
     if (config->restApiEnabled()) {
@@ -1225,6 +1289,58 @@ void MainWindow::showSettings()
     
     mainLayout->addWidget(indexerGroup);
     
+    // P2P Settings Group (migrated from legacy/app/config-page.js)
+    QGroupBox *p2pGroup = new QGroupBox(tr("P2P Network"));
+    QFormLayout *p2pLayout = new QFormLayout(p2pGroup);
+    p2pLayout->setSpacing(12);
+    
+    QCheckBox *p2pBootstrapCheck = new QCheckBox(tr("Enable bootstrap nodes"));
+    p2pBootstrapCheck->setChecked(config->p2pBootstrap());
+    p2pLayout->addRow(p2pBootstrapCheck);
+    
+    QSpinBox *p2pConnectionsSpin = new QSpinBox();
+    p2pConnectionsSpin->setRange(5, 100);
+    p2pConnectionsSpin->setValue(config->p2pConnections());
+    p2pConnectionsSpin->setToolTip(tr("Maximum number of P2P connections"));
+    p2pLayout->addRow(tr("Max connections:"), p2pConnectionsSpin);
+    
+    QCheckBox *p2pReplicationCheck = new QCheckBox(tr("Enable P2P replication (client)"));
+    p2pReplicationCheck->setChecked(config->p2pReplication());
+    p2pReplicationCheck->setToolTip(tr("Replicate database from other peers"));
+    p2pLayout->addRow(p2pReplicationCheck);
+    
+    QCheckBox *p2pReplicationServerCheck = new QCheckBox(tr("Enable P2P replication server"));
+    p2pReplicationServerCheck->setChecked(config->p2pReplicationServer());
+    p2pReplicationServerCheck->setToolTip(tr("Serve database to other peers"));
+    p2pLayout->addRow(p2pReplicationServerCheck);
+    
+    mainLayout->addWidget(p2pGroup);
+    
+    // Performance Settings Group (migrated from legacy/app/config-page.js)
+    QGroupBox *perfGroup = new QGroupBox(tr("Performance"));
+    QFormLayout *perfLayout = new QFormLayout(perfGroup);
+    perfLayout->setSpacing(12);
+    
+    QSpinBox *walkIntervalSpin = new QSpinBox();
+    walkIntervalSpin->setRange(1, 150);
+    walkIntervalSpin->setValue(config->spiderWalkInterval());
+    walkIntervalSpin->setToolTip(tr("Interval between DHT walks (lower = faster, more CPU)"));
+    perfLayout->addRow(tr("Spider walk interval:"), walkIntervalSpin);
+    
+    QSpinBox *nodesUsageSpin = new QSpinBox();
+    nodesUsageSpin->setRange(0, 1000);
+    nodesUsageSpin->setValue(config->spiderNodesUsage());
+    nodesUsageSpin->setToolTip(tr("Number of DHT nodes to use (0 = auto)"));
+    perfLayout->addRow(tr("DHT nodes usage:"), nodesUsageSpin);
+    
+    QSpinBox *packagesLimitSpin = new QSpinBox();
+    packagesLimitSpin->setRange(0, 5000);
+    packagesLimitSpin->setValue(config->spiderPackagesLimit());
+    packagesLimitSpin->setToolTip(tr("Maximum network packages per second (0 = unlimited)"));
+    perfLayout->addRow(tr("Package limit:"), packagesLimitSpin);
+    
+    mainLayout->addWidget(perfGroup);
+    
     // Database Settings Group
     QGroupBox *dbGroup = new QGroupBox(tr("Database"));
     QFormLayout *dbLayout = new QFormLayout(dbGroup);
@@ -1287,6 +1403,17 @@ void MainWindow::showSettings()
         
         config->setIndexerEnabled(indexerCheck->isChecked());
         config->setTrackersEnabled(trackersCheck->isChecked());
+        
+        // P2P settings
+        config->setP2pBootstrap(p2pBootstrapCheck->isChecked());
+        config->setP2pConnections(p2pConnectionsSpin->value());
+        config->setP2pReplication(p2pReplicationCheck->isChecked());
+        config->setP2pReplicationServer(p2pReplicationServerCheck->isChecked());
+        
+        // Performance settings
+        config->setSpiderWalkInterval(walkIntervalSpin->value());
+        config->setSpiderNodesUsage(nodesUsageSpin->value());
+        config->setSpiderPackagesLimit(packagesLimitSpin->value());
         
         // Check if network settings changed (require restart)
         bool needsRestart = (p2pPortSpin->value() != oldP2pPort) ||

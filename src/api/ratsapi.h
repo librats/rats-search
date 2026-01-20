@@ -15,6 +15,7 @@ class TorrentClient;
 class ConfigManager;
 class FeedManager;
 class P2PStoreManager;
+class DownloadManager;
 struct TorrentInfo;
 struct TorrentFile;
 
@@ -312,6 +313,11 @@ public:
     P2PStoreManager* p2pStore() const;
     
     /**
+     * @brief Get the download manager
+     */
+    DownloadManager* getDownloadManager() const;
+    
+    /**
      * @brief Check/update tracker info for a torrent
      */
     void checkTrackers(const QString& hash, ApiCallback callback);
@@ -366,6 +372,11 @@ signals:
      * @brief Emitted when remote search results arrive
      */
     void remoteSearchResults(const QString& searchId, const QJsonArray& torrents);
+    
+    /**
+     * @brief Emitted when remote top torrents arrive
+     */
+    void remoteTopTorrents(const QJsonArray& torrents, const QString& type, const QString& time);
     
     /**
      * @brief Emitted when download progress updates

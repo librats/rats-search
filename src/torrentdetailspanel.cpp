@@ -1,5 +1,6 @@
 #include "torrentdetailspanel.h"
 #include "torrentitemdelegate.h"
+#include "api/ratsapi.h"
 #include <QClipboard>
 #include <QApplication>
 #include <QDesktopServices>
@@ -10,6 +11,8 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QTimer>
+#include <QJsonArray>
+#include <QHeaderView>
 
 TorrentDetailsPanel::TorrentDetailsPanel(QWidget *parent)
     : QWidget(parent)
@@ -207,6 +210,136 @@ void TorrentDetailsPanel::setupUi()
     ratingLayout->addWidget(ratingLabel_);
     mainLayout->addLayout(ratingLayout);
     
+    // Voting buttons (migrated from legacy/app/torrent-page.js)
+    QHBoxLayout *votingLayout = new QHBoxLayout();
+    votingLayout->setSpacing(8);
+    
+    goodVoteButton_ = new QPushButton(tr("👍 Good"));
+    goodVoteButton_->setStyleSheet(R"(
+        QPushButton {
+            background-color: #2e7d32;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #388e3c;
+        }
+        QPushButton:pressed {
+            background-color: #1b5e20;
+        }
+        QPushButton:disabled {
+            background-color: #3c3f41;
+            color: #666666;
+        }
+    )");
+    goodVoteButton_->setCursor(Qt::PointingHandCursor);
+    connect(goodVoteButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onGoodVoteClicked);
+    votingLayout->addWidget(goodVoteButton_);
+    
+    badVoteButton_ = new QPushButton(tr("👎 Bad"));
+    badVoteButton_->setStyleSheet(R"(
+        QPushButton {
+            background-color: #c62828;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #d32f2f;
+        }
+        QPushButton:pressed {
+            background-color: #b71c1c;
+        }
+        QPushButton:disabled {
+            background-color: #3c3f41;
+            color: #666666;
+        }
+    )");
+    badVoteButton_->setCursor(Qt::PointingHandCursor);
+    connect(badVoteButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onBadVoteClicked);
+    votingLayout->addWidget(badVoteButton_);
+    
+    votingLayout->addStretch();
+    
+    votesLabel_ = new QLabel();
+    votesLabel_->setStyleSheet("font-size: 10px; color: #888888;");
+    votingLayout->addWidget(votesLabel_);
+    
+    mainLayout->addLayout(votingLayout);
+    
+    // Download progress section (hidden by default)
+    downloadProgressWidget_ = new QWidget();
+    downloadProgressWidget_->setStyleSheet("background-color: #2d2d2d; border-radius: 6px; padding: 8px;");
+    QVBoxLayout *downloadLayout = new QVBoxLayout(downloadProgressWidget_);
+    downloadLayout->setContentsMargins(12, 8, 12, 8);
+    downloadLayout->setSpacing(6);
+    
+    QHBoxLayout *downloadHeaderLayout = new QHBoxLayout();
+    QLabel *downloadTitle = new QLabel(tr("📥 Downloading..."));
+    downloadTitle->setStyleSheet("font-size: 12px; font-weight: bold; color: #4a9eff;");
+    downloadHeaderLayout->addWidget(downloadTitle);
+    downloadHeaderLayout->addStretch();
+    downloadSpeedLabel_ = new QLabel();
+    downloadSpeedLabel_->setStyleSheet("font-size: 11px; color: #00c853; font-weight: bold;");
+    downloadHeaderLayout->addWidget(downloadSpeedLabel_);
+    downloadLayout->addLayout(downloadHeaderLayout);
+    
+    downloadProgressBar_ = new QProgressBar();
+    downloadProgressBar_->setRange(0, 100);
+    downloadProgressBar_->setValue(0);
+    downloadProgressBar_->setTextVisible(true);
+    downloadProgressBar_->setFixedHeight(20);
+    downloadProgressBar_->setStyleSheet(R"(
+        QProgressBar {
+            border: none;
+            border-radius: 4px;
+            background-color: #1e1e1e;
+            text-align: center;
+            font-size: 10px;
+            color: #ffffff;
+        }
+        QProgressBar::chunk {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 #4a9eff, stop:1 #66b2ff);
+            border-radius: 4px;
+        }
+    )");
+    downloadLayout->addWidget(downloadProgressBar_);
+    
+    QHBoxLayout *downloadStatusLayout = new QHBoxLayout();
+    downloadStatusLabel_ = new QLabel();
+    downloadStatusLabel_->setStyleSheet("font-size: 10px; color: #888888;");
+    downloadStatusLayout->addWidget(downloadStatusLabel_);
+    downloadStatusLayout->addStretch();
+    cancelDownloadButton_ = new QPushButton(tr("Cancel"));
+    cancelDownloadButton_->setStyleSheet(R"(
+        QPushButton {
+            background-color: #8b3a3a;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            font-size: 10px;
+        }
+        QPushButton:hover {
+            background-color: #a04040;
+        }
+    )");
+    cancelDownloadButton_->setCursor(Qt::PointingHandCursor);
+    connect(cancelDownloadButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onCancelDownloadClicked);
+    downloadStatusLayout->addWidget(cancelDownloadButton_);
+    downloadLayout->addLayout(downloadStatusLayout);
+    
+    downloadProgressWidget_->hide();
+    mainLayout->addWidget(downloadProgressWidget_);
+    
     // Info section
     QLabel *infoTitle = new QLabel(tr("Information"));
     infoTitle->setObjectName("sectionTitle");
@@ -266,6 +399,51 @@ void TorrentDetailsPanel::setupUi()
     hashLabel_->setWordWrap(true);
     hashLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
     mainLayout->addWidget(hashLabel_);
+    
+    // Files tree section (migrated from legacy/app/torrent-page.js)
+    filesTreeTitle_ = new QLabel(tr("Files"));
+    filesTreeTitle_->setObjectName("sectionTitle");
+    filesTreeTitle_->hide();  // Hidden until files are loaded
+    mainLayout->addWidget(filesTreeTitle_);
+    
+    filesTree_ = new QTreeWidget();
+    filesTree_->setHeaderLabels({tr("Name"), tr("Size"), tr("Download")});
+    filesTree_->setColumnCount(3);
+    filesTree_->header()->setStretchLastSection(false);
+    filesTree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    filesTree_->header()->setSectionResizeMode(1, QHeaderView::Fixed);
+    filesTree_->header()->setSectionResizeMode(2, QHeaderView::Fixed);
+    filesTree_->setColumnWidth(1, 80);
+    filesTree_->setColumnWidth(2, 60);
+    filesTree_->setMaximumHeight(200);
+    filesTree_->setStyleSheet(R"(
+        QTreeWidget {
+            background-color: #1e1e1e;
+            border: 1px solid #3c3f41;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        QTreeWidget::item {
+            padding: 4px;
+        }
+        QTreeWidget::item:selected {
+            background-color: #3d6a99;
+        }
+        QTreeWidget::item:hover {
+            background-color: #2d3748;
+        }
+        QHeaderView::section {
+            background-color: #2d2d2d;
+            color: #888888;
+            padding: 6px;
+            border: none;
+            border-bottom: 1px solid #3c3f41;
+            font-size: 10px;
+        }
+    )");
+    filesTree_->hide();  // Hidden until files are loaded
+    connect(filesTree_, &QTreeWidget::itemChanged, this, &TorrentDetailsPanel::onFileItemChanged);
+    mainLayout->addWidget(filesTree_);
     
     // Spacer
     mainLayout->addStretch();
@@ -480,3 +658,203 @@ void TorrentDetailsPanel::onCopyHashClicked()
     });
 }
 
+void TorrentDetailsPanel::setApi(RatsAPI* api)
+{
+    api_ = api;
+    if (api_) {
+        connect(api_, &RatsAPI::votesUpdated, this, &TorrentDetailsPanel::onVotesUpdated);
+    }
+}
+
+void TorrentDetailsPanel::onGoodVoteClicked()
+{
+    if (currentHash_.isEmpty()) return;
+    
+    hasVoted_ = true;
+    updateVotingButtons();
+    
+    if (api_) {
+        api_->vote(currentHash_, true, [](const ApiResponse&) {});
+    }
+    emit voteRequested(currentHash_, true);
+}
+
+void TorrentDetailsPanel::onBadVoteClicked()
+{
+    if (currentHash_.isEmpty()) return;
+    
+    hasVoted_ = true;
+    updateVotingButtons();
+    
+    if (api_) {
+        api_->vote(currentHash_, false, [](const ApiResponse&) {});
+    }
+    emit voteRequested(currentHash_, false);
+}
+
+void TorrentDetailsPanel::onVotesUpdated(const QString& hash, int good, int bad)
+{
+    if (hash != currentHash_) return;
+    
+    currentTorrent_.good = good;
+    currentTorrent_.bad = bad;
+    updateRatingDisplay();
+    updateVotingButtons();
+}
+
+void TorrentDetailsPanel::updateVotingButtons()
+{
+    int total = currentTorrent_.good + currentTorrent_.bad;
+    if (total > 0) {
+        votesLabel_->setText(tr("%1 votes").arg(total));
+    } else {
+        votesLabel_->setText(tr("No votes yet"));
+    }
+    
+    goodVoteButton_->setEnabled(!hasVoted_);
+    badVoteButton_->setEnabled(!hasVoted_);
+    
+    if (hasVoted_) {
+        goodVoteButton_->setText(tr("👍 Voted"));
+        badVoteButton_->setText(tr("👎 Voted"));
+    } else {
+        goodVoteButton_->setText(tr("👍 Good"));
+        badVoteButton_->setText(tr("👎 Bad"));
+    }
+}
+
+void TorrentDetailsPanel::setFiles(const QJsonArray& files)
+{
+    filesTree_->clear();
+    
+    if (files.isEmpty()) {
+        filesTreeTitle_->hide();
+        filesTree_->hide();
+        return;
+    }
+    
+    filesTreeTitle_->show();
+    filesTree_->show();
+    
+    // Block signals while populating
+    filesTree_->blockSignals(true);
+    
+    for (int i = 0; i < files.size(); ++i) {
+        QJsonObject file = files.at(i).toObject();
+        QString path = file["path"].toString();
+        qint64 size = file["size"].toVariant().toLongLong();
+        
+        QTreeWidgetItem* item = new QTreeWidgetItem();
+        item->setText(0, path);
+        item->setText(1, formatBytes(size));
+        item->setCheckState(2, Qt::Checked);
+        item->setData(0, Qt::UserRole, i);  // Store file index
+        
+        filesTree_->addTopLevelItem(item);
+    }
+    
+    filesTree_->blockSignals(false);
+}
+
+QList<int> TorrentDetailsPanel::getSelectedFileIndices() const
+{
+    QList<int> indices;
+    
+    for (int i = 0; i < filesTree_->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* item = filesTree_->topLevelItem(i);
+        if (item->checkState(2) == Qt::Checked) {
+            indices.append(item->data(0, Qt::UserRole).toInt());
+        }
+    }
+    
+    return indices;
+}
+
+void TorrentDetailsPanel::onFileItemChanged(QTreeWidgetItem* item, int column)
+{
+    if (column != 2) return;  // Only care about checkbox column
+    
+    Q_UNUSED(item);
+    
+    if (!currentHash_.isEmpty()) {
+        emit fileSelectionChanged(currentHash_, getSelectedFileIndices());
+    }
+}
+
+void TorrentDetailsPanel::setDownloadProgress(double progress, qint64 downloaded, qint64 total, int speed)
+{
+    isDownloading_ = true;
+    downloadProgressWidget_->show();
+    downloadButton_->hide();
+    
+    int percent = static_cast<int>(progress * 100);
+    downloadProgressBar_->setValue(percent);
+    
+    downloadStatusLabel_->setText(QString("%1 / %2").arg(formatBytes(downloaded), formatBytes(total)));
+    downloadSpeedLabel_->setText(formatSpeed(speed));
+}
+
+void TorrentDetailsPanel::setDownloadCompleted()
+{
+    isDownloading_ = false;
+    downloadProgressWidget_->hide();
+    downloadButton_->show();
+    downloadButton_->setText(tr("✓ Completed"));
+    downloadButton_->setEnabled(false);
+    downloadButton_->setStyleSheet(R"(
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 #388e3c, stop:1 #4caf50);
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-size: 12px;
+            color: white;
+        }
+    )");
+}
+
+void TorrentDetailsPanel::resetDownloadState()
+{
+    isDownloading_ = false;
+    downloadProgressWidget_->hide();
+    downloadButton_->show();
+    downloadButton_->setText(tr("Download"));
+    downloadButton_->setEnabled(true);
+    downloadButton_->setStyleSheet(R"(
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 #00c853, stop:1 #00e676);
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            font-weight: bold;
+            font-size: 12px;
+            color: white;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 #00e676, stop:1 #69f0ae);
+        }
+    )");
+}
+
+void TorrentDetailsPanel::onCancelDownloadClicked()
+{
+    if (!currentHash_.isEmpty()) {
+        emit downloadCancelRequested(currentHash_);
+    }
+    resetDownloadState();
+}
+
+QString TorrentDetailsPanel::formatSpeed(int bytesPerSec) const
+{
+    if (bytesPerSec < 1024) {
+        return QString::number(bytesPerSec) + " B/s";
+    } else if (bytesPerSec < 1024 * 1024) {
+        return QString::number(bytesPerSec / 1024.0, 'f', 1) + " KB/s";
+    } else {
+        return QString::number(bytesPerSec / (1024.0 * 1024.0), 'f', 1) + " MB/s";
+    }
+}

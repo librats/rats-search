@@ -54,6 +54,10 @@ set(SOURCES
     src/sphinxql.cpp
     src/torrentitemdelegate.cpp
     src/torrentdetailspanel.cpp
+    # New tab widgets (migrated from legacy)
+    src/toptorrentswidget.cpp
+    src/feedwidget.cpp
+    src/downloadswidget.cpp
     # API layer (replaces old searchapi.cpp and searchengine.cpp)
     src/api/ratsapi.cpp
     src/api/configmanager.cpp
@@ -78,6 +82,10 @@ set(HEADERS
     src/sphinxql.h
     src/torrentitemdelegate.h
     src/torrentdetailspanel.h
+    # New tab widgets (migrated from legacy)
+    src/toptorrentswidget.h
+    src/feedwidget.h
+    src/downloadswidget.h
     # API layer (replaces old searchapi.h and searchengine.h)
     src/api/ratsapi.h
     src/api/configmanager.h

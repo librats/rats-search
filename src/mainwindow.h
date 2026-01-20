@@ -31,6 +31,12 @@ class TorrentItemDelegate;
 class TorrentDetailsPanel;
 class QTextEdit;
 class QMenu;
+class TopTorrentsWidget;
+class FeedWidget;
+class DownloadsWidget;
+
+// Managers
+class DownloadManager;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -104,6 +110,11 @@ private:
     QSplitter *mainSplitter;
     TorrentDetailsPanel *detailsPanel;
     QTextEdit *activityLog;
+    
+    // New tab widgets (migrated from legacy)
+    TopTorrentsWidget *topTorrentsWidget;
+    FeedWidget *feedWidget;
+    DownloadsWidget *downloadsWidget;
     
     // Status bar
     QLabel *p2pStatusLabel;
