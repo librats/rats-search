@@ -5,6 +5,7 @@
 #include "p2pstoremanager.h"
 #include "trackerchecker.h"
 #include "../torrentdatabase.h"
+#include "../sphinxql.h"
 #include "../p2pnetwork.h"
 #include "../torrentclient.h"
 
@@ -421,6 +422,39 @@ QStringList RatsAPI::availableMethods() const
 // Search API Implementation
 // ============================================================================
 
+// Helper: Parse magnet link to extract info hash (like legacy magnetParse.js)
+static QString parseMagnetLink(const QString& text)
+{
+    // If it's already a 40-char hex hash, return it
+    static QRegularExpression hashRegex("^[0-9a-fA-F]{40}$");
+    if (hashRegex.match(text).hasMatch()) {
+        return text.toLower();
+    }
+    
+    // Parse magnet link: magnet:?xt=urn:btih:HASH...
+    static QRegularExpression magnetRegex("(?:magnet:\\?.*?)?xt=urn:btih:([0-9a-fA-F]{40})", 
+                                          QRegularExpression::CaseInsensitiveOption);
+    auto match = magnetRegex.match(text);
+    if (match.hasMatch()) {
+        return match.captured(1).toLower();
+    }
+    
+    // Also try base32 (32 uppercase letters/numbers)
+    // Note: Would need to decode base32 to hex - for now just return empty
+    
+    return QString();
+}
+
+// Helper: Check if text looks like a SHA1 info hash
+static bool isSHA1Hash(const QString& text)
+{
+    if (text.length() != 40) {
+        return false;
+    }
+    static QRegularExpression hexRegex("^[0-9a-fA-F]{40}$");
+    return hexRegex.match(text).hasMatch();
+}
+
 void RatsAPI::searchTorrents(const QString& text,
                               const QJsonObject& options,
                               ApiCallback callback)
@@ -435,8 +469,14 @@ void RatsAPI::searchTorrents(const QString& text,
         return;
     }
     
+    // Parse magnet link if present (like legacy api.js:295)
+    QString query = parseMagnetLink(text);
+    if (query.isEmpty()) {
+        query = text;
+    }
+    
     SearchOptions opts;
-    opts.query = text;
+    opts.query = query;
     opts.index = options["index"].toInt(0);
     opts.limit = options["limit"].toInt(10);
     opts.orderBy = options["orderBy"].toString();
@@ -456,13 +496,81 @@ void RatsAPI::searchTorrents(const QString& text,
         opts.filesMax = files["max"].toInt();
     }
     
+    // Check if query is SHA1 hash - do direct lookup instead of text search
+    bool isHash = isSHA1Hash(query);
+    
     // Run in background
-    (void)QtConcurrent::run([this, opts, callback]() {
+    (void)QtConcurrent::run([this, opts, isHash, callback]() {
         QVector<TorrentInfo> results = d->database->searchTorrents(opts);
         
         QJsonArray torrents;
         for (const TorrentInfo& t : results) {
             torrents.append(torrentInfoToJson(t));
+        }
+        
+        // If searching by hash and no results, try DHT metadata lookup (like legacy api.js:346-373)
+        if (isHash && results.isEmpty()) {
+#ifdef RATS_SEARCH_FEATURES
+            if (d->p2p && d->p2p->isBitTorrentEnabled()) {
+                auto* client = d->p2p->getRatsClient();
+                if (client && client->is_bittorrent_enabled()) {
+                    QString hash = opts.query.toLower();
+                    qInfo() << "Search: Hash" << hash.left(8) << "not in DB, trying DHT lookup...";
+                    
+                    client->get_torrent_metadata(hash.toStdString(),
+                        [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
+                            if (success && libratsTorrent.is_valid()) {
+                                qInfo() << "DHT search lookup succeeded for" << hash.left(8);
+                                
+                                // Create TorrentInfo
+                                TorrentInfo torrent;
+                                torrent.hash = hash;
+                                torrent.name = QString::fromStdString(libratsTorrent.get_name());
+                                torrent.size = static_cast<qint64>(libratsTorrent.get_total_length());
+                                torrent.files = static_cast<int>(libratsTorrent.get_files().size());
+                                torrent.piecelength = static_cast<int>(libratsTorrent.get_piece_length());
+                                torrent.added = QDateTime::currentDateTime();
+                                
+                                // Build file list
+                                const auto& files = libratsTorrent.get_files();
+                                for (const auto& f : files) {
+                                    TorrentFile tf;
+                                    tf.path = QString::fromStdString(f.path);
+                                    tf.size = static_cast<qint64>(f.length);
+                                    torrent.filesList.append(tf);
+                                }
+                                
+                                // Detect content type
+                                TorrentDatabase::detectContentType(torrent);
+                                
+                                // Insert into database
+                                if (d->database) {
+                                    d->database->insertTorrent(torrent);
+                                }
+                                
+                                QJsonObject result = torrentInfoToJson(torrent);
+                                result["fromDHT"] = true;
+                                
+                                QJsonArray results;
+                                results.append(result);
+                                
+                                QMetaObject::invokeMethod(this, [this, callback, results, hash, torrent]() {
+                                    emit torrentIndexed(hash, torrent.name);
+                                    if (callback) callback(ApiResponse::ok(results));
+                                }, Qt::QueuedConnection);
+                            } else {
+                                qInfo() << "DHT search lookup failed for" << hash.left(8)
+                                        << ":" << QString::fromStdString(error);
+                                // Return empty results
+                                QMetaObject::invokeMethod(this, [callback]() {
+                                    if (callback) callback(ApiResponse::ok(QJsonArray()));
+                                }, Qt::QueuedConnection);
+                            }
+                        });
+                    return;  // Async operation in progress
+                }
+            }
+#endif
         }
         
         if (callback) {
@@ -472,9 +580,9 @@ void RatsAPI::searchTorrents(const QString& text,
         }
     });
     
-    // Also search P2P network if available
-    if (d->p2p && d->p2p->isConnected()) {
-        d->p2p->searchTorrents(text);
+    // Also search P2P network if available (for text search, not hash lookup)
+    if (!isHash && d->p2p && d->p2p->isConnected()) {
+        d->p2p->searchTorrents(query);
     }
 }
 
@@ -541,8 +649,55 @@ void RatsAPI::getTorrent(const QString& hash,
         return;
     }
     
-    // TODO: Handle remote peer request via P2P
-    Q_UNUSED(remotePeer);
+    // Handle remote peer request via P2P (like legacy api.js:128-161)
+    if (!remotePeer.isEmpty() && d->p2p) {
+        qInfo() << "Fetching torrent" << hash.left(8) << "from remote peer" << remotePeer.left(8);
+        
+        QJsonObject request;
+        request["hash"] = hash;
+        
+        QJsonObject options;
+        options["files"] = includeFiles;
+        request["options"] = options;
+        
+        // Send request to specific peer
+        d->p2p->sendMessage(remotePeer, "torrent", request);
+        
+        // Register one-time handler for the response
+        QString responseType = QString("torrent_response:%1").arg(hash);
+        auto callbackCopy = callback;  // Copy for capture
+        
+        d->p2p->registerMessageHandler(responseType, 
+            [this, hash, callbackCopy, responseType](const QString& peerId, const QJsonObject& data) {
+                Q_UNUSED(peerId);
+                
+                // Unregister the handler (one-time)
+                d->p2p->unregisterMessageHandler(responseType);
+                
+                if (data.isEmpty() || !data.contains("hash")) {
+                    if (callbackCopy) callbackCopy(ApiResponse::fail("Remote peer did not have torrent"));
+                    return;
+                }
+                
+                // Replicate torrent to our database
+                insertTorrentFromFeed(data);
+                
+                // Mark as remote
+                QJsonObject result = data;
+                result["remote"] = true;
+                
+                if (callbackCopy) callbackCopy(ApiResponse::ok(result));
+            });
+        
+        // Timeout handler - will remove after 10 seconds if no response
+        QTimer::singleShot(10000, this, [this, responseType, callbackCopy]() {
+            // Check if handler still registered (no response received)
+            d->p2p->unregisterMessageHandler(responseType);
+            // Note: callback might have been called already, that's okay
+        });
+        
+        return;
+    }
     
     (void)QtConcurrent::run([this, hash, includeFiles, callback]() {
         TorrentInfo torrent = d->database->getTorrent(hash, includeFiles);
@@ -1104,13 +1259,93 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
         return;
     }
     
-    // TODO: Implement torrent cleanup based on filters
-    
-    QJsonObject result;
-    result["removed"] = 0;
-    result["checkOnly"] = checkOnly;
-    
-    if (callback) callback(ApiResponse::ok(result));
+    // Run cleanup in background thread (like legacy api.js:923-961)
+    (void)QtConcurrent::run([this, checkOnly, callback]() {
+        QVector<QString> toRemove;
+        int checked = 0;
+        
+        // Query torrents in batches to avoid memory issues
+        const int batchSize = 1000;
+        qint64 lastId = 0;
+        
+        while (true) {
+            QString querySql = QString("SELECT * FROM torrents WHERE id > %1 ORDER BY id ASC LIMIT %2")
+                               .arg(lastId).arg(batchSize);
+            
+            SphinxQL::Results rows = d->database->sphinxQL()->query(querySql);
+            
+            if (rows.isEmpty()) {
+                break;  // No more torrents
+            }
+            
+            for (const QVariantMap& row : rows) {
+                // Convert to TorrentInfo
+                TorrentInfo torrent;
+                torrent.id = row["id"].toLongLong();
+                torrent.hash = row["hash"].toString();
+                torrent.name = row["name"].toString();
+                torrent.size = row["size"].toLongLong();
+                torrent.files = row["files"].toInt();
+                torrent.piecelength = row["piecelength"].toInt();
+                torrent.contentTypeId = row["contenttype"].toInt();
+                torrent.contentCategoryId = row["contentcategory"].toInt();
+                
+                lastId = torrent.id;
+                checked++;
+                
+                // Check if torrent passes filters
+                QString rejectionReason = getTorrentRejectionReason(torrent);
+                if (!rejectionReason.isEmpty()) {
+                    toRemove.append(torrent.hash);
+                    qDebug() << "Cleanup: Marking torrent for removal:" << torrent.hash.left(8) 
+                             << torrent.name.left(40) << "-" << rejectionReason;
+                    
+                    // Emit progress periodically
+                    if (toRemove.size() % 100 == 0) {
+                        QMetaObject::invokeMethod(this, [this, checked, count = toRemove.size()]() {
+                            emit cleanupProgress(checked, count, "check");
+                        }, Qt::QueuedConnection);
+                    }
+                }
+            }
+            
+            if (rows.size() < batchSize) {
+                break;  // Last batch
+            }
+        }
+        
+        qInfo() << "Cleanup: Found" << toRemove.size() << "torrents to remove out of" << checked << "checked";
+        
+        int removed = 0;
+        
+        // Actually remove if not checkOnly
+        if (!checkOnly && !toRemove.isEmpty()) {
+            for (const QString& hash : toRemove) {
+                if (d->database->removeTorrent(hash)) {
+                    removed++;
+                    
+                    // Emit progress periodically
+                    if (removed % 100 == 0) {
+                        QMetaObject::invokeMethod(this, [this, removed, total = toRemove.size()]() {
+                            emit cleanupProgress(removed, total, "clean");
+                        }, Qt::QueuedConnection);
+                    }
+                }
+            }
+            
+            qInfo() << "Cleanup: Removed" << removed << "torrents";
+        }
+        
+        QJsonObject result;
+        result["checked"] = checked;
+        result["found"] = toRemove.size();
+        result["removed"] = removed;
+        result["checkOnly"] = checkOnly;
+        
+        QMetaObject::invokeMethod(this, [callback, result]() {
+            if (callback) callback(ApiResponse::ok(result));
+        }, Qt::QueuedConnection);
+    });
 }
 
 void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)

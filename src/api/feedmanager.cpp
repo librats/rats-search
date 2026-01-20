@@ -1,6 +1,8 @@
 #include "feedmanager.h"
 #include "../torrentdatabase.h"
+#include "../sphinxql.h"
 #include <QDateTime>
+#include <QDebug>
 #include <cmath>
 
 // ============================================================================
@@ -58,27 +60,121 @@ FeedManager::~FeedManager()
 
 bool FeedManager::load()
 {
-    if (!database_) {
+    if (!database_ || !database_->isReady()) {
+        qWarning() << "FeedManager: Database not ready";
         loaded_ = true;
         return false;
     }
     
-    // TODO: Load from database feed table
-    // For now, start with empty feed
+    SphinxQL* sphinxQL = database_->sphinxQL();
+    if (!sphinxQL) {
+        qWarning() << "FeedManager: SphinxQL not available";
+        loaded_ = true;
+        return false;
+    }
+    
+    // Create feed table if it doesn't exist
+    // Note: Manticore uses rt (real-time) tables
+    QString createTableSql = R"(
+        CREATE TABLE IF NOT EXISTS feed (
+            id BIGINT,
+            hash STRING,
+            name TEXT,
+            size BIGINT,
+            files INTEGER,
+            contenttype STRING,
+            contentcategory STRING,
+            seeders INTEGER,
+            good INTEGER,
+            bad INTEGER,
+            feeddate BIGINT
+        )
+    )";
+    
+    if (!sphinxQL->exec(createTableSql)) {
+        qWarning() << "FeedManager: Failed to create feed table:" << sphinxQL->lastError();
+        // Table might already exist, continue anyway
+    }
+    
+    // Load feed items ordered by id (which reflects insertion order = ranking)
+    QString querySql = QString("SELECT * FROM feed ORDER BY id ASC LIMIT %1").arg(maxSize_);
+    SphinxQL::Results rows = sphinxQL->query(querySql);
+    
     feed_.clear();
+    
+    for (const QVariantMap& row : rows) {
+        TorrentFeedItem item;
+        item.hash = row["hash"].toString();
+        item.name = row["name"].toString();
+        item.size = row["size"].toLongLong();
+        item.files = row["files"].toInt();
+        item.contentType = row["contenttype"].toString();
+        item.contentCategory = row["contentcategory"].toString();
+        item.seeders = row["seeders"].toInt();
+        item.good = row["good"].toInt();
+        item.bad = row["bad"].toInt();
+        item.feedDate = row["feeddate"].toLongLong();
+        
+        if (!item.hash.isEmpty()) {
+            feed_.append(item);
+        }
+    }
+    
+    // Get the latest feedDate as our feed date
+    if (!feed_.isEmpty()) {
+        for (const TorrentFeedItem& item : feed_) {
+            if (item.feedDate > feedDate_) {
+                feedDate_ = item.feedDate;
+            }
+        }
+    }
+    
     loaded_ = true;
     
+    qInfo() << "FeedManager: Loaded" << feed_.size() << "feed items from database";
     return true;
 }
 
 bool FeedManager::save()
 {
-    if (!database_ || !loaded_) {
+    if (!database_ || !database_->isReady()) {
         return false;
     }
     
-    // TODO: Save to database feed table
+    SphinxQL* sphinxQL = database_->sphinxQL();
+    if (!sphinxQL) {
+        return false;
+    }
     
+    // Clear and repopulate the feed table
+    // (Manticore doesn't support TRUNCATE well, so delete all)
+    if (!sphinxQL->exec("DELETE FROM feed WHERE id > 0")) {
+        qWarning() << "FeedManager: Failed to clear feed table:" << sphinxQL->lastError();
+        // Continue anyway - may fail if table is empty
+    }
+    
+    // Insert all items with sequential IDs to maintain ordering
+    qint64 nextId = 1;
+    for (const TorrentFeedItem& item : feed_) {
+        QVariantMap values;
+        values["id"] = nextId++;
+        values["hash"] = item.hash;
+        values["name"] = item.name;
+        values["size"] = item.size;
+        values["files"] = item.files;
+        values["contenttype"] = item.contentType;
+        values["contentcategory"] = item.contentCategory;
+        values["seeders"] = item.seeders;
+        values["good"] = item.good;
+        values["bad"] = item.bad;
+        values["feeddate"] = item.feedDate;
+        
+        if (!sphinxQL->insertValues("feed", values)) {
+            qWarning() << "FeedManager: Failed to save feed item:" << item.hash << sphinxQL->lastError();
+        }
+    }
+    
+    qInfo() << "FeedManager: Saved" << feed_.size() << "feed items to database";
     return true;
 }
 
@@ -86,6 +182,12 @@ void FeedManager::clear()
 {
     feed_.clear();
     feedDate_ = 0;
+    
+    // Also clear from database
+    if (database_ && database_->sphinxQL()) {
+        database_->sphinxQL()->exec("DELETE FROM feed WHERE id > 0");
+    }
+    
     emit feedUpdated();
 }
 
@@ -165,6 +267,10 @@ void FeedManager::add(const TorrentFeedItem& item)
     
     emit itemAdded(item.hash);
     emit feedUpdated();
+    
+    // Auto-save periodically (every 10 additions would be good, but for now save immediately)
+    // In a real app you'd want to debounce this
+    save();
 }
 
 void FeedManager::addByHash(const QString& hash)
@@ -237,6 +343,9 @@ void FeedManager::fromJsonArray(const QJsonArray& array, qint64 remoteFeedDate)
     reorder();
     feedDate_ = remoteFeedDate > 0 ? remoteFeedDate : QDateTime::currentSecsSinceEpoch();
     
+    // Save the new feed to database
+    save();
+    
     emit feedUpdated();
 }
 
@@ -269,7 +378,7 @@ void FeedManager::reorder()
 
 double FeedManager::calculateScore(const TorrentFeedItem& item) const
 {
-    // Ranking algorithm from legacy code
+    // Ranking algorithm from legacy feed.js _compare function
     const int good = item.good;
     const int bad = item.bad;
     const int comments = 0;  // TODO: Add comments support
@@ -304,4 +413,3 @@ double FeedManager::calculateScore(const TorrentFeedItem& item) const
            - bad * 0.6 * relativeTime
            + wilsonScore(good, bad);
 }
-
