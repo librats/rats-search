@@ -14,6 +14,7 @@ class P2PNetwork;
 class TorrentClient;
 class ConfigManager;
 class FeedManager;
+class P2PStoreManager;
 struct TorrentInfo;
 struct TorrentFile;
 
@@ -288,10 +289,27 @@ public:
     
     /**
      * @brief Vote on a torrent
+     * 
+     * Stores the vote both locally and in the distributed P2P store.
+     * 
      * @param hash Torrent hash
      * @param isGood true for upvote, false for downvote
      */
     void vote(const QString& hash, bool isGood, ApiCallback callback);
+    
+    /**
+     * @brief Get votes for a torrent
+     * 
+     * Aggregates votes from all peers via the distributed P2P store.
+     * 
+     * @param hash Torrent hash
+     */
+    void getVotes(const QString& hash, ApiCallback callback);
+    
+    /**
+     * @brief Get the P2P store manager
+     */
+    P2PStoreManager* p2pStore() const;
     
     /**
      * @brief Check/update tracker info for a torrent
@@ -303,6 +321,20 @@ public:
      * @param checkOnly If true, only count matching torrents
      */
     void removeTorrents(bool checkOnly, ApiCallback callback);
+    
+    /**
+     * @brief Check if a torrent passes the configured filters
+     * @param torrent Torrent info to check
+     * @return true if torrent passes all filters, false if should be rejected
+     */
+    bool checkTorrentFilters(const TorrentInfo& torrent) const;
+    
+    /**
+     * @brief Get reason why torrent was rejected
+     * @param torrent Torrent info to check
+     * @return Empty string if passes, rejection reason otherwise
+     */
+    QString getTorrentRejectionReason(const TorrentInfo& torrent) const;
     
     // =========================================================================
     // Feed API
@@ -386,9 +418,15 @@ private:
     void handleP2PFeedRequest(const QString& peerId, const QJsonObject& data);
     void handleP2PSearchResult(const QString& peerId, const QJsonObject& data);
     void handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject& data);
+    void handleP2PFeedResponse(const QString& peerId, const QJsonObject& data);
+    void handleP2PRandomTorrentsRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PPeerConnected(const QString& peerId);
     
     // Helper to convert TorrentInfo to JSON for P2P responses
     static QJsonObject torrentToP2PJson(const TorrentInfo& torrent);
+    
+    // Helper to insert a torrent from feed replication
+    void insertTorrentFromFeed(const QJsonObject& torrentData);
 };
 
 #endif // RATSAPI_H

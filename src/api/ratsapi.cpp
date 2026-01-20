@@ -2,6 +2,8 @@
 #include "configmanager.h"
 #include "feedmanager.h"
 #include "downloadmanager.h"
+#include "p2pstoremanager.h"
+#include "trackerchecker.h"
 #include "../torrentdatabase.h"
 #include "../p2pnetwork.h"
 #include "../torrentclient.h"
@@ -9,6 +11,7 @@
 #include <QDebug>
 #include <QtConcurrent>
 #include <QJsonDocument>
+#include <QRegularExpression>
 
 // ============================================================================
 // Helper functions (declared first for use throughout)
@@ -53,6 +56,8 @@ public:
     
     std::unique_ptr<DownloadManager> downloadManager;
     std::unique_ptr<FeedManager> feedManager;
+    std::unique_ptr<P2PStoreManager> p2pStore;
+    std::unique_ptr<TrackerChecker> trackerChecker;
     
     // Top torrents cache
     QHash<QString, QJsonArray> topCache;
@@ -116,6 +121,45 @@ void RatsAPI::initialize(TorrentDatabase* database,
                 this, [this]() {
             emit feedUpdated(d->feedManager->toJsonArray());
         });
+    }
+    
+    // Initialize P2P store manager for distributed storage (voting, etc.)
+    if (p2p) {
+        d->p2pStore = std::make_unique<P2PStoreManager>(p2p, this);
+        
+        // Forward vote signals from remote peers
+        connect(d->p2pStore.get(), &P2PStoreManager::voteStored,
+                this, [this](const QString& hash, bool isGood, const QString& peerId) {
+            Q_UNUSED(isGood);
+            Q_UNUSED(peerId);
+            // Update vote counts when remote votes arrive
+            VoteCounts votes = d->p2pStore->getVotes(hash);
+            emit votesUpdated(hash, votes.good, votes.bad);
+        });
+        
+        connect(d->p2pStore.get(), &P2PStoreManager::syncCompleted,
+                this, [this](bool success, const QString& error) {
+            if (success) {
+                qInfo() << "P2P store sync completed successfully";
+            } else {
+                qWarning() << "P2P store sync failed:" << error;
+            }
+        });
+        
+        qInfo() << "P2PStoreManager initialized";
+    }
+    
+    // Initialize tracker checker
+    if (config && config->trackersEnabled()) {
+        d->trackerChecker = std::make_unique<TrackerChecker>(this);
+        quint16 trackerPort = static_cast<quint16>(config->udpTrackersPort());
+        if (d->trackerChecker->initialize(trackerPort)) {
+            d->trackerChecker->setTimeout(config->udpTrackersTimeout());
+            qInfo() << "TrackerChecker initialized on port" << d->trackerChecker->localPort();
+        } else {
+            qWarning() << "Failed to initialize TrackerChecker";
+            d->trackerChecker.reset();
+        }
     }
     
     // Forward config changes
@@ -199,6 +243,35 @@ void RatsAPI::setupP2PHandlers()
             handleP2PTorrentAnnounce(peerId, data);
         });
     
+    // Handler for feed responses (P2P feed sync)
+    d->p2p->registerMessageHandler("feed_response",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PFeedResponse(peerId, data);
+        });
+    
+    // Handler for randomTorrents (P2P replication)
+    d->p2p->registerMessageHandler("randomTorrents",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PRandomTorrentsRequest(peerId, data);
+        });
+    
+    // Handler for randomTorrents_response (P2P replication - incoming torrents)
+    d->p2p->registerMessageHandler("randomTorrents_response",
+        [this](const QString& peerId, const QJsonObject& data) {
+            QJsonArray torrents = data["torrents"].toArray();
+            qInfo() << "Received" << torrents.size() << "random torrents from" << peerId.left(8);
+            
+            for (const QJsonValue& val : torrents) {
+                if (val.isObject()) {
+                    insertTorrentFromFeed(val.toObject());
+                }
+            }
+        });
+    
+    // Connect to peer connected signal to request feed sync
+    connect(d->p2p, &P2PNetwork::peerConnected,
+            this, &RatsAPI::handleP2PPeerConnected);
+    
     qInfo() << "P2P API handlers registered";
 }
 
@@ -271,6 +344,9 @@ void RatsAPI::registerMethods()
     // Torrent operations
     methods_["torrent.vote"] = [this](const QJsonObject& params, ApiCallback cb) {
         vote(params["hash"].toString(), params["isGood"].toBool(true), cb);
+    };
+    methods_["torrent.getVotes"] = [this](const QJsonObject& params, ApiCallback cb) {
+        getVotes(params["hash"].toString(), cb);
     };
     methods_["torrent.checkTrackers"] = [this](const QJsonObject& params, ApiCallback cb) {
         checkTrackers(params["hash"].toString(), cb);
@@ -765,12 +841,40 @@ void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
         return;
     }
     
+    // Check if already voted (via P2P store)
+    if (d->p2pStore && d->p2pStore->isAvailable() && d->p2pStore->hasVoted(hash)) {
+        // Already voted - return current vote counts from P2P store
+        VoteCounts votes = d->p2pStore->getVotes(hash);
+        
+        QJsonObject result;
+        result["hash"] = hash;
+        result["good"] = votes.good;
+        result["bad"] = votes.bad;
+        result["selfVoted"] = true;
+        result["alreadyVoted"] = true;
+        
+        if (callback) callback(ApiResponse::ok(result));
+        return;
+    }
+    
+    // Store vote in P2P distributed store (this syncs to all peers)
+    bool storedInP2P = false;
+    if (d->p2pStore && d->p2pStore->isAvailable()) {
+        // Include torrent data for replication (like legacy _temp field)
+        QJsonObject torrentData = torrentInfoToJson(torrent);
+        storedInP2P = d->p2pStore->storeVote(hash, isGood, torrentData);
+        
+        if (storedInP2P) {
+            qInfo() << "Vote stored in P2P network for" << hash.left(8);
+        }
+    }
+    
+    // Update local database counts as well (for fast local access)
     if (isGood) {
         torrent.good++;
     } else {
         torrent.bad++;
     }
-    
     d->database->updateTorrent(torrent);
     
     // Update feed
@@ -778,14 +882,72 @@ void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
         d->feedManager->addByHash(hash);
     }
     
-    emit votesUpdated(hash, torrent.good, torrent.bad);
+    // Get aggregated votes (combines P2P store with local)
+    int goodCount = torrent.good;
+    int badCount = torrent.bad;
+    
+    if (d->p2pStore && d->p2pStore->isAvailable()) {
+        VoteCounts votes = d->p2pStore->getVotes(hash);
+        goodCount = votes.good;
+        badCount = votes.bad;
+    }
+    
+    emit votesUpdated(hash, goodCount, badCount);
     
     QJsonObject result;
     result["hash"] = hash;
-    result["good"] = torrent.good;
-    result["bad"] = torrent.bad;
+    result["good"] = goodCount;
+    result["bad"] = badCount;
+    result["selfVoted"] = true;
+    result["distributed"] = storedInP2P;
     
     if (callback) callback(ApiResponse::ok(result));
+}
+
+void RatsAPI::getVotes(const QString& hash, ApiCallback callback)
+{
+    if (hash.length() != 40) {
+        if (callback) callback(ApiResponse::fail("Invalid hash"));
+        return;
+    }
+    
+    QJsonObject result;
+    result["hash"] = hash;
+    
+    // Get votes from P2P store if available (aggregates all peer votes)
+    if (d->p2pStore && d->p2pStore->isAvailable()) {
+        VoteCounts votes = d->p2pStore->getVotes(hash);
+        result["good"] = votes.good;
+        result["bad"] = votes.bad;
+        result["selfVoted"] = votes.selfVoted;
+        result["source"] = "distributed";
+    } else if (d->database) {
+        // Fall back to local database
+        TorrentInfo torrent = d->database->getTorrent(hash);
+        if (torrent.isValid()) {
+            result["good"] = torrent.good;
+            result["bad"] = torrent.bad;
+            result["selfVoted"] = false;  // Can't determine from local DB
+            result["source"] = "local";
+        } else {
+            result["good"] = 0;
+            result["bad"] = 0;
+            result["selfVoted"] = false;
+            result["source"] = "none";
+        }
+    } else {
+        result["good"] = 0;
+        result["bad"] = 0;
+        result["selfVoted"] = false;
+        result["source"] = "unavailable";
+    }
+    
+    if (callback) callback(ApiResponse::ok(result));
+}
+
+P2PStoreManager* RatsAPI::p2pStore() const
+{
+    return d->p2pStore.get();
 }
 
 void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
@@ -795,16 +957,45 @@ void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
         return;
     }
     
+    if (!d->trackerChecker) {
+        if (callback) {
+            QJsonObject result;
+            result["hash"] = hash;
+            result["status"] = "disabled";
+            result["error"] = "Tracker checking is disabled";
+            callback(ApiResponse::ok(result));
+        }
+        return;
+    }
+    
     qInfo() << "Checking trackers for" << hash.left(8);
     
-    // TODO: Implement UDP tracker checking
-    // For now, just acknowledge the request
-    
-    QJsonObject result;
-    result["hash"] = hash;
-    result["status"] = "checking";
-    
-    if (callback) callback(ApiResponse::ok(result));
+    // Scrape from multiple trackers and get best result
+    d->trackerChecker->scrapeMultiple(hash, [this, hash, callback](const TrackerResult& result) {
+        QJsonObject response;
+        response["hash"] = hash;
+        
+        if (result.success) {
+            response["status"] = "success";
+            response["seeders"] = result.seeders;
+            response["leechers"] = result.leechers;
+            response["completed"] = result.completed;
+            response["tracker"] = result.tracker;
+            
+            // Update database with new tracker info
+            if (d->database) {
+                d->database->updateTrackerInfo(hash, result.seeders, result.leechers, result.completed);
+            }
+            
+            qInfo() << "Tracker check for" << hash.left(8) << "- seeders:" << result.seeders 
+                    << "leechers:" << result.leechers;
+        } else {
+            response["status"] = "failed";
+            response["error"] = result.error.isEmpty() ? "No tracker responded" : result.error;
+        }
+        
+        if (callback) callback(ApiResponse::ok(response));
+    });
 }
 
 void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
@@ -821,6 +1012,100 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
     result["checkOnly"] = checkOnly;
     
     if (callback) callback(ApiResponse::ok(result));
+}
+
+bool RatsAPI::checkTorrentFilters(const TorrentInfo& torrent) const
+{
+    return getTorrentRejectionReason(torrent).isEmpty();
+}
+
+QString RatsAPI::getTorrentRejectionReason(const TorrentInfo& torrent) const
+{
+    if (!d->config) {
+        return QString();  // No config = no filters = pass
+    }
+    
+    // Check max files filter
+    int maxFiles = d->config->filtersMaxFiles();
+    if (maxFiles > 0 && torrent.files > maxFiles) {
+        return QString("Too many files: %1 > %2").arg(torrent.files).arg(maxFiles);
+    }
+    
+    // Check size filters
+    qint64 sizeMin = d->config->filtersSizeMin();
+    qint64 sizeMax = d->config->filtersSizeMax();
+    
+    if (sizeMin > 0 && torrent.size < sizeMin) {
+        return QString("Size too small: %1 < %2").arg(torrent.size).arg(sizeMin);
+    }
+    
+    if (sizeMax > 0 && torrent.size > sizeMax) {
+        return QString("Size too large: %1 > %2").arg(torrent.size).arg(sizeMax);
+    }
+    
+    // Check adult filter
+    if (d->config->filtersAdultFilter()) {
+        // Check for adult content indicators
+        QString nameLower = torrent.name.toLower();
+        static QStringList adultKeywords = {"xxx", "porn", "sex", "adult", "18+", "nsfw"};
+        
+        for (const QString& keyword : adultKeywords) {
+            if (nameLower.contains(keyword)) {
+                return QString("Adult content detected: %1").arg(keyword);
+            }
+        }
+        
+        // Also check content category
+        if (torrent.contentCategoryId == static_cast<int>(ContentCategory::XXX)) {
+            return "Adult content category";
+        }
+    }
+    
+    // Check naming regex filter
+    QString regexPattern = d->config->filtersNamingRegExp();
+    if (!regexPattern.isEmpty()) {
+        QRegularExpression regex(regexPattern, QRegularExpression::CaseInsensitiveOption);
+        
+        if (regex.isValid()) {
+            bool matches = regex.match(torrent.name).hasMatch();
+            bool isNegative = d->config->filtersNamingRegExpNegative();
+            
+            if (isNegative) {
+                // Negative filter: reject if matches
+                if (matches) {
+                    return QString("Name matches blocked pattern: %1").arg(regexPattern);
+                }
+            } else {
+                // Positive filter: reject if doesn't match
+                if (!matches) {
+                    return QString("Name doesn't match required pattern: %1").arg(regexPattern);
+                }
+            }
+        }
+    }
+    
+    // Check content type filter
+    QString contentTypeFilter = d->config->filtersContentType();
+    if (!contentTypeFilter.isEmpty() && contentTypeFilter != "all") {
+        // Parse comma-separated content types
+        QStringList allowedTypes = contentTypeFilter.split(',', Qt::SkipEmptyParts);
+        
+        if (!allowedTypes.isEmpty()) {
+            bool typeAllowed = false;
+            for (const QString& type : allowedTypes) {
+                if (torrent.contentTypeString().compare(type.trimmed(), Qt::CaseInsensitive) == 0) {
+                    typeAllowed = true;
+                    break;
+                }
+            }
+            
+            if (!typeAllowed) {
+                return QString("Content type not allowed: %1").arg(torrent.contentTypeString());
+            }
+        }
+    }
+    
+    return QString();  // Passes all filters
 }
 
 // ============================================================================
@@ -1063,12 +1348,116 @@ void RatsAPI::handleP2PFeedRequest(const QString& peerId, const QJsonObject& dat
     if (d->feedManager) {
         response["feed"] = d->feedManager->toJsonArray();
         response["feedDate"] = d->feedManager->feedDate();
+        response["size"] = d->feedManager->size();
     } else {
         response["feed"] = QJsonArray();
         response["feedDate"] = 0;
+        response["size"] = 0;
     }
     
     d->p2p->sendMessage(peerId, "feed_response", response);
+}
+
+void RatsAPI::handleP2PFeedResponse(const QString& peerId, const QJsonObject& data)
+{
+    if (!d->feedManager) {
+        return;
+    }
+    
+    int remoteSize = data["size"].toInt(data["feed"].toArray().size());
+    qint64 remoteFeedDate = data["feedDate"].toVariant().toLongLong();
+    QJsonArray remoteFeed = data["feed"].toArray();
+    
+    int localSize = d->feedManager->size();
+    qint64 localFeedDate = d->feedManager->feedDate();
+    
+    qInfo() << "Received feed response from" << peerId.left(8) 
+            << "- Remote:" << remoteSize << "items, date:" << remoteFeedDate
+            << "- Local:" << localSize << "items, date:" << localFeedDate;
+    
+    // Determine if we should replace our feed with remote feed
+    // (Like legacy: if remote is bigger/newer, replace)
+    bool shouldReplace = false;
+    
+    if (remoteSize > localSize) {
+        shouldReplace = true;
+        qInfo() << "Replacing local feed: remote has more items";
+    } else if (remoteSize == localSize && remoteFeedDate > localFeedDate) {
+        shouldReplace = true;
+        qInfo() << "Replacing local feed: remote is newer";
+    }
+    
+    if (shouldReplace) {
+        d->feedManager->fromJsonArray(remoteFeed, remoteFeedDate);
+        
+        // Replicate torrents from feed to our database
+        for (const QJsonValue& val : remoteFeed) {
+            if (val.isObject()) {
+                QJsonObject torrentObj = val.toObject();
+                insertTorrentFromFeed(torrentObj);
+            }
+        }
+        
+        qInfo() << "Feed replaced with" << remoteFeed.size() << "items from peer" << peerId.left(8);
+        emit feedUpdated(d->feedManager->toJsonArray());
+    }
+}
+
+void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
+{
+    if (!d->database) {
+        return;
+    }
+    
+    QString hash = torrentData["hash"].toString();
+    if (hash.length() != 40) {
+        return;
+    }
+    
+    // Check if we already have this torrent
+    TorrentInfo existing = d->database->getTorrent(hash);
+    if (existing.isValid()) {
+        // Update votes if remote has more
+        int remoteGood = torrentData["good"].toInt();
+        int remoteBad = torrentData["bad"].toInt();
+        
+        if (remoteGood > existing.good || remoteBad > existing.bad) {
+            existing.good = qMax(existing.good, remoteGood);
+            existing.bad = qMax(existing.bad, remoteBad);
+            d->database->updateTorrent(existing);
+        }
+        return;
+    }
+    
+    // Create new torrent entry from feed data
+    TorrentInfo torrent;
+    torrent.hash = hash;
+    torrent.name = torrentData["name"].toString();
+    torrent.size = torrentData["size"].toVariant().toLongLong();
+    torrent.files = torrentData["files"].toInt();
+    torrent.seeders = torrentData["seeders"].toInt();
+    torrent.good = torrentData["good"].toInt();
+    torrent.bad = torrentData["bad"].toInt();
+    
+    QString contentType = torrentData["contentType"].toString();
+    torrent.setContentTypeFromString(contentType);
+    
+    QString contentCategory = torrentData["contentCategory"].toString();
+    torrent.setContentCategoryFromString(contentCategory);
+    
+    torrent.added = QDateTime::currentDateTime();
+    
+    // Check filters before inserting
+    QString rejectionReason = getTorrentRejectionReason(torrent);
+    if (!rejectionReason.isEmpty()) {
+        qDebug() << "Rejected torrent from feed:" << torrent.name.left(30) << "-" << rejectionReason;
+        return;
+    }
+    
+    // Insert into database
+    d->database->insertTorrent(torrent);
+    
+    qDebug() << "Inserted torrent from feed:" << torrent.name.left(30);
 }
 
 void RatsAPI::handleP2PSearchResult(const QString& peerId, const QJsonObject& data)
@@ -1108,7 +1497,75 @@ void RatsAPI::handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject&
     
     qDebug() << "Received torrent announcement from" << peerId.left(8) << ":" << name;
     
-    // TODO: Optionally add to local database (replication)
-    // For now, just emit the event
+    // Optionally insert into database for replication
+    insertTorrentFromFeed(data);
+    
     emit torrentIndexed(hash, name);
+}
+
+void RatsAPI::handleP2PPeerConnected(const QString& peerId)
+{
+    // Request feed from newly connected peer (for P2P feed sync)
+    if (d->p2p && d->feedManager) {
+        qInfo() << "Requesting feed from new peer" << peerId.left(8);
+        
+        QJsonObject request;
+        request["localSize"] = d->feedManager->size();
+        request["localFeedDate"] = d->feedManager->feedDate();
+        
+        d->p2p->sendMessage(peerId, "feed", request);
+    }
+    
+    // Also request random torrents for replication (if enabled in config)
+    if (d->p2p && d->config && d->config->p2pReplication()) {
+        qInfo() << "Requesting random torrents from new peer" << peerId.left(8);
+        
+        QJsonObject request;
+        request["limit"] = 5;
+        
+        d->p2p->sendMessage(peerId, "randomTorrents", request);
+    }
+}
+
+void RatsAPI::handleP2PRandomTorrentsRequest(const QString& peerId, const QJsonObject& data)
+{
+    // Handle randomTorrents request - like legacy api.js
+    if (!d->database || !d->p2p) {
+        return;
+    }
+    
+    // Check if replication server is enabled
+    if (!d->config || !d->config->p2pReplicationServer()) {
+        qDebug() << "P2P replication server disabled, ignoring randomTorrents request";
+        return;
+    }
+    
+    int limit = data["limit"].toInt(5);
+    // Limit based on server load (like legacy)
+    limit = qBound(1, limit, 10);
+    
+    qInfo() << "Processing P2P randomTorrents request from" << peerId.left(8) << "limit:" << limit;
+    
+    QVector<TorrentInfo> torrents = d->database->getRandomTorrents(limit);
+    
+    QJsonArray response;
+    for (const TorrentInfo& torrent : torrents) {
+        QJsonObject obj = torrentToP2PJson(torrent);
+        
+        // Include files list for replication
+        if (!torrent.filesList.isEmpty()) {
+            QJsonArray filesArray;
+            for (const TorrentFile& file : torrent.filesList) {
+                QJsonObject fileObj;
+                fileObj["path"] = file.path;
+                fileObj["size"] = file.size;
+                filesArray.append(fileObj);
+            }
+            obj["filesList"] = filesArray;
+        }
+        
+        response.append(obj);
+    }
+    
+    d->p2p->sendMessage(peerId, "randomTorrents_response", QJsonObject{{"torrents", response}});
 }

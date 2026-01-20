@@ -52,6 +52,8 @@ struct TorrentInfo {
     bool isValid() const { return !hash.isEmpty() && hash.length() == 40; }
     QString contentTypeString() const;
     QString contentCategoryString() const;
+    void setContentTypeFromString(const QString& type);
+    void setContentCategoryFromString(const QString& category);
 };
 
 /**
@@ -187,6 +189,16 @@ public:
                                          const QString& time = "", 
                                          int index = 0, 
                                          int limit = 20);
+    
+    /**
+     * @brief Get random torrents for P2P replication
+     */
+    QVector<TorrentInfo> getRandomTorrents(int limit = 5);
+    
+    /**
+     * @brief Insert a torrent (alias for addTorrent)
+     */
+    bool insertTorrent(const TorrentInfo& torrent) { return addTorrent(torrent); }
 
     // =========================================================================
     // Tracker Operations

@@ -691,3 +691,38 @@ QString TorrentInfo::contentCategoryString() const
 {
     return TorrentDatabase::contentCategoryFromId(contentCategoryId);
 }
+
+void TorrentInfo::setContentTypeFromString(const QString& type)
+{
+    contentTypeId = TorrentDatabase::contentTypeId(type);
+    contentType = type;
+}
+
+void TorrentInfo::setContentCategoryFromString(const QString& category)
+{
+    contentCategoryId = TorrentDatabase::contentCategoryId(category);
+    contentCategory = category;
+}
+
+QVector<TorrentInfo> TorrentDatabase::getRandomTorrents(int limit)
+{
+    QVector<TorrentInfo> results;
+    
+    if (!isReady()) {
+        return results;
+    }
+    
+    // Get random torrents using Manticore's RAND() function
+    // Also exclude adult content and require at least some seeders
+    QString sql = QString("SELECT * FROM torrents WHERE seeders > 0 AND contentCategory != %1 "
+                          "ORDER BY RAND() LIMIT %2")
+        .arg(static_cast<int>(ContentCategory::XXX))
+        .arg(limit);
+    
+    auto rows = sphinxQL_->query(sql);
+    for (const auto& row : rows) {
+        results.append(rowToTorrent(row));
+    }
+    
+    return results;
+}

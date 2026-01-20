@@ -3,7 +3,11 @@
 #include <QTimer>
 #include <QDebug>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QDateTime>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
 
 // Helper: Convert nlohmann::json to QJsonObject
 static QJsonObject nlohmannToQt(const nlohmann::json& j) {
@@ -427,4 +431,123 @@ void P2PNetwork::disableBitTorrent()
         qInfo() << "BitTorrent disabled";
     }
 #endif
+}
+
+// =========================================================================
+// Bootstrap Peers
+// =========================================================================
+
+void P2PNetwork::loadBootstrapPeers(const QString& url)
+{
+    if (!ratsClient_) {
+        qWarning() << "Cannot load bootstrap peers: RatsClient not started";
+        return;
+    }
+    
+    qInfo() << "Loading bootstrap peers from" << url;
+    
+    QNetworkAccessManager* manager = new QNetworkAccessManager(this);
+    QUrl requestUrl(url);
+    QNetworkRequest request{requestUrl};
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    
+    QNetworkReply* reply = manager->get(request);
+    
+    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+        reply->deleteLater();
+        manager->deleteLater();
+        
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "Failed to load bootstrap peers:" << reply->errorString();
+            return;
+        }
+        
+        QByteArray data = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        
+        if (!doc.isObject()) {
+            qWarning() << "Invalid bootstrap response format";
+            return;
+        }
+        
+        QJsonObject json = doc.object();
+        
+        // Try to parse peers array
+        QJsonArray peersArray;
+        if (json.contains("peers") && json["peers"].isArray()) {
+            peersArray = json["peers"].toArray();
+        } else if (json.contains("bootstrap") && json["bootstrap"].isArray()) {
+            peersArray = json["bootstrap"].toArray();
+        }
+        
+        if (peersArray.isEmpty()) {
+            qWarning() << "No peers found in bootstrap response";
+            return;
+        }
+        
+        int connected = 0;
+        for (const QJsonValue& val : peersArray) {
+            QString address;
+            
+            if (val.isString()) {
+                address = val.toString();
+            } else if (val.isObject()) {
+                QJsonObject peerObj = val.toObject();
+                // Try different formats
+                address = peerObj["address"].toString();
+                if (address.isEmpty()) {
+                    address = peerObj["addr"].toString();
+                }
+                if (address.isEmpty()) {
+                    address = peerObj["multiaddr"].toString();
+                }
+            }
+            
+            if (!address.isEmpty() && connectToPeer(address)) {
+                connected++;
+            }
+        }
+        
+        qInfo() << "Bootstrap: attempted to connect to" << connected << "peers from" << peersArray.size();
+    });
+}
+
+bool P2PNetwork::connectToPeer(const QString& address)
+{
+    if (!ratsClient_ || address.isEmpty()) {
+        return false;
+    }
+    
+    // Parse address - could be various formats:
+    // - IP:port (e.g., "1.2.3.4:9000")
+    // - hostname:port
+    
+    QString host;
+    int port = 9000;
+    
+    // Parse host:port format
+    QStringList parts = address.split(':');
+    if (parts.size() >= 2) {
+        host = parts[0];
+        bool ok;
+        int parsedPort = parts[1].toInt(&ok);
+        if (ok && parsedPort > 0 && parsedPort < 65536) {
+            port = parsedPort;
+        }
+    } else {
+        host = address;
+    }
+    
+    if (host.isEmpty()) {
+        return false;
+    }
+    
+    // Use librats connect_to_peer method
+    std::string hostStr = host.toStdString();
+    if (ratsClient_->connect_to_peer(hostStr, port)) {
+        qDebug() << "Connected to bootstrap peer:" << address.left(30);
+        return true;
+    }
+    
+    return false;
 }
