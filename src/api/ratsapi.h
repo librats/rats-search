@@ -363,6 +363,33 @@ public:
      */
     void getFeed(int index, int limit, ApiCallback callback);
     
+    // =========================================================================
+    // P2P Replication API (like legacy api.js:247-272)
+    // =========================================================================
+    
+    /**
+     * @brief Start continuous P2P replication
+     * 
+     * Starts a timer that periodically requests random torrents from peers.
+     * The interval adapts based on how many torrents are received.
+     */
+    void startReplication();
+    
+    /**
+     * @brief Stop continuous P2P replication
+     */
+    void stopReplication();
+    
+    /**
+     * @brief Check if replication is currently active
+     */
+    bool isReplicationActive() const;
+    
+    /**
+     * @brief Get total replicated torrents count
+     */
+    qint64 replicationStats() const;
+    
 signals:
     // =========================================================================
     // Events (for push notifications to clients)
@@ -417,6 +444,16 @@ signals:
      * @brief Emitted during cleanup
      */
     void cleanupProgress(int current, int total, const QString& phase);
+    
+    /**
+     * @brief Emitted when P2P replication starts
+     */
+    void replicationStarted();
+    
+    /**
+     * @brief Emitted when P2P replication stops
+     */
+    void replicationStopped();
 
 private:
     class Private;
@@ -448,6 +485,21 @@ private:
     
     // Helper to insert a torrent from feed replication
     void insertTorrentFromFeed(const QJsonObject& torrentData);
+    
+    // =========================================================================
+    // Replication Timer (private)
+    // =========================================================================
+    
+    /**
+     * @brief Perform one cycle of replication
+     * Called periodically by the replication timer
+     */
+    void performReplicationCycle();
+    
+    /**
+     * @brief Called when a torrent is received via replication
+     */
+    void onReplicationTorrentReceived();
 };
 
 #endif // RATSAPI_H

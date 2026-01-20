@@ -263,6 +263,16 @@ signals:
     void trayOnMinimizeChanged(bool enabled);
     void startMinimizedChanged(bool enabled);
     void checkUpdatesOnStartupChanged(bool enabled);
+    
+    // Filter signals
+    void filtersMaxFilesChanged(int max);
+    void filtersNamingRegExpChanged(const QString& regexp);
+    void filtersNamingRegExpNegativeChanged(bool negative);
+    void filtersAdultFilterChanged(bool enabled);
+    void filtersSizeMinChanged(qint64 min);
+    void filtersSizeMaxChanged(qint64 max);
+    void filtersContentTypeChanged(const QString& type);
+    void filtersChanged();  // Generic signal when any filter changes
 
 private:
     void setDefaults();

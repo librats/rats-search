@@ -297,70 +297,105 @@ int ConfigManager::filtersMaxFiles() const {
     return config_["filters"].toObject()["maxFiles"].toInt(0); 
 }
 void ConfigManager::setFiltersMaxFiles(int max) {
+    int oldValue = filtersMaxFiles();
+    if (oldValue == max) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["maxFiles"] = max;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersMaxFilesChanged(max);
+    emit filtersChanged();
 }
 
 QString ConfigManager::filtersNamingRegExp() const { 
     return config_["filters"].toObject()["namingRegExp"].toString(); 
 }
 void ConfigManager::setFiltersNamingRegExp(const QString& regexp) {
+    QString oldValue = filtersNamingRegExp();
+    if (oldValue == regexp) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["namingRegExp"] = regexp;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersNamingRegExpChanged(regexp);
+    emit filtersChanged();
 }
 
 bool ConfigManager::filtersNamingRegExpNegative() const { 
     return config_["filters"].toObject()["namingRegExpNegative"].toBool(false); 
 }
 void ConfigManager::setFiltersNamingRegExpNegative(bool negative) {
+    bool oldValue = filtersNamingRegExpNegative();
+    if (oldValue == negative) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["namingRegExpNegative"] = negative;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersNamingRegExpNegativeChanged(negative);
+    emit filtersChanged();
 }
 
 bool ConfigManager::filtersAdultFilter() const { 
     return config_["filters"].toObject()["adultFilter"].toBool(false); 
 }
 void ConfigManager::setFiltersAdultFilter(bool enabled) {
+    bool oldValue = filtersAdultFilter();
+    if (oldValue == enabled) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["adultFilter"] = enabled;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersAdultFilterChanged(enabled);
+    emit filtersChanged();
 }
 
 qint64 ConfigManager::filtersSizeMin() const { 
     return config_["filters"].toObject()["sizeMin"].toVariant().toLongLong(); 
 }
 void ConfigManager::setFiltersSizeMin(qint64 min) {
+    qint64 oldValue = filtersSizeMin();
+    if (oldValue == min) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["sizeMin"] = min;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersSizeMinChanged(min);
+    emit filtersChanged();
 }
 
 qint64 ConfigManager::filtersSizeMax() const { 
     return config_["filters"].toObject()["sizeMax"].toVariant().toLongLong(); 
 }
 void ConfigManager::setFiltersSizeMax(qint64 max) {
+    qint64 oldValue = filtersSizeMax();
+    if (oldValue == max) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["sizeMax"] = max;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersSizeMaxChanged(max);
+    emit filtersChanged();
 }
 
 QString ConfigManager::filtersContentType() const { 
     return config_["filters"].toObject()["contentType"].toString(); 
 }
 void ConfigManager::setFiltersContentType(const QString& type) {
+    QString oldValue = filtersContentType();
+    if (oldValue == type) return;
+    
     QJsonObject filters = config_["filters"].toObject();
     filters["contentType"] = type;
     config_["filters"] = filters;
     dirty_ = true;
+    emit filtersContentTypeChanged(type);
+    emit filtersChanged();
 }
 
 // ============================================================================

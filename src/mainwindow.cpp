@@ -54,6 +54,7 @@
 #include <QFormLayout>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QSlider>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QTimer>
@@ -1357,6 +1358,272 @@ void MainWindow::showSettings()
     
     mainLayout->addWidget(perfGroup);
     
+    // ==========================================================================
+    // Filters Settings Group (migrated from legacy/app/filters-page.js)
+    // ==========================================================================
+    QGroupBox *filtersGroup = new QGroupBox(tr("Content Filters"));
+    QVBoxLayout *filtersLayout = new QVBoxLayout(filtersGroup);
+    filtersLayout->setSpacing(12);
+    
+    // Max files per torrent (slider + spinbox, 0=disabled)
+    QHBoxLayout *maxFilesRow = new QHBoxLayout();
+    QLabel *maxFilesLabel = new QLabel(tr("Max files per torrent:"));
+    maxFilesLabel->setToolTip(tr("Maximum number of files in a torrent (0 = disabled)"));
+    QSlider *maxFilesSlider = new QSlider(Qt::Horizontal);
+    maxFilesSlider->setRange(0, 50000);
+    maxFilesSlider->setValue(config->filtersMaxFiles());
+    QSpinBox *maxFilesSpin = new QSpinBox();
+    maxFilesSpin->setRange(0, 50000);
+    maxFilesSpin->setValue(config->filtersMaxFiles());
+    maxFilesSpin->setMinimumWidth(80);
+    
+    // Sync slider and spinbox
+    connect(maxFilesSlider, &QSlider::valueChanged, maxFilesSpin, &QSpinBox::setValue);
+    connect(maxFilesSpin, QOverload<int>::of(&QSpinBox::valueChanged), maxFilesSlider, &QSlider::setValue);
+    
+    maxFilesRow->addWidget(maxFilesLabel);
+    maxFilesRow->addWidget(maxFilesSlider, 1);
+    maxFilesRow->addWidget(maxFilesSpin);
+    filtersLayout->addLayout(maxFilesRow);
+    
+    QLabel *maxFilesHint = new QLabel(tr("* 0 = Disabled (no limit)"));
+    maxFilesHint->setStyleSheet("color: #888; font-size: 11px;");
+    filtersLayout->addWidget(maxFilesHint);
+    
+    // Naming regex filter
+    QHBoxLayout *regexRow = new QHBoxLayout();
+    QLabel *regexLabel = new QLabel(tr("Name filter (regex):"));
+    QLineEdit *regexEdit = new QLineEdit(config->filtersNamingRegExp());
+    regexEdit->setPlaceholderText(tr("Regular expression pattern..."));
+    
+    // Examples dropdown
+    QComboBox *regexExamples = new QComboBox();
+    regexExamples->addItem(tr("Examples..."), "");
+    regexExamples->addItem(tr("Russian + English only"), QString::fromUtf8(R"(^[А-Яа-я0-9A-Za-z.!@?#"$%&:;() *\+,\/;\-=[\\\]\^_{|}<>\u0400-\u04FF]+$)"));
+    regexExamples->addItem(tr("English only"), R"(^[0-9A-Za-z.!@?#"$%&:;() *\+,\/;\-=[\\\]\^_{|}<>]+$)");
+    regexExamples->addItem(tr("Ignore 'badword'"), R"(^((?!badword).)*$)");
+    
+    connect(regexExamples, QOverload<int>::of(&QComboBox::currentIndexChanged), [regexEdit, regexExamples](int index) {
+        QString example = regexExamples->itemData(index).toString();
+        if (!example.isEmpty()) {
+            regexEdit->setText(example);
+        }
+    });
+    
+    regexRow->addWidget(regexLabel);
+    regexRow->addWidget(regexEdit, 1);
+    regexRow->addWidget(regexExamples);
+    filtersLayout->addLayout(regexRow);
+    
+    // Negative regex toggle
+    QCheckBox *regexNegativeCheck = new QCheckBox(tr("Negative regex filter (reject matches)"));
+    regexNegativeCheck->setChecked(config->filtersNamingRegExpNegative());
+    regexNegativeCheck->setToolTip(tr("When enabled, torrents matching the regex will be rejected"));
+    filtersLayout->addWidget(regexNegativeCheck);
+    
+    QLabel *regexHint = new QLabel(tr("* Empty string = Disabled"));
+    regexHint->setStyleSheet("color: #888; font-size: 11px;");
+    filtersLayout->addWidget(regexHint);
+    
+    // Adult content filter
+    QCheckBox *adultFilterCheck = new QCheckBox(tr("Adult content filter (ignore XXX content)"));
+    adultFilterCheck->setChecked(config->filtersAdultFilter());
+    adultFilterCheck->setToolTip(tr("When enabled, adult content will be filtered out"));
+    filtersLayout->addWidget(adultFilterCheck);
+    
+    // Size filter section
+    QGroupBox *sizeFilterBox = new QGroupBox(tr("Size Filter"));
+    QFormLayout *sizeLayout = new QFormLayout(sizeFilterBox);
+    
+    QSpinBox *sizeMinSpin = new QSpinBox();
+    sizeMinSpin->setRange(0, 999999);
+    sizeMinSpin->setSuffix(" MB");
+    sizeMinSpin->setValue(static_cast<int>(config->filtersSizeMin() / (1024 * 1024)));
+    sizeMinSpin->setToolTip(tr("Minimum torrent size (0 = no minimum)"));
+    sizeLayout->addRow(tr("Minimum size:"), sizeMinSpin);
+    
+    QSpinBox *sizeMaxSpin = new QSpinBox();
+    sizeMaxSpin->setRange(0, 999999);
+    sizeMaxSpin->setSuffix(" MB");
+    sizeMaxSpin->setValue(static_cast<int>(config->filtersSizeMax() / (1024 * 1024)));
+    sizeMaxSpin->setToolTip(tr("Maximum torrent size (0 = no maximum)"));
+    sizeLayout->addRow(tr("Maximum size:"), sizeMaxSpin);
+    
+    filtersLayout->addWidget(sizeFilterBox);
+    
+    // Content type checkboxes
+    QGroupBox *contentTypeBox = new QGroupBox(tr("Content Type Filter"));
+    QVBoxLayout *contentTypeLayout = new QVBoxLayout(contentTypeBox);
+    
+    QLabel *contentTypeHint = new QLabel(tr("Uncheck to disable specific content types:"));
+    contentTypeHint->setStyleSheet("color: #888; font-size: 11px;");
+    contentTypeLayout->addWidget(contentTypeHint);
+    
+    // Parse current content type filter
+    QString currentContentTypes = config->filtersContentType();
+    QStringList enabledTypes = currentContentTypes.isEmpty() ? 
+        QStringList{"video", "audio", "pictures", "books", "application", "archive", "disc"} :
+        currentContentTypes.split(",", Qt::SkipEmptyParts);
+    
+    QGridLayout *typeGrid = new QGridLayout();
+    QCheckBox *videoCheck = new QCheckBox(tr("Video"));
+    videoCheck->setChecked(enabledTypes.contains("video"));
+    QCheckBox *audioCheck = new QCheckBox(tr("Audio/Music"));
+    audioCheck->setChecked(enabledTypes.contains("audio"));
+    QCheckBox *picturesCheck = new QCheckBox(tr("Pictures/Images"));
+    picturesCheck->setChecked(enabledTypes.contains("pictures"));
+    QCheckBox *booksCheck = new QCheckBox(tr("Books"));
+    booksCheck->setChecked(enabledTypes.contains("books"));
+    QCheckBox *appsCheck = new QCheckBox(tr("Apps/Games"));
+    appsCheck->setChecked(enabledTypes.contains("application"));
+    QCheckBox *archivesCheck = new QCheckBox(tr("Archives"));
+    archivesCheck->setChecked(enabledTypes.contains("archive"));
+    QCheckBox *discsCheck = new QCheckBox(tr("Discs/ISO"));
+    discsCheck->setChecked(enabledTypes.contains("disc"));
+    
+    typeGrid->addWidget(videoCheck, 0, 0);
+    typeGrid->addWidget(audioCheck, 0, 1);
+    typeGrid->addWidget(picturesCheck, 1, 0);
+    typeGrid->addWidget(booksCheck, 1, 1);
+    typeGrid->addWidget(appsCheck, 2, 0);
+    typeGrid->addWidget(archivesCheck, 2, 1);
+    typeGrid->addWidget(discsCheck, 3, 0);
+    
+    contentTypeLayout->addLayout(typeGrid);
+    filtersLayout->addWidget(contentTypeBox);
+    
+    // Cleanup actions section
+    QGroupBox *cleanupBox = new QGroupBox(tr("Database Cleanup"));
+    QVBoxLayout *cleanupLayout = new QVBoxLayout(cleanupBox);
+    
+    QLabel *cleanupDesc = new QLabel(tr("Check and remove torrents that don't match the current filters:"));
+    cleanupDesc->setWordWrap(true);
+    cleanupLayout->addWidget(cleanupDesc);
+    
+    // Progress display
+    QLabel *cleanupProgress = new QLabel("");
+    cleanupProgress->setStyleSheet("font-weight: bold;");
+    cleanupLayout->addWidget(cleanupProgress);
+    
+    QProgressBar *cleanupProgressBar = new QProgressBar();
+    cleanupProgressBar->setVisible(false);
+    cleanupProgressBar->setRange(0, 100);
+    cleanupLayout->addWidget(cleanupProgressBar);
+    
+    // Buttons row
+    QHBoxLayout *cleanupBtnRow = new QHBoxLayout();
+    
+    QPushButton *checkTorrentsBtn = new QPushButton(tr("Check Torrents"));
+    checkTorrentsBtn->setToolTip(tr("Count how many torrents would be removed (dry run)"));
+    checkTorrentsBtn->setStyleSheet("background: #5a6268; padding: 8px 16px;");
+    
+    QPushButton *cleanTorrentsBtn = new QPushButton(tr("Clean Torrents"));
+    cleanTorrentsBtn->setToolTip(tr("Remove torrents that don't match the current filters"));
+    cleanTorrentsBtn->setStyleSheet("background: #dc3545; padding: 8px 16px;");
+    
+    cleanupBtnRow->addWidget(checkTorrentsBtn);
+    cleanupBtnRow->addWidget(cleanTorrentsBtn);
+    cleanupBtnRow->addStretch();
+    cleanupLayout->addLayout(cleanupBtnRow);
+    
+    // Connect cleanup buttons to RatsAPI
+    connect(checkTorrentsBtn, &QPushButton::clicked, [this, cleanupProgress, cleanupProgressBar, checkTorrentsBtn, cleanTorrentsBtn]() {
+        if (!api) return;
+        
+        cleanupProgress->setText(tr("Checking torrents..."));
+        cleanupProgress->setStyleSheet("color: #ffc107; font-weight: bold;");
+        cleanupProgressBar->setVisible(true);
+        cleanupProgressBar->setValue(0);
+        checkTorrentsBtn->setEnabled(false);
+        cleanTorrentsBtn->setEnabled(false);
+        
+        api->removeTorrents(true, [cleanupProgress, cleanupProgressBar, checkTorrentsBtn, cleanTorrentsBtn](const ApiResponse& response) {
+            QMetaObject::invokeMethod(qApp, [=]() {
+                cleanupProgressBar->setVisible(false);
+                checkTorrentsBtn->setEnabled(true);
+                cleanTorrentsBtn->setEnabled(true);
+                
+                if (response.success) {
+                    QJsonObject data = response.data.toObject();
+                    int found = data["found"].toInt();
+                    int checked = data["checked"].toInt();
+                    
+                    if (found > 0) {
+                        cleanupProgress->setText(tr("Found %1 torrents to remove (checked %2)").arg(found).arg(checked));
+                        cleanupProgress->setStyleSheet("color: #ffc107; font-weight: bold;");
+                    } else {
+                        cleanupProgress->setText(tr("All %1 torrents match filters").arg(checked));
+                        cleanupProgress->setStyleSheet("color: #28a745; font-weight: bold;");
+                    }
+                } else {
+                    cleanupProgress->setText(tr("Error: %1").arg(response.error));
+                    cleanupProgress->setStyleSheet("color: #dc3545; font-weight: bold;");
+                }
+            });
+        });
+    });
+    
+    connect(cleanTorrentsBtn, &QPushButton::clicked, [this, cleanupProgress, cleanupProgressBar, checkTorrentsBtn, cleanTorrentsBtn]() {
+        if (!api) return;
+        
+        // Confirm before cleaning
+        QMessageBox::StandardButton reply = QMessageBox::question(
+            nullptr, tr("Confirm Cleanup"),
+            tr("This will permanently remove torrents that don't match the current filters.\n\nAre you sure?"),
+            QMessageBox::Yes | QMessageBox::No);
+        
+        if (reply != QMessageBox::Yes) return;
+        
+        cleanupProgress->setText(tr("Cleaning torrents..."));
+        cleanupProgress->setStyleSheet("color: #dc3545; font-weight: bold;");
+        cleanupProgressBar->setVisible(true);
+        cleanupProgressBar->setValue(0);
+        checkTorrentsBtn->setEnabled(false);
+        cleanTorrentsBtn->setEnabled(false);
+        
+        api->removeTorrents(false, [cleanupProgress, cleanupProgressBar, checkTorrentsBtn, cleanTorrentsBtn](const ApiResponse& response) {
+            QMetaObject::invokeMethod(qApp, [=]() {
+                cleanupProgressBar->setVisible(false);
+                checkTorrentsBtn->setEnabled(true);
+                cleanTorrentsBtn->setEnabled(true);
+                
+                if (response.success) {
+                    QJsonObject data = response.data.toObject();
+                    int removed = data["removed"].toInt();
+                    int checked = data["checked"].toInt();
+                    
+                    cleanupProgress->setText(tr("Removed %1 torrents (checked %2)").arg(removed).arg(checked));
+                    cleanupProgress->setStyleSheet("color: #28a745; font-weight: bold;");
+                } else {
+                    cleanupProgress->setText(tr("Error: %1").arg(response.error));
+                    cleanupProgress->setStyleSheet("color: #dc3545; font-weight: bold;");
+                }
+            });
+        });
+    });
+    
+    // Connect cleanup progress signal from API
+    if (api) {
+        connect(api.get(), &RatsAPI::cleanupProgress, this, [cleanupProgress, cleanupProgressBar](int current, int total, const QString& status) {
+            QMetaObject::invokeMethod(qApp, [=]() {
+                if (total > 0) {
+                    cleanupProgressBar->setMaximum(total);
+                    cleanupProgressBar->setValue(current);
+                }
+                
+                if (status == "check") {
+                    cleanupProgress->setText(tr("Checking: %1 found...").arg(current));
+                } else {
+                    cleanupProgress->setText(tr("Cleaning: %1/%2...").arg(current).arg(total));
+                }
+            });
+        });
+    }
+    
+    filtersLayout->addWidget(cleanupBox);
+    
+    mainLayout->addWidget(filtersGroup);
+    
     // Database Settings Group
     QGroupBox *dbGroup = new QGroupBox(tr("Database"));
     QFormLayout *dbLayout = new QFormLayout(dbGroup);
@@ -1435,6 +1702,31 @@ void MainWindow::showSettings()
         config->setSpiderWalkInterval(walkIntervalSpin->value());
         config->setSpiderNodesUsage(nodesUsageSpin->value());
         config->setSpiderPackagesLimit(packagesLimitSpin->value());
+        
+        // Filter settings
+        config->setFiltersMaxFiles(maxFilesSpin->value());
+        config->setFiltersNamingRegExp(regexEdit->text());
+        config->setFiltersNamingRegExpNegative(regexNegativeCheck->isChecked());
+        config->setFiltersAdultFilter(adultFilterCheck->isChecked());
+        config->setFiltersSizeMin(static_cast<qint64>(sizeMinSpin->value()) * 1024 * 1024);
+        config->setFiltersSizeMax(static_cast<qint64>(sizeMaxSpin->value()) * 1024 * 1024);
+        
+        // Build content type filter string
+        QStringList contentTypes;
+        if (videoCheck->isChecked()) contentTypes << "video";
+        if (audioCheck->isChecked()) contentTypes << "audio";
+        if (picturesCheck->isChecked()) contentTypes << "pictures";
+        if (booksCheck->isChecked()) contentTypes << "books";
+        if (appsCheck->isChecked()) contentTypes << "application";
+        if (archivesCheck->isChecked()) contentTypes << "archive";
+        if (discsCheck->isChecked()) contentTypes << "disc";
+        
+        // If all types are checked, store empty string (no filter)
+        if (contentTypes.size() == 7) {
+            config->setFiltersContentType("");
+        } else {
+            config->setFiltersContentType(contentTypes.join(","));
+        }
         
         // Check if network settings changed (require restart)
         bool needsRestart = (p2pPortSpin->value() != oldP2pPort) ||

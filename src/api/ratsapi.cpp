@@ -71,6 +71,12 @@ public:
     QHash<QString, QJsonArray> topCache;
     QDateTime topCacheExpiry;
     
+    // P2P Replication (like legacy api.js:247-272)
+    QTimer* replicationTimer = nullptr;
+    int replicationInterval = 5000;  // Start with 5 seconds
+    int replicationTorrentsReceived = 0;  // Track received torrents per cycle
+    qint64 totalReplicatedTorrents = 0;
+    
     bool ready = false;
 };
 
@@ -197,6 +203,26 @@ void RatsAPI::initialize(TorrentDatabase* database,
     // Setup P2P message handlers for remote API calls
     setupP2PHandlers();
     
+    // Initialize P2P replication timer (like legacy api.js:247-272)
+    if (p2p && config) {
+        d->replicationTimer = new QTimer(this);
+        connect(d->replicationTimer, &QTimer::timeout, this, &RatsAPI::performReplicationCycle);
+        
+        // Connect to replication config changes
+        connect(config, &ConfigManager::p2pReplicationChanged, this, [this](bool enabled) {
+            if (enabled) {
+                startReplication();
+            } else {
+                stopReplication();
+            }
+        });
+        
+        // Start replication if enabled
+        if (config->p2pReplication()) {
+            startReplication();
+        }
+    }
+    
     d->ready = true;
     qInfo() << "RatsAPI initialized";
 }
@@ -285,10 +311,25 @@ void RatsAPI::setupP2PHandlers()
             QJsonArray torrents = data["torrents"].toArray();
             qInfo() << "Received" << torrents.size() << "random torrents from" << peerId.left(8);
             
+            int inserted = 0;
             for (const QJsonValue& val : torrents) {
                 if (val.isObject()) {
-                    insertTorrentFromFeed(val.toObject());
+                    QJsonObject torrentObj = val.toObject();
+                    QString hash = torrentObj["hash"].toString();
+                    
+                    // Check if we already have this torrent
+                    if (d->database && !d->database->hasTorrent(hash)) {
+                        insertTorrentFromFeed(torrentObj);
+                        inserted++;
+                        
+                        // Track for replication statistics
+                        onReplicationTorrentReceived();
+                    }
                 }
+            }
+            
+            if (inserted > 0) {
+                qInfo() << "Replicated" << inserted << "new torrents from" << peerId.left(8);
             }
         });
     
@@ -1993,4 +2034,118 @@ void RatsAPI::handleP2PRandomTorrentsRequest(const QString& peerId, const QJsonO
     }
     
     d->p2p->sendMessage(peerId, "randomTorrents_response", QJsonObject{{"torrents", response}});
+}
+
+// ============================================================================
+// P2P Replication (like legacy api.js:247-272)
+// ============================================================================
+
+void RatsAPI::startReplication()
+{
+    if (!d->replicationTimer || !d->config) {
+        return;
+    }
+    
+    if (!d->config->p2pReplication()) {
+        qInfo() << "P2P replication is disabled in config";
+        return;
+    }
+    
+    if (d->replicationTimer->isActive()) {
+        qDebug() << "Replication timer already running";
+        return;
+    }
+    
+    d->replicationInterval = 5000;  // Reset to 5 seconds
+    d->replicationTorrentsReceived = 0;
+    d->replicationTimer->start(d->replicationInterval);
+    
+    qInfo() << "P2P replication started (interval:" << d->replicationInterval << "ms)";
+    emit replicationStarted();
+}
+
+void RatsAPI::stopReplication()
+{
+    if (!d->replicationTimer) {
+        return;
+    }
+    
+    if (d->replicationTimer->isActive()) {
+        d->replicationTimer->stop();
+        qInfo() << "P2P replication stopped (total replicated:" << d->totalReplicatedTorrents << ")";
+        emit replicationStopped();
+    }
+}
+
+bool RatsAPI::isReplicationActive() const
+{
+    return d->replicationTimer && d->replicationTimer->isActive();
+}
+
+qint64 RatsAPI::replicationStats() const
+{
+    return d->totalReplicatedTorrents;
+}
+
+void RatsAPI::performReplicationCycle()
+{
+    if (!d->p2p || !d->database || !d->config) {
+        return;
+    }
+    
+    // Check if still enabled
+    if (!d->config->p2pReplication()) {
+        stopReplication();
+        return;
+    }
+    
+    int peerCount = d->p2p->getPeerCount();
+    if (peerCount == 0) {
+        qDebug() << "Replication: No peers connected, skipping cycle";
+        return;
+    }
+    
+    qDebug() << "Replication cycle: requesting random torrents from" << peerCount << "peers";
+    
+    // Reset counter for this cycle
+    d->replicationTorrentsReceived = 0;
+    
+    // Broadcast randomTorrents request to all connected peers
+    QJsonObject request;
+    request["limit"] = 5;  // Request up to 5 torrents per peer
+    request["version"] = "2.0";  // Protocol version for compatibility check
+    
+    d->p2p->broadcastMessage("randomTorrents", request);
+    
+    // Adaptive interval calculation (like legacy getReplicationTorrents)
+    // If we received many torrents in the last cycle, slow down
+    // If we received few, keep the faster interval
+    QTimer::singleShot(3000, this, [this]() {
+        int received = d->replicationTorrentsReceived;
+        
+        if (received > 8) {
+            // Many torrents received, slow down (like legacy: gotTorrents * 600)
+            d->replicationInterval = qMin(60000, received * 600);  // Max 60 seconds
+        } else {
+            // Few or no torrents, use faster interval
+            d->replicationInterval = 10000;  // 10 seconds
+        }
+        
+        // Update timer interval for next cycle
+        if (d->replicationTimer && d->replicationTimer->isActive()) {
+            d->replicationTimer->setInterval(d->replicationInterval);
+        }
+        
+        if (received > 0) {
+            d->totalReplicatedTorrents += received;
+            qInfo() << "Replication: received" << received << "torrents, total:" 
+                    << d->totalReplicatedTorrents << ", next interval:" << d->replicationInterval << "ms";
+        }
+    });
+}
+
+void RatsAPI::onReplicationTorrentReceived()
+{
+    // Called when a torrent is successfully inserted from replication
+    d->replicationTorrentsReceived++;
 }
