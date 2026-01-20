@@ -1192,17 +1192,33 @@ void MainWindow::showSettings()
     
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Settings"));
-    dialog.setMinimumSize(500, 500);
+    dialog.setMinimumSize(550, 600);
+    dialog.resize(550, 700);
     dialog.setStyleSheet(this->styleSheet());
     
-    QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
-    mainLayout->setSpacing(16);
-    mainLayout->setContentsMargins(24, 24, 24, 24);
+    QVBoxLayout *dialogLayout = new QVBoxLayout(&dialog);
+    dialogLayout->setSpacing(12);
+    dialogLayout->setContentsMargins(16, 16, 16, 16);
     
-    // Title
+    // Title (outside scroll area)
     QLabel *titleLabel = new QLabel(tr("Rats Search Settings"));
     titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4a9eff;");
-    mainLayout->addWidget(titleLabel);
+    dialogLayout->addWidget(titleLabel);
+    
+    // Create scroll area for settings content
+    QScrollArea *scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; }");
+    
+    // Container widget for all settings
+    QWidget *scrollContent = new QWidget();
+    scrollContent->setStyleSheet("background: transparent;");
+    QVBoxLayout *mainLayout = new QVBoxLayout(scrollContent);
+    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
     
     // General Settings Group
     QGroupBox *generalGroup = new QGroupBox(tr("General"));
@@ -1364,7 +1380,12 @@ void MainWindow::showSettings()
     
     mainLayout->addStretch();
     
-    // Buttons
+    // Set scroll content and add to scroll area
+    scrollContent->setLayout(mainLayout);
+    scrollArea->setWidget(scrollContent);
+    dialogLayout->addWidget(scrollArea, 1);  // stretch factor 1 to take available space
+    
+    // Buttons (outside scroll area)
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
         QDialogButtonBox::Save | QDialogButtonBox::Cancel);
     buttonBox->setStyleSheet(R"(
@@ -1373,7 +1394,7 @@ void MainWindow::showSettings()
             padding: 8px 16px;
         }
     )");
-    mainLayout->addWidget(buttonBox);
+    dialogLayout->addWidget(buttonBox);
     
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
