@@ -12,7 +12,7 @@
 #include <QJsonObject>
 
 class RatsAPI;
-class DownloadManager;
+class TorrentClient;
 
 /**
  * @brief DownloadItemWidget - Individual download item with progress
@@ -68,7 +68,7 @@ public:
     ~DownloadsWidget();
 
     void setApi(RatsAPI* api);
-    void setDownloadManager(DownloadManager* manager);
+    void setTorrentClient(TorrentClient* client);
 
 signals:
     void downloadSelected(const QString& hash);
@@ -91,7 +91,7 @@ private:
     void removeDownloadItem(const QString& hash);
 
     RatsAPI* api_ = nullptr;
-    DownloadManager* downloadManager_ = nullptr;
+    TorrentClient* torrentClient_ = nullptr;
     
     // UI components
     QVBoxLayout* listLayout_;

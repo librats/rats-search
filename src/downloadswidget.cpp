@@ -1,6 +1,6 @@
 #include "downloadswidget.h"
 #include "api/ratsapi.h"
-#include "api/downloadmanager.h"
+#include "torrentclient.h"
 #include <QScrollArea>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -250,7 +250,7 @@ QString DownloadItemWidget::formatTime(qint64 seconds) const
 DownloadsWidget::DownloadsWidget(QWidget *parent)
     : QWidget(parent)
     , api_(nullptr)
-    , downloadManager_(nullptr)
+    , torrentClient_(nullptr)
     , listLayout_(nullptr)
     , emptyLabel_(nullptr)
     , statusLabel_(nullptr)
@@ -316,14 +316,14 @@ void DownloadsWidget::setApi(RatsAPI* api)
     api_ = api;
 }
 
-void DownloadsWidget::setDownloadManager(DownloadManager* manager)
+void DownloadsWidget::setTorrentClient(TorrentClient* client)
 {
-    downloadManager_ = manager;
-    if (manager) {
-        connect(manager, &DownloadManager::downloadStarted, this, &DownloadsWidget::onDownloadStarted);
-        connect(manager, &DownloadManager::progressUpdated, this, &DownloadsWidget::onProgressUpdated);
-        connect(manager, &DownloadManager::downloadCompleted, this, &DownloadsWidget::onDownloadCompleted);
-        connect(manager, &DownloadManager::downloadCancelled, this, &DownloadsWidget::onDownloadCancelled);
+    torrentClient_ = client;
+    if (client) {
+        connect(client, &TorrentClient::downloadStarted, this, &DownloadsWidget::onDownloadStarted);
+        connect(client, &TorrentClient::progressUpdated, this, &DownloadsWidget::onProgressUpdated);
+        connect(client, &TorrentClient::downloadCompleted, this, &DownloadsWidget::onDownloadCompleted);
+        connect(client, &TorrentClient::torrentRemoved, this, &DownloadsWidget::onDownloadCancelled);
         loadDownloads();
     }
 }
@@ -335,7 +335,7 @@ void DownloadsWidget::refresh()
 
 void DownloadsWidget::loadDownloads()
 {
-    if (!downloadManager_) return;
+    if (!torrentClient_) return;
     
     // Clear existing items
     for (auto it = downloadItems_.begin(); it != downloadItems_.end(); ++it) {
@@ -344,13 +344,14 @@ void DownloadsWidget::loadDownloads()
     downloadItems_.clear();
     
     // Load current downloads
-    QVector<DownloadInfo> downloads = downloadManager_->getAllDownloads();
-    for (const DownloadInfo& dl : downloads) {
-        addDownloadItem(dl.hash, dl.name, dl.size);
+    QVector<ActiveTorrent> downloads = torrentClient_->getAllTorrents();
+    for (const ActiveTorrent& dl : downloads) {
+        addDownloadItem(dl.hash, dl.name, dl.totalSize);
         
         // Update progress if available
         if (dl.progress > 0) {
-            downloadItems_[dl.hash]->updateProgress(dl.downloaded, dl.size, dl.downloadSpeed, dl.progress);
+            downloadItems_[dl.hash]->updateProgress(dl.downloadedBytes, dl.totalSize, 
+                                                    static_cast<int>(dl.downloadSpeed), dl.progress);
         }
         
         if (dl.completed) {
@@ -408,10 +409,10 @@ void DownloadsWidget::removeDownloadItem(const QString& hash)
 
 void DownloadsWidget::onDownloadStarted(const QString& hash)
 {
-    if (downloadManager_) {
-        DownloadInfo info = downloadManager_->getDownload(hash);
+    if (torrentClient_) {
+        ActiveTorrent info = torrentClient_->getTorrent(hash);
         if (!info.hash.isEmpty()) {
-            addDownloadItem(hash, info.name, info.size);
+            addDownloadItem(hash, info.name, info.totalSize);
         }
     }
 }
@@ -441,9 +442,9 @@ void DownloadsWidget::onDownloadCancelled(const QString& hash)
 
 void DownloadsWidget::onPauseToggled(const QString& hash)
 {
-    if (downloadManager_) {
-        downloadManager_->togglePause(hash);
-        DownloadInfo info = downloadManager_->getDownload(hash);
+    if (torrentClient_) {
+        torrentClient_->togglePause(hash);
+        ActiveTorrent info = torrentClient_->getTorrent(hash);
         if (downloadItems_.contains(hash)) {
             downloadItems_[hash]->setPaused(info.paused);
         }
@@ -452,7 +453,7 @@ void DownloadsWidget::onPauseToggled(const QString& hash)
 
 void DownloadsWidget::onCancelRequested(const QString& hash)
 {
-    if (downloadManager_) {
-        downloadManager_->cancel(hash);
+    if (torrentClient_) {
+        torrentClient_->stopTorrent(hash);
     }
 }

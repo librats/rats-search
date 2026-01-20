@@ -45,6 +45,7 @@ endif()
 set(SOURCES
     src/main.cpp
     src/mainwindow.cpp
+    src/settingsdialog.cpp
     src/torrentdatabase.cpp
     src/torrentspider.cpp
     src/p2pnetwork.cpp
@@ -62,7 +63,6 @@ set(SOURCES
     src/api/ratsapi.cpp
     src/api/configmanager.cpp
     src/api/feedmanager.cpp
-    src/api/downloadmanager.cpp
     src/api/apiserver.cpp
     src/api/updatemanager.cpp
     src/api/translationmanager.cpp
@@ -73,6 +73,7 @@ set(SOURCES
 # Header files
 set(HEADERS
     src/mainwindow.h
+    src/settingsdialog.h
     src/torrentdatabase.h
     src/torrentspider.h
     src/p2pnetwork.h
@@ -90,7 +91,6 @@ set(HEADERS
     src/api/ratsapi.h
     src/api/configmanager.h
     src/api/feedmanager.h
-    src/api/downloadmanager.h
     src/api/apiserver.h
     src/api/updatemanager.h
     src/api/translationmanager.h

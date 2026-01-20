@@ -15,7 +15,6 @@ class TorrentClient;
 class ConfigManager;
 class FeedManager;
 class P2PStoreManager;
-class DownloadManager;
 struct TorrentInfo;
 struct TorrentFile;
 
@@ -313,9 +312,9 @@ public:
     P2PStoreManager* p2pStore() const;
     
     /**
-     * @brief Get the download manager
+     * @brief Get the torrent client for downloads
      */
-    DownloadManager* getDownloadManager() const;
+    TorrentClient* getTorrentClient() const;
     
     /**
      * @brief Check/update tracker info for a torrent

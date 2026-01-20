@@ -7,10 +7,13 @@
 #include <QVector>
 #include <QTimer>
 #include <QMutex>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <memory>
 
 // Forward declarations
 class P2PNetwork;
+class TorrentDatabase;
 
 namespace librats {
     class RatsClient;
@@ -81,14 +84,20 @@ public:
     /**
      * @brief Initialize the torrent client with P2P network
      * @param p2pNetwork P2P network instance (provides access to RatsClient)
+     * @param database Optional torrent database for metadata lookup
      * @return true if initialization succeeded
      */
-    bool initialize(P2PNetwork* p2pNetwork);
+    bool initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database = nullptr);
 
     /**
      * @brief Check if the client is ready (BitTorrent enabled)
      */
     bool isReady() const;
+
+    /**
+     * @brief Set the torrent database for metadata lookup
+     */
+    void setDatabase(TorrentDatabase* database);
 
     // =========================================================================
     // Download Management
@@ -101,6 +110,17 @@ public:
      * @return true if torrent was added successfully
      */
     bool downloadTorrent(const QString& magnetLink, const QString& savePath = QString());
+
+    /**
+     * @brief Add a torrent with known metadata
+     * @param hash Info hash (40 char hex)
+     * @param name Torrent name
+     * @param size Total size in bytes
+     * @param savePath Download directory (empty = default)
+     * @return true if torrent was added successfully
+     */
+    bool downloadWithInfo(const QString& hash, const QString& name, qint64 size, 
+                          const QString& savePath = QString());
 
     /**
      * @brief Add a torrent from a .torrent file
@@ -177,6 +197,23 @@ public:
     int count() const;
 
     // =========================================================================
+    // JSON Serialization (for API compatibility)
+    // =========================================================================
+
+    /**
+     * @brief Get all torrents as JSON array
+     */
+    QJsonArray toJsonArray() const;
+
+    /**
+     * @brief Select files for download using JSON
+     * @param hash Info hash
+     * @param selection JSON array of booleans or object with {index: selected}
+     * @return true if selection was applied
+     */
+    bool selectFilesJson(const QString& hash, const QJsonValue& selection);
+
+    // =========================================================================
     // Configuration
     // =========================================================================
 
@@ -226,9 +263,19 @@ signals:
                         double speed, int peers);
 
     /**
+     * @brief Emitted with progress as JSON (API compatible)
+     */
+    void progressUpdated(const QString& infoHash, const QJsonObject& progress);
+
+    /**
      * @brief Emitted when file list is available (after metadata received)
      */
     void filesReady(const QString& infoHash, const QVector<TorrentFileInfo>& files);
+
+    /**
+     * @brief Emitted when file list is available as JSON (API compatible)
+     */
+    void filesReadyJson(const QString& infoHash, const QJsonArray& files);
 
     /**
      * @brief Emitted when a torrent completes downloading
@@ -241,7 +288,7 @@ signals:
     void downloadFailed(const QString& infoHash, const QString& error);
 
     /**
-     * @brief Emitted when a torrent is removed
+     * @brief Emitted when a torrent is removed/cancelled
      */
     void torrentRemoved(const QString& infoHash);
 
@@ -250,6 +297,11 @@ signals:
      */
     void pauseStateChanged(const QString& infoHash, bool paused);
 
+    /**
+     * @brief Emitted when download state changes (API compatible)
+     */
+    void stateChanged(const QString& infoHash, const QJsonObject& state);
+
 private slots:
     void onUpdateTimer();
 
@@ -257,8 +309,10 @@ private:
     QString parseInfoHash(const QString& magnetLink) const;
     void setupTorrentCallbacks(const QString& hash, std::shared_ptr<librats::TorrentDownload> download);
     void updateTorrentStatus(const QString& hash);
+    void emitProgressJson(const QString& hash, const ActiveTorrent& torrent);
 
     P2PNetwork* p2pNetwork_ = nullptr;
+    TorrentDatabase* database_ = nullptr;
     QString defaultDownloadPath_;
     
     // Active torrents by info hash

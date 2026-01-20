@@ -1,7 +1,6 @@
 #include "ratsapi.h"
 #include "configmanager.h"
 #include "feedmanager.h"
-#include "downloadmanager.h"
 #include "p2pstoremanager.h"
 #include "trackerchecker.h"
 #include "../torrentdatabase.h"
@@ -62,7 +61,6 @@ public:
     TorrentClient* torrentClient = nullptr;
     ConfigManager* config = nullptr;
     
-    std::unique_ptr<DownloadManager> downloadManager;
     std::unique_ptr<FeedManager> feedManager;
     std::unique_ptr<P2PStoreManager> p2pStore;
     std::unique_ptr<TrackerChecker> trackerChecker;
@@ -94,10 +92,10 @@ RatsAPI::RatsAPI(QObject *parent)
 RatsAPI::~RatsAPI()
 {
     // Save download session before destruction
-    if (d->downloadManager) {
+    if (d->torrentClient) {
         QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         QString sessionPath = dataPath + "/downloads_session.json";
-        d->downloadManager->saveSession(sessionPath);
+        d->torrentClient->saveSession(sessionPath);
     }
 }
 
@@ -111,24 +109,25 @@ void RatsAPI::initialize(TorrentDatabase* database,
     d->torrentClient = torrentClient;
     d->config = config;
     
-    // Initialize download manager
-    if (torrentClient && database) {
-        d->downloadManager = std::make_unique<DownloadManager>(torrentClient, database, this);
+    // Connect torrent client signals and set up database
+    if (torrentClient) {
+        // Set database for metadata lookup
+        torrentClient->setDatabase(database);
         
         // Forward download signals
-        connect(d->downloadManager.get(), &DownloadManager::downloadStarted,
+        connect(torrentClient, &TorrentClient::downloadStarted,
                 this, [this](const QString& hash) {
             emit downloadProgress(hash, {{"status", "started"}});
         });
-        connect(d->downloadManager.get(), &DownloadManager::progressUpdated,
+        connect(torrentClient, &TorrentClient::progressUpdated,
                 this, &RatsAPI::downloadProgress);
-        connect(d->downloadManager.get(), &DownloadManager::filesReady,
+        connect(torrentClient, &TorrentClient::filesReadyJson,
                 this, &RatsAPI::filesReady);
-        connect(d->downloadManager.get(), &DownloadManager::downloadCompleted,
+        connect(torrentClient, &TorrentClient::downloadCompleted,
                 this, [this](const QString& hash) {
             emit downloadCompleted(hash, false);
         });
-        connect(d->downloadManager.get(), &DownloadManager::downloadCancelled,
+        connect(torrentClient, &TorrentClient::torrentRemoved,
                 this, [this](const QString& hash) {
             emit downloadCompleted(hash, true);
         });
@@ -136,7 +135,7 @@ void RatsAPI::initialize(TorrentDatabase* database,
         // Restore previous download session
         QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         QString sessionPath = dataPath + "/downloads_session.json";
-        int restored = d->downloadManager->restoreSession(sessionPath);
+        int restored = torrentClient->loadSession(sessionPath);
         if (restored > 0) {
             qInfo() << "Restored" << restored << "downloads from previous session";
         }
@@ -837,8 +836,8 @@ void RatsAPI::getTorrent(const QString& hash,
         }
         
         // Merge with download info if downloading
-        if (d->downloadManager && d->downloadManager->isDownloading(hash)) {
-            DownloadInfo dl = d->downloadManager->getDownload(hash);
+        if (d->torrentClient && d->torrentClient->isDownloading(hash)) {
+            ActiveTorrent dl = d->torrentClient->getTorrent(hash);
             result["download"] = dl.toProgressJson();
         }
         
@@ -929,12 +928,23 @@ void RatsAPI::downloadAdd(const QString& hash,
         return;
     }
     
-    if (!d->downloadManager) {
-        if (callback) callback(ApiResponse::fail("Download manager not initialized"));
+    if (!d->torrentClient) {
+        if (callback) callback(ApiResponse::fail("Torrent client not initialized"));
         return;
     }
     
-    bool ok = d->downloadManager->add(hash, savePath);
+    // Get torrent info from database for name/size
+    QString name = hash;
+    qint64 size = 0;
+    if (d->database) {
+        TorrentInfo torrent = d->database->getTorrent(hash);
+        if (torrent.isValid()) {
+            name = torrent.name;
+            size = torrent.size;
+        }
+    }
+    
+    bool ok = d->torrentClient->downloadWithInfo(hash, name, size, savePath);
     if (callback) {
         callback(ok ? ApiResponse::ok() : ApiResponse::fail("Failed to start download"));
     }
@@ -942,14 +952,17 @@ void RatsAPI::downloadAdd(const QString& hash,
 
 void RatsAPI::downloadCancel(const QString& hash, ApiCallback callback)
 {
-    if (!d->downloadManager) {
-        if (callback) callback(ApiResponse::fail("Download manager not initialized"));
+    if (!d->torrentClient) {
+        if (callback) callback(ApiResponse::fail("Torrent client not initialized"));
         return;
     }
     
-    bool ok = d->downloadManager->cancel(hash);
+    bool found = d->torrentClient->isDownloading(hash);
+    if (found) {
+        d->torrentClient->stopTorrent(hash);
+    }
     if (callback) {
-        callback(ok ? ApiResponse::ok() : ApiResponse::fail("Download not found"));
+        callback(found ? ApiResponse::ok() : ApiResponse::fail("Download not found"));
     }
 }
 
@@ -957,8 +970,13 @@ void RatsAPI::downloadUpdate(const QString& hash,
                               const QJsonObject& options,
                               ApiCallback callback)
 {
-    if (!d->downloadManager) {
-        if (callback) callback(ApiResponse::fail("Download manager not initialized"));
+    if (!d->torrentClient) {
+        if (callback) callback(ApiResponse::fail("Torrent client not initialized"));
+        return;
+    }
+    
+    if (!d->torrentClient->isDownloading(hash)) {
+        if (callback) callback(ApiResponse::fail("Download not found"));
         return;
     }
     
@@ -967,12 +985,12 @@ void RatsAPI::downloadUpdate(const QString& hash,
     if (options.contains("pause")) {
         QString pauseVal = options["pause"].toString();
         if (pauseVal == "switch") {
-            ok = d->downloadManager->togglePause(hash);
+            ok = d->torrentClient->togglePause(hash);
         } else {
             if (options["pause"].toBool()) {
-                ok = d->downloadManager->pause(hash);
+                ok = d->torrentClient->pauseTorrent(hash);
             } else {
-                ok = d->downloadManager->resume(hash);
+                ok = d->torrentClient->resumeTorrent(hash);
             }
         }
     }
@@ -980,22 +998,20 @@ void RatsAPI::downloadUpdate(const QString& hash,
     if (options.contains("removeOnDone")) {
         QString rodVal = options["removeOnDone"].toString();
         if (rodVal == "switch") {
-            ok = d->downloadManager->toggleRemoveOnDone(hash) && ok;
+            // Toggle removeOnDone
+            ActiveTorrent torrent = d->torrentClient->getTorrent(hash);
+            d->torrentClient->setRemoveOnDone(hash, !torrent.removeOnDone);
         } else {
-            ok = d->downloadManager->setRemoveOnDone(hash, options["removeOnDone"].toBool()) && ok;
+            d->torrentClient->setRemoveOnDone(hash, options["removeOnDone"].toBool());
         }
     }
     
     if (callback) {
-        if (ok) {
-            DownloadInfo info = d->downloadManager->getDownload(hash);
-            QJsonObject result;
-            result["paused"] = info.paused;
-            result["removeOnDone"] = info.removeOnDone;
-            callback(ApiResponse::ok(result));
-        } else {
-            callback(ApiResponse::fail("Download not found"));
-        }
+        ActiveTorrent torrent = d->torrentClient->getTorrent(hash);
+        QJsonObject result;
+        result["paused"] = torrent.paused;
+        result["removeOnDone"] = torrent.removeOnDone;
+        callback(ApiResponse::ok(result));
     }
 }
 
@@ -1003,12 +1019,12 @@ void RatsAPI::downloadSelectFiles(const QString& hash,
                                    const QJsonArray& files,
                                    ApiCallback callback)
 {
-    if (!d->downloadManager) {
-        if (callback) callback(ApiResponse::fail("Download manager not initialized"));
+    if (!d->torrentClient) {
+        if (callback) callback(ApiResponse::fail("Torrent client not initialized"));
         return;
     }
     
-    bool ok = d->downloadManager->selectFiles(hash, files);
+    bool ok = d->torrentClient->selectFilesJson(hash, files);
     if (callback) {
         callback(ok ? ApiResponse::ok() : ApiResponse::fail("Failed to select files"));
     }
@@ -1016,13 +1032,13 @@ void RatsAPI::downloadSelectFiles(const QString& hash,
 
 void RatsAPI::getDownloads(ApiCallback callback)
 {
-    if (!d->downloadManager) {
+    if (!d->torrentClient) {
         if (callback) callback(ApiResponse::ok(QJsonArray()));
         return;
     }
     
     if (callback) {
-        callback(ApiResponse::ok(d->downloadManager->toJsonArray()));
+        callback(ApiResponse::ok(d->torrentClient->toJsonArray()));
     }
 }
 
@@ -1245,9 +1261,9 @@ P2PStoreManager* RatsAPI::p2pStore() const
     return d->p2pStore.get();
 }
 
-DownloadManager* RatsAPI::getDownloadManager() const
+TorrentClient* RatsAPI::getTorrentClient() const
 {
-    return d->downloadManager.get();
+    return d->torrentClient;
 }
 
 void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)

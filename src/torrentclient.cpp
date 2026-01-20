@@ -1,4 +1,5 @@
 #include "torrentclient.h"
+#include "torrentdatabase.h"
 #include "p2pnetwork.h"
 #include <QDebug>
 #include <QFile>
@@ -103,9 +104,10 @@ TorrentClient::~TorrentClient()
     torrents_.clear();
 }
 
-bool TorrentClient::initialize(P2PNetwork* p2pNetwork)
+bool TorrentClient::initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database)
 {
     p2pNetwork_ = p2pNetwork;
+    database_ = database;
     
 #ifdef RATS_SEARCH_FEATURES
     if (!p2pNetwork_) {
@@ -389,6 +391,7 @@ bool TorrentClient::pauseTorrent(const QString& infoHash)
         
         lock.unlock();
         emit pauseStateChanged(hash, true);
+        emit stateChanged(hash, QJsonObject{{"paused", true}});
         return true;
     }
     
@@ -417,6 +420,7 @@ bool TorrentClient::resumeTorrent(const QString& infoHash)
         
         lock.unlock();
         emit pauseStateChanged(hash, false);
+        emit stateChanged(hash, QJsonObject{{"paused", false}});
         return true;
     }
     
@@ -484,6 +488,8 @@ void TorrentClient::setRemoveOnDone(const QString& infoHash, bool removeOnDone)
     auto it = torrents_.find(hash);
     if (it != torrents_.end()) {
         it->removeOnDone = removeOnDone;
+        lock.unlock();
+        emit stateChanged(hash, QJsonObject{{"removeOnDone", removeOnDone}});
     }
 }
 
@@ -533,6 +539,179 @@ void TorrentClient::setDefaultDownloadPath(const QString& path)
 QString TorrentClient::defaultDownloadPath() const
 {
     return defaultDownloadPath_;
+}
+
+void TorrentClient::setDatabase(TorrentDatabase* database)
+{
+    database_ = database;
+}
+
+bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, qint64 size,
+                                      const QString& savePath)
+{
+    if (hash.length() != 40) {
+        qWarning() << "TorrentClient: Invalid hash for download:" << hash;
+        return false;
+    }
+    
+    QString normalizedHash = hash.toLower();
+    
+    // Check if already downloading
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        if (torrents_.contains(normalizedHash)) {
+            qInfo() << "TorrentClient: Already downloading:" << normalizedHash;
+            return false;
+        }
+    }
+    
+    // Try to get more info from database if provided
+    QString torrentName = name;
+    qint64 torrentSize = size;
+    
+    if (database_ && (torrentName.isEmpty() || torrentName == hash)) {
+        TorrentInfo dbInfo = database_->getTorrent(normalizedHash);
+        if (dbInfo.isValid()) {
+            torrentName = dbInfo.name;
+            if (torrentSize == 0) {
+                torrentSize = dbInfo.size;
+            }
+        }
+    }
+    
+    // Use downloadTorrent but first pre-populate the entry with known info
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        ActiveTorrent torrent;
+        torrent.hash = normalizedHash;
+        torrent.name = torrentName.isEmpty() ? normalizedHash : torrentName;
+        torrent.totalSize = torrentSize;
+        torrent.savePath = savePath.isEmpty() ? defaultDownloadPath_ : savePath;
+        torrent.ready = false;
+        torrent.completed = false;
+        torrents_[normalizedHash] = torrent;
+    }
+    
+    // Now do the actual download
+    QString path = savePath.isEmpty() ? defaultDownloadPath_ : savePath;
+    
+#ifdef RATS_SEARCH_FEATURES
+    if (!isReady()) {
+        qWarning() << "TorrentClient: Not ready";
+        QMutexLocker lock(&torrentsMutex_);
+        torrents_.remove(normalizedHash);
+        return false;
+    }
+    
+    // Ensure download directory exists
+    QDir dir(path);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    
+    auto* client = p2pNetwork_->getRatsClient();
+    qInfo() << "TorrentClient: Adding torrent with info" << normalizedHash << torrentName.left(50);
+    
+    auto download = client->add_torrent_by_hash(normalizedHash.toStdString(), path.toStdString());
+    
+    if (!download) {
+        qWarning() << "TorrentClient: Failed to add torrent:" << normalizedHash;
+        QMutexLocker lock(&torrentsMutex_);
+        torrents_.remove(normalizedHash);
+        return false;
+    }
+    
+    // Update with librats download handle
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        auto it = torrents_.find(normalizedHash);
+        if (it != torrents_.end()) {
+            it->download = download;
+            it->savePath = path;
+        }
+    }
+    
+    setupTorrentCallbacks(normalizedHash, download);
+    download->start();
+    
+    return true;
+#else
+    Q_UNUSED(path);
+    QMutexLocker lock(&torrentsMutex_);
+    torrents_.remove(normalizedHash);
+    return false;
+#endif
+}
+
+QJsonArray TorrentClient::toJsonArray() const
+{
+    QMutexLocker lock(&torrentsMutex_);
+    QJsonArray arr;
+    for (const ActiveTorrent& torrent : torrents_) {
+        arr.append(torrent.toJson());
+    }
+    return arr;
+}
+
+bool TorrentClient::selectFilesJson(const QString& hash, const QJsonValue& selection)
+{
+    QString normalizedHash = hash.toLower();
+    
+    QMutexLocker lock(&torrentsMutex_);
+    auto it = torrents_.find(normalizedHash);
+    if (it == torrents_.end()) {
+        return false;
+    }
+    
+    ActiveTorrent& torrent = *it;
+    
+    if (selection.isArray()) {
+        QJsonArray arr = selection.toArray();
+        for (int i = 0; i < arr.size() && i < torrent.files.size(); ++i) {
+            torrent.files[i].selected = arr[i].toBool(true);
+        }
+    } else if (selection.isObject()) {
+        QJsonObject obj = selection.toObject();
+        for (auto selIt = obj.begin(); selIt != obj.end(); ++selIt) {
+            bool ok;
+            int idx = selIt.key().toInt(&ok);
+            if (ok && idx >= 0 && idx < torrent.files.size()) {
+                torrent.files[idx].selected = selIt.value().toBool(true);
+            }
+        }
+    }
+    
+    // Emit files ready with updated selection
+    QJsonArray filesArr;
+    for (const TorrentFileInfo& f : torrent.files) {
+        filesArr.append(f.toJson());
+    }
+    
+    lock.unlock();
+    emit filesReadyJson(normalizedHash, filesArr);
+    
+    return true;
+}
+
+void TorrentClient::emitProgressJson(const QString& hash, const ActiveTorrent& torrent)
+{
+    QJsonObject progress;
+    progress["received"] = torrent.downloadedBytes;
+    progress["downloaded"] = torrent.downloadedBytes;
+    progress["total"] = torrent.totalSize;
+    progress["progress"] = torrent.progress;
+    progress["speed"] = static_cast<int>(torrent.downloadSpeed);
+    progress["downloadSpeed"] = static_cast<int>(torrent.downloadSpeed);
+    progress["paused"] = torrent.paused;
+    progress["removeOnDone"] = torrent.removeOnDone;
+    
+    if (torrent.downloadSpeed > 0 && torrent.totalSize > torrent.downloadedBytes) {
+        progress["timeRemaining"] = static_cast<qint64>((torrent.totalSize - torrent.downloadedBytes) / torrent.downloadSpeed);
+    } else {
+        progress["timeRemaining"] = 0;
+    }
+    
+    emit progressUpdated(hash, progress);
 }
 
 // ============================================================================
@@ -703,6 +882,9 @@ void TorrentClient::onUpdateTimer()
         // Update status from librats
         updateTorrentStatus(hash);
         
+        // Emit progress JSON for API consumers
+        emitProgressJson(hash, torrent);
+        
         // Check for completion
         if (torrent.download->is_complete() && !torrent.completed) {
             torrent.completed = true;
@@ -820,12 +1002,20 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
             }
             
             QVector<TorrentFileInfo> filesCopy = it->files;
+            
+            // Build JSON array for API consumers
+            QJsonArray filesJson;
+            for (const TorrentFileInfo& f : filesCopy) {
+                filesJson.append(f.toJson());
+            }
+            
             lock.unlock();
             
             // Emit on main thread
-            QMetaObject::invokeMethod(this, [this, hash, filesCopy]() {
+            QMetaObject::invokeMethod(this, [this, hash, filesCopy, filesJson]() {
                 emit downloadStarted(hash);
                 emit filesReady(hash, filesCopy);
+                emit filesReadyJson(hash, filesJson);
             }, Qt::QueuedConnection);
         }
     });
