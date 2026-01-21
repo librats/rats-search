@@ -431,6 +431,11 @@ void MainWindow::connectSignals()
     // Spider signals
     connect(torrentSpider.get(), &TorrentSpider::statusChanged, this, &MainWindow::onSpiderStatusChanged);
     connect(torrentSpider.get(), &TorrentSpider::torrentIndexed, this, &MainWindow::onTorrentIndexed);
+    
+    // RatsAPI signals - for torrents indexed via DHT metadata, P2P, .torrent import
+    if (api) {
+        connect(api.get(), &RatsAPI::torrentIndexed, this, &MainWindow::onTorrentIndexed);
+    }
 }
 
 void MainWindow::startServices()
@@ -954,9 +959,22 @@ void MainWindow::onSpiderStatusChanged(const QString &status)
 
 void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
 {
-    Q_UNUSED(infoHash);
     statusBar()->showMessage(QString("📥 Indexed: %1").arg(name), 2000);
     updateStatusBar();
+    
+    // Automatically check trackers for seeders/leechers info (like legacy spider.js)
+    if (api && config && config->trackersEnabled()) {
+        api->checkTrackers(infoHash, [infoHash](const ApiResponse& response) {
+            if (response.success) {
+                QJsonObject data = response.data.toObject();
+                if (data["status"].toString() == "success") {
+                    qDebug() << "Tracker check for" << infoHash.left(8) 
+                             << "- seeders:" << data["seeders"].toInt()
+                             << "leechers:" << data["leechers"].toInt();
+                }
+            }
+        });
+    }
 }
 
 void MainWindow::showSettings()
