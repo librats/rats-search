@@ -220,9 +220,14 @@ public:
     };
     
     /**
-     * @brief Get database statistics
+     * @brief Get database statistics (from cache, no DB query)
      */
     Statistics getStatistics() const;
+    
+    /**
+     * @brief Get cached statistics (same as getStatistics, for clarity)
+     */
+    const Statistics& cachedStatistics() const { return currentStats_; }
     
     /**
      * @brief Get total torrent count
@@ -281,6 +286,7 @@ signals:
     void torrentAdded(const QString& hash);
     void torrentUpdated(const QString& hash);
     void torrentRemoved(const QString& hash);
+    void statisticsChanged(qint64 torrents, qint64 files, qint64 totalSize);
     void databaseError(const QString& error);
     void ready();
 
@@ -294,6 +300,9 @@ private:
     std::unique_ptr<SphinxQL> sphinxQL_;
     qint64 nextTorrentId_ = 1;
     qint64 nextFilesId_ = 1;
+    
+    // Cached statistics (updated incrementally like legacy spider.js)
+    Statistics currentStats_;
 };
 
 #endif // TORRENTDATABASE_H

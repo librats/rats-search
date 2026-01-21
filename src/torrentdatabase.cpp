@@ -45,12 +45,20 @@ bool TorrentDatabase::initialize()
     nextTorrentId_ = sphinxQL_->getMaxId("torrents") + 1;
     nextFilesId_ = sphinxQL_->getMaxId("files") + 1;
     
-    // Get statistics
-    Statistics stats = getStatistics();
+    // Load initial statistics from database (one-time query, like legacy spider.js)
+    auto results = sphinxQL_->query(
+        "SELECT COUNT(*) as cnt, SUM(files) as numfiles, SUM(size) as totalsize FROM torrents");
+    
+    if (!results.isEmpty()) {
+        currentStats_.totalTorrents = results[0]["cnt"].toLongLong();
+        currentStats_.totalFiles = results[0]["numfiles"].toLongLong();
+        currentStats_.totalSize = results[0]["totalsize"].toLongLong();
+    }
+    
     qInfo() << "Database initialized:";
-    qInfo() << "  Torrents:" << stats.totalTorrents;
-    qInfo() << "  Files:" << stats.totalFiles;
-    qInfo() << "  Total size:" << (stats.totalSize / (1024*1024*1024)) << "GB";
+    qInfo() << "  Torrents:" << currentStats_.totalTorrents;
+    qInfo() << "  Files:" << currentStats_.totalFiles;
+    qInfo() << "  Total size:" << (currentStats_.totalSize / (1024*1024*1024)) << "GB";
     
     emit ready();
     return true;
@@ -119,7 +127,13 @@ bool TorrentDatabase::addTorrent(const TorrentInfo& torrent)
         addFilesToDatabase(torrent);
     }
     
+    // Update cached statistics incrementally (like legacy spider.js p2p.info)
+    currentStats_.totalTorrents++;
+    currentStats_.totalFiles += torrent.files;
+    currentStats_.totalSize += torrent.size;
+    
     emit torrentAdded(torrent.hash);
+    emit statisticsChanged(currentStats_.totalTorrents, currentStats_.totalFiles, currentStats_.totalSize);
     return true;
 }
 
@@ -185,8 +199,25 @@ bool TorrentDatabase::removeTorrent(const QString& hash)
         return false;
     }
     
+    // Get torrent info before removal for statistics update
+    auto results = sphinxQL_->query("SELECT size, files FROM torrents WHERE hash = ?", {hash});
+    qint64 torrentSize = 0;
+    int torrentFiles = 0;
+    if (!results.isEmpty()) {
+        torrentSize = results[0]["size"].toLongLong();
+        torrentFiles = results[0]["files"].toInt();
+    }
+    
     sphinxQL_->deleteFrom("torrents", {{"hash", hash}});
     sphinxQL_->deleteFrom("files", {{"hash", hash}});
+    
+    // Update cached statistics
+    if (torrentSize > 0 || torrentFiles > 0) {
+        currentStats_.totalTorrents = qMax(0LL, currentStats_.totalTorrents - 1);
+        currentStats_.totalFiles = qMax(0LL, currentStats_.totalFiles - torrentFiles);
+        currentStats_.totalSize = qMax(0LL, currentStats_.totalSize - torrentSize);
+        emit statisticsChanged(currentStats_.totalTorrents, currentStats_.totalFiles, currentStats_.totalSize);
+    }
     
     emit torrentRemoved(hash);
     return true;
@@ -460,22 +491,8 @@ bool TorrentDatabase::updateTrackerInfo(const QString& hash, int seeders, int le
 
 TorrentDatabase::Statistics TorrentDatabase::getStatistics() const
 {
-    Statistics stats;
-    
-    if (!isReady()) {
-        return stats;
-    }
-    
-    auto results = sphinxQL_->query(
-        "SELECT MAX(id) as maxid, COUNT(*) as cnt, SUM(files) as numfiles, SUM(size) as totalsize FROM torrents");
-    
-    if (!results.isEmpty()) {
-        stats.totalTorrents = results[0]["cnt"].toLongLong();
-        stats.totalFiles = results[0]["numfiles"].toLongLong();
-        stats.totalSize = results[0]["totalsize"].toLongLong();
-    }
-    
-    return stats;
+    // Return cached statistics (no DB query - updated incrementally)
+    return currentStats_;
 }
 
 qint64 TorrentDatabase::getTorrentCount() const

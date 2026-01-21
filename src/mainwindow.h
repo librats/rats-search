@@ -58,6 +58,7 @@ private slots:
     void onPeerCountChanged(int count);
     void onSpiderStatusChanged(const QString &status);
     void onTorrentIndexed(const QString &infoHash, const QString &name);
+    void onDatabaseStatisticsChanged(qint64 torrents, qint64 files, qint64 totalSize);
     void onDetailsPanelCloseRequested();
     void onMagnetLinkRequested(const QString &hash, const QString &name);
     void onDownloadRequested(const QString &hash);
@@ -87,6 +88,7 @@ private:
     void stopServices();
     void performSearch(const QString &query);
     void updateStatusBar();
+    void updateStatisticsTab();
     void applyDarkTheme();
     void logActivity(const QString &message);
     void setupSystemTray();
@@ -114,6 +116,10 @@ private:
     QLabel *torrentCountLabel;
     QLabel *spiderStatusLabel;
     
+    // Statistics tab labels
+    QLabel *statsP2pLabel;
+    QLabel *statsDbLabel;
+    
     // Core components
     std::unique_ptr<TorrentDatabase> torrentDatabase;
     std::unique_ptr<TorrentSpider> torrentSpider;
@@ -140,6 +146,14 @@ private:
     // System Tray
     QSystemTrayIcon *trayIcon;
     QMenu *trayMenu;
+    
+    // Cached statistics (updated via signals, no polling)
+    qint64 cachedTorrents_ = 0;
+    qint64 cachedFiles_ = 0;
+    qint64 cachedTotalSize_ = 0;
+    int cachedPeerCount_ = 0;
+    int cachedDhtNodes_ = 0;
+    bool cachedP2pConnected_ = false;
 };
 
 #endif // MAINWINDOW_H
