@@ -1,5 +1,64 @@
 cmake_minimum_required(VERSION 3.16)
-project(rats-search VERSION 1.0.0 LANGUAGES CXX)
+
+# Get version from git
+find_package(Git QUIET)
+if(GIT_FOUND)
+    # Get the current git tag/commit
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_DESCRIBE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    
+    # Extract version from git tag (format: v1.2.3 or 1.2.3)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    
+    # Get commit count (revision number)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-list --count HEAD
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_REVISION_COUNT
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    
+    # Parse version components
+    if(GIT_TAG MATCHES "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+        set(VERSION_MAJOR ${CMAKE_MATCH_1})
+        set(VERSION_MINOR ${CMAKE_MATCH_2})
+        set(VERSION_PATCH ${CMAKE_MATCH_3})
+    else()
+        # Fallback to default version
+        set(VERSION_MAJOR 2)
+        set(VERSION_MINOR 0)
+        set(VERSION_PATCH 0)
+    endif()
+else()
+    # Fallback when git is not available
+    set(VERSION_MAJOR 2)
+    set(VERSION_MINOR 0)
+    set(VERSION_PATCH 0)
+    set(GIT_DESCRIBE "unknown")
+    set(GIT_REVISION_COUNT 0)
+endif()
+
+# Set build number to revision count (commit count)
+if(GIT_REVISION_COUNT)
+    set(VERSION_BUILD ${GIT_REVISION_COUNT})
+else()
+    set(VERSION_BUILD 0)
+endif()
+set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}.${VERSION_BUILD}")
+
+project(rats-search VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,6 +78,13 @@ find_package(Qt6 REQUIRED COMPONENTS
     Concurrent
     WebSockets
     LinguistTools
+)
+
+# Configure version.h from template
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/version.h
+    @ONLY
 )
 
 # Option to build with system librats or bundled version
@@ -226,6 +292,8 @@ endif()
 
 message(STATUS "")
 message(STATUS "=== Rats Search Configuration ===")
+message(STATUS "Version: ${VERSION_STRING}")
+message(STATUS "Git: ${GIT_DESCRIBE}")
 message(STATUS "Qt6 version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Using system librats: ${RATS_SEARCH_USE_SYSTEM_LIBRATS}")

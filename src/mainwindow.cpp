@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "version.h"
 #include "torrentdatabase.h"
 #include "torrentspider.h"
 #include "p2pnetwork.h"
@@ -78,7 +79,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     
     loadSettings();
     
-    setWindowTitle(tr("Rats Search - BitTorrent P2P Search Engine"));
+    setWindowTitle(tr("Rats Search %1 - BitTorrent P2P Search Engine").arg(RATSSEARCH_VERSION_STRING));
     resize(1400, 900);
     
     // Set application icon
@@ -1020,17 +1021,20 @@ void MainWindow::showAbout()
     aboutBox.setWindowTitle("About Rats Search");
     aboutBox.setTextFormat(Qt::RichText);
     aboutBox.setText(
+        QString(
         "<div style='text-align: center;'>"
-        "<h2 style='color: #4a9eff;'>🐀 Rats Search 2.0</h2>"
+        "<h2 style='color: #4a9eff;'>🐀 Rats Search %1</h2>"
         "<p style='font-size: 14px;'>BitTorrent P2P Search Engine</p>"
+        "<p style='color: #666; font-size: 11px;'>Git: %2</p>"
         "<hr>"
-        "<p>Built with Qt 6.9 and librats</p>"
+        "<p>Built with Qt %3 and librats</p>"
         "<p>A powerful decentralized torrent search engine<br>"
         "with DHT crawling and full-text search.</p>"
         "<hr>"
         "<p style='color: #888;'>Copyright © 2026</p>"
         "<p><a href='https://github.com/DEgITx/rats-search' style='color: #4a9eff;'>GitHub Repository</a></p>"
         "</div>"
+        ).arg(RATSSEARCH_VERSION_STRING, RATSSEARCH_GIT_DESCRIBE, qVersion())
     );
     aboutBox.setStandardButtons(QMessageBox::Ok);
     aboutBox.exec();

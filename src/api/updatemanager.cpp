@@ -1,4 +1,5 @@
 #include "updatemanager.h"
+#include "version.h"
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -16,9 +17,6 @@
 #ifdef _WIN32
 #include <windows.h>
 #endif
-
-// Current application version - should match CMakeLists.txt
-static const QString APP_VERSION = "2.0.0";
 
 UpdateManager::UpdateManager(QObject *parent)
     : QObject(parent)
@@ -46,12 +44,12 @@ UpdateManager::~UpdateManager()
 
 QString UpdateManager::currentVersion()
 {
-    return APP_VERSION;
+    return RATSSEARCH_VERSION_STRING;
 }
 
 QVersionNumber UpdateManager::currentVersionNumber()
 {
-    return QVersionNumber::fromString(APP_VERSION);
+    return QVersionNumber::fromString(RATSSEARCH_VERSION_STRING);
 }
 
 void UpdateManager::setRepository(const QString& owner, const QString& repo)

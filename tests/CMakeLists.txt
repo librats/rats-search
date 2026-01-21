@@ -19,7 +19,7 @@ add_library(rats_testable STATIC
     ${SRC_DIR}/api/updatemanager.cpp
     ${SRC_DIR}/api/configmanager.cpp
 )
-target_include_directories(rats_testable PUBLIC ${SRC_DIR})
+target_include_directories(rats_testable PUBLIC ${SRC_DIR} ${CMAKE_BINARY_DIR})
 target_link_libraries(rats_testable PUBLIC
     Qt6::Core
     Qt6::Gui
