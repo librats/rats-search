@@ -67,7 +67,7 @@ set(SOURCES
     src/api/updatemanager.cpp
     src/api/translationmanager.cpp
     src/api/p2pstoremanager.cpp
-    src/api/trackerchecker.cpp
+    src/api/trackerwrapper.cpp
 )
 
 # Header files
@@ -95,7 +95,7 @@ set(HEADERS
     src/api/updatemanager.h
     src/api/translationmanager.h
     src/api/p2pstoremanager.h
-    src/api/trackerchecker.h
+    src/api/trackerwrapper.h
 )
 
 # Resources

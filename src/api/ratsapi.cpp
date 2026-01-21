@@ -2,7 +2,7 @@
 #include "configmanager.h"
 #include "feedmanager.h"
 #include "p2pstoremanager.h"
-#include "trackerchecker.h"
+#include "trackerwrapper.h"
 #include "../torrentdatabase.h"
 #include "../sphinxql.h"
 #include "../p2pnetwork.h"
@@ -63,7 +63,7 @@ public:
     
     std::unique_ptr<FeedManager> feedManager;
     std::unique_ptr<P2PStoreManager> p2pStore;
-    std::unique_ptr<TrackerChecker> trackerChecker;
+    std::unique_ptr<TrackerWrapper> trackerWrapper;
     
     // Top torrents cache
     QHash<QString, QJsonArray> topCache;
@@ -178,17 +178,11 @@ void RatsAPI::initialize(TorrentDatabase* database,
         qInfo() << "P2PStoreManager initialized";
     }
     
-    // Initialize tracker checker
+    // Initialize tracker wrapper (uses librats for HTTP/UDP tracker support)
     if (config && config->trackersEnabled()) {
-        d->trackerChecker = std::make_unique<TrackerChecker>(this);
-        quint16 trackerPort = static_cast<quint16>(config->udpTrackersPort());
-        if (d->trackerChecker->initialize(trackerPort)) {
-            d->trackerChecker->setTimeout(config->udpTrackersTimeout());
-            qInfo() << "TrackerChecker initialized on port" << d->trackerChecker->localPort();
-        } else {
-            qWarning() << "Failed to initialize TrackerChecker";
-            d->trackerChecker.reset();
-        }
+        d->trackerWrapper = std::make_unique<TrackerWrapper>(this);
+        d->trackerWrapper->setTimeout(config->udpTrackersTimeout());
+        qInfo() << "TrackerWrapper initialized (using librats tracker implementation)";
     }
     
     // Forward config changes
@@ -1273,7 +1267,7 @@ void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
         return;
     }
     
-    if (!d->trackerChecker) {
+    if (!d->trackerWrapper) {
         if (callback) {
             QJsonObject result;
             result["hash"] = hash;
@@ -1286,8 +1280,8 @@ void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
     
     qInfo() << "Checking trackers for" << hash.left(8);
     
-    // Scrape from multiple trackers and get best result
-    d->trackerChecker->scrapeMultiple(hash, [this, hash, callback](const TrackerResult& result) {
+    // Scrape from multiple trackers and get best result (using librats via TrackerWrapper)
+    d->trackerWrapper->scrapeMultiple(hash, [this, hash, callback](const TrackerResult& result) {
         QJsonObject response;
         response["hash"] = hash;
         
