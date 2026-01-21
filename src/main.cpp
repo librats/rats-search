@@ -197,6 +197,22 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
         qInfo() << "Tracker checking enabled for indexed torrents";
     }
     
+    // Connect informational signals for logging
+    QObject::connect(&api, &RatsAPI::replicationStarted, []() {
+        qInfo() << "P2P replication started";
+    });
+    QObject::connect(&api, &RatsAPI::replicationStopped, []() {
+        qInfo() << "P2P replication stopped";
+    });
+    QObject::connect(&api, &RatsAPI::cleanupProgress, [](int current, int total, const QString& phase) {
+        if (current % 100 == 0 || current == total) {  // Log every 100 items or at completion
+            qInfo() << "Cleanup" << phase << ":" << current << "/" << total;
+        }
+    });
+    QObject::connect(&api, &RatsAPI::feedUpdated, [](const QJsonArray& feed) {
+        qInfo() << "Feed updated, items:" << feed.size();
+    });
+    
     // Start API server if enabled
     std::unique_ptr<ApiServer> apiServer;
     if (config.restApiEnabled()) {
