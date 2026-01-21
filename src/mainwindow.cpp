@@ -61,6 +61,7 @@
 #include <QFileDialog>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QStyle>
 
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
@@ -128,318 +129,16 @@ MainWindow::~MainWindow()
 
 void MainWindow::applyDarkTheme()
 {
-    // Load stylesheet from resources or apply inline
-    QString styleSheet = R"(
-        QMainWindow {
-            background-color: #1e1e1e;
-            color: #ffffff;
-        }
-        
-        QWidget {
-            background-color: #1e1e1e;
-            color: #ffffff;
-        }
-        
-        QLineEdit {
-            background-color: #2d2d2d;
-            border: 2px solid #3c3f41;
-            border-radius: 8px;
-            padding: 10px 16px;
-            color: #ffffff;
-            font-size: 14px;
-            selection-background-color: #4a9eff;
-        }
-        
-        QLineEdit:focus {
-            border: 2px solid #4a9eff;
-            background-color: #353535;
-        }
-        
-        QLineEdit::placeholder {
-            color: #666666;
-        }
-        
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #4a9eff, stop:1 #6eb5ff);
-            color: #ffffff;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 24px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #6eb5ff, stop:1 #8fcfff);
-        }
-        
-        QPushButton:pressed {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #2e6fb8, stop:1 #4a9eff);
-        }
-        
-        QPushButton:disabled {
-            background-color: #3c3f41;
-            color: #666666;
-        }
-        
-        QTableView {
-            background-color: #1e1e1e;
-            alternate-background-color: #252526;
-            color: #ffffff;
-            gridline-color: #2d2d2d;
-            border: 1px solid #3c3f41;
-            border-radius: 8px;
-            selection-background-color: #3d6a99;
-        }
-        
-        QTableView::item {
-            padding: 8px;
-            border-bottom: 1px solid #2d2d2d;
-        }
-        
-        QTableView::item:selected {
-            background-color: #3d6a99;
-        }
-        
-        QTableView::item:hover {
-            background-color: #2d3748;
-        }
-        
-        QHeaderView::section {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #3c3f41, stop:1 #2d2d2d);
-            color: #ffffff;
-            padding: 10px 8px;
-            border: none;
-            border-right: 1px solid #2d2d2d;
-            border-bottom: 2px solid #4a9eff;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        
-        QHeaderView::section:hover {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #4c4f51, stop:1 #3c3f41);
-        }
-        
-        QTabWidget::pane {
-            border: 1px solid #3c3f41;
-            border-radius: 8px;
-            background-color: #1e1e1e;
-            top: -1px;
-        }
-        
-        QTabBar::tab {
-            background-color: #2d2d2d;
-            color: #888888;
-            padding: 10px 20px;
-            margin-right: 2px;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
-            font-weight: bold;
-        }
-        
-        QTabBar::tab:selected {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #4a9eff, stop:1 #3d8ce8);
-            color: #ffffff;
-        }
-        
-        QTabBar::tab:hover:!selected {
-            background-color: #3c3f41;
-            color: #ffffff;
-        }
-        
-        QStatusBar {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #2d2d2d, stop:1 #252526);
-            color: #888888;
-            border-top: 1px solid #3c3f41;
-        }
-        
-        QStatusBar QLabel {
-            color: #888888;
-            padding: 0 12px;
-        }
-        
-        QMenuBar {
-            background-color: #2d2d2d;
-            color: #ffffff;
-            border-bottom: 1px solid #3c3f41;
-        }
-        
-        QMenuBar::item {
-            padding: 6px 12px;
-        }
-        
-        QMenuBar::item:selected {
-            background-color: #4a9eff;
-            border-radius: 4px;
-        }
-        
-        QMenu {
-            background-color: #2d2d2d;
-            color: #ffffff;
-            border: 1px solid #3c3f41;
-            border-radius: 6px;
-            padding: 4px;
-        }
-        
-        QMenu::item {
-            padding: 8px 24px;
-            border-radius: 4px;
-        }
-        
-        QMenu::item:selected {
-            background-color: #4a9eff;
-        }
-        
-        QMenu::separator {
-            height: 1px;
-            background-color: #3c3f41;
-            margin: 4px 8px;
-        }
-        
-        QToolBar {
-            background-color: #2d2d2d;
-            border: none;
-            border-bottom: 1px solid #3c3f41;
-            spacing: 8px;
-            padding: 4px;
-        }
-        
-        QToolBar QToolButton {
-            background-color: transparent;
-            border: none;
-            border-radius: 4px;
-            padding: 6px;
-            color: #ffffff;
-        }
-        
-        QToolBar QToolButton:hover {
-            background-color: #3c3f41;
-        }
-        
-        QComboBox {
-            background-color: #2d2d2d;
-            border: 1px solid #3c3f41;
-            border-radius: 6px;
-            padding: 8px 12px;
-            color: #ffffff;
-            min-width: 140px;
-        }
-        
-        QComboBox:hover {
-            border-color: #4a9eff;
-        }
-        
-        QComboBox::drop-down {
-            border: none;
-            width: 24px;
-        }
-        
-        QComboBox::down-arrow {
-            image: none;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 6px solid #888888;
-            margin-right: 8px;
-        }
-        
-        QComboBox QAbstractItemView {
-            background-color: #2d2d2d;
-            color: #ffffff;
-            border: 1px solid #3c3f41;
-            selection-background-color: #4a9eff;
-        }
-        
-        QScrollBar:vertical {
-            background-color: #1e1e1e;
-            width: 12px;
-            border-radius: 6px;
-        }
-        
-        QScrollBar::handle:vertical {
-            background-color: #3c3f41;
-            border-radius: 6px;
-            min-height: 30px;
-        }
-        
-        QScrollBar::handle:vertical:hover {
-            background-color: #4a9eff;
-        }
-        
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-            height: 0px;
-        }
-        
-        QScrollBar:horizontal {
-            background-color: #1e1e1e;
-            height: 12px;
-            border-radius: 6px;
-        }
-        
-        QScrollBar::handle:horizontal {
-            background-color: #3c3f41;
-            border-radius: 6px;
-            min-width: 30px;
-        }
-        
-        QScrollBar::handle:horizontal:hover {
-            background-color: #4a9eff;
-        }
-        
-        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-            width: 0px;
-        }
-        
-        QTextEdit {
-            background-color: #1e1e1e;
-            color: #cccccc;
-            border: 1px solid #3c3f41;
-            border-radius: 8px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 11px;
-            padding: 8px;
-        }
-        
-        QGroupBox {
-            background-color: #252526;
-            border: 1px solid #3c3f41;
-            border-radius: 8px;
-            margin-top: 12px;
-            padding-top: 8px;
-            font-weight: bold;
-        }
-        
-        QGroupBox::title {
-            color: #4a9eff;
-            subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 8px;
-        }
-        
-        QSplitter::handle {
-            background-color: #3c3f41;
-        }
-        
-        QSplitter::handle:horizontal {
-            width: 2px;
-        }
-        
-        QSplitter::handle:vertical {
-            height: 2px;
-        }
-        
-        QLabel {
-            color: #ffffff;
-        }
-    )";
-    
-    setStyleSheet(styleSheet);
+    // Load stylesheet from resources
+    QFile styleFile(":/styles/styles/dark.qss");
+    if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QString styleSheet = QString::fromUtf8(styleFile.readAll());
+        styleFile.close();
+        setStyleSheet(styleSheet);
+        qInfo() << "Dark theme loaded from resources";
+    } else {
+        qWarning() << "Failed to load dark theme from resources:" << styleFile.errorString();
+    }
 }
 
 void MainWindow::setupUi()
@@ -454,18 +153,18 @@ void MainWindow::setupUi()
     
     // Search bar section
     QWidget *searchSection = new QWidget();
-    searchSection->setStyleSheet("background-color: #252526; border-radius: 12px; padding: 8px;");
+    searchSection->setObjectName("searchSection");
     QHBoxLayout *searchLayout = new QHBoxLayout(searchSection);
     searchLayout->setContentsMargins(12, 8, 12, 8);
     searchLayout->setSpacing(12);
     
     // Logo/Title
     QLabel *logoLabel = new QLabel("🐀");
-    logoLabel->setStyleSheet("font-size: 28px; background: transparent;");
+    logoLabel->setObjectName("logoLabel");
     searchLayout->addWidget(logoLabel);
     
     QLabel *titleLabel = new QLabel("Rats Search");
-    titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4a9eff; background: transparent;");
+    titleLabel->setObjectName("titleLabel");
     searchLayout->addWidget(titleLabel);
     
     searchLayout->addSpacing(20);
@@ -541,7 +240,7 @@ void MainWindow::setupUi()
     // Empty state message
     QLabel *emptyLabel = new QLabel("🔍 Enter a search query to find torrents");
     emptyLabel->setAlignment(Qt::AlignCenter);
-    emptyLabel->setStyleSheet("font-size: 16px; color: #666666; padding: 40px;");
+    emptyLabel->setObjectName("emptyStateLabel");
     
     searchTabLayout->addWidget(resultsTableView);
     tabWidget->addTab(searchTab, tr("Search Results"));
@@ -570,7 +269,7 @@ void MainWindow::setupUi()
     QLabel *p2pStatsLabel = new QLabel(tr("Connected peers: %1").arg(0) + "\n" + 
                                         tr("DHT nodes: %1").arg(0) + "\n" + 
                                         tr("Total data exchanged: %1 MB").arg(0));
-    p2pStatsLabel->setStyleSheet("color: #cccccc;");
+    p2pStatsLabel->setObjectName("subtitleLabel");
     p2pLayout->addWidget(p2pStatsLabel);
     
     // Database Stats
@@ -579,7 +278,7 @@ void MainWindow::setupUi()
     QLabel *dbStatsLabel = new QLabel(tr("Indexed torrents: %1").arg(0) + "\n" + 
                                        tr("Total files: %1").arg(0) + "\n" + 
                                        tr("Database size: %1 MB").arg(0));
-    dbStatsLabel->setStyleSheet("color: #cccccc;");
+    dbStatsLabel->setObjectName("subtitleLabel");
     dbLayout->addWidget(dbStatsLabel);
     
     statsTabLayout->addWidget(p2pGroup);
@@ -1389,7 +1088,7 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& releas
     
     // Header
     QLabel* headerLabel = new QLabel(QString("🎉 %1").arg(tr("New Version Available!")));
-    headerLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #4a9eff;");
+    headerLabel->setObjectName("headerLabel");
     layout->addWidget(headerLabel);
     
     // Version info
@@ -1398,13 +1097,11 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& releas
            "Current version: %1\n"
            "New version: %2")
         .arg(UpdateManager::currentVersion(), version));
-    versionLabel->setStyleSheet("font-size: 14px;");
     layout->addWidget(versionLabel);
     
     // Release notes
     if (!releaseNotes.isEmpty()) {
         QLabel* notesHeaderLabel = new QLabel(tr("What's new:"));
-        notesHeaderLabel->setStyleSheet("font-weight: bold; margin-top: 8px;");
         layout->addWidget(notesHeaderLabel);
         
         QTextEdit* notesEdit = new QTextEdit();
@@ -1423,7 +1120,7 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& releas
     
     // Status label
     QLabel* statusLabel = new QLabel();
-    statusLabel->setStyleSheet("color: #888888;");
+    statusLabel->setObjectName("subtitleLabel");
     layout->addWidget(statusLabel);
     
     layout->addStretch();
@@ -1432,10 +1129,10 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& releas
     QHBoxLayout* buttonLayout = new QHBoxLayout();
     
     QPushButton* laterBtn = new QPushButton(tr("Remind Me Later"));
-    laterBtn->setStyleSheet("background-color: #3c3f41;");
+    laterBtn->setObjectName("secondaryButton");
     
     QPushButton* downloadBtn = new QPushButton(tr("Download && Install"));
-    downloadBtn->setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #27ae60, stop:1 #2ecc71);");
+    downloadBtn->setObjectName("successButton");
     
     buttonLayout->addWidget(laterBtn);
     buttonLayout->addStretch();
@@ -1469,7 +1166,9 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& releas
                         break;
                     case UpdateManager::UpdateState::Error:
                         statusLabel->setText(tr("Error occurred"));
-                        statusLabel->setStyleSheet("color: #e74c3c;");
+                        statusLabel->setObjectName("errorLabel");
+                        statusLabel->style()->unpolish(statusLabel);
+                        statusLabel->style()->polish(statusLabel);
                         break;
                     default:
                         break;
@@ -1489,7 +1188,9 @@ void MainWindow::onUpdateAvailable(const QString& version, const QString& releas
     connect(updateManager.get(), &UpdateManager::errorOccurred, &dialog, 
             [&dialog, statusLabel, downloadBtn, laterBtn](const QString& error) {
         statusLabel->setText(tr("Error: %1").arg(error));
-        statusLabel->setStyleSheet("color: #e74c3c;");
+        statusLabel->setObjectName("errorLabel");
+        statusLabel->style()->unpolish(statusLabel);
+        statusLabel->style()->polish(statusLabel);
         downloadBtn->setEnabled(true);
         downloadBtn->setText(tr("Retry"));
         laterBtn->setText(tr("Close"));
