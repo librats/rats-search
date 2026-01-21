@@ -53,6 +53,8 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QStyle>
+#include <QJsonArray>
+#include <QJsonObject>
 
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
@@ -804,6 +806,19 @@ void MainWindow::onTorrentSelected(const QModelIndex &index)
     if (torrent.isValid()) {
         detailsPanel->setTorrent(torrent);
         detailsPanel->show();
+        
+        // Fetch full details with files from database/DHT
+        if (api) {
+            api->getTorrent(torrent.hash, true, QString(), [this](const ApiResponse& response) {
+                if (response.success) {
+                    QJsonObject data = response.data.toObject();
+                    QJsonArray files = data["filesList"].toArray();
+                    if (!files.isEmpty()) {
+                        detailsPanel->setFiles(files);
+                    }
+                }
+            });
+        }
     }
 }
 

@@ -10,6 +10,8 @@
 #include <QTreeWidget>
 #include <QScrollArea>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QMap>
 #include "torrentdatabase.h"
 
 // Forward declarations
@@ -78,6 +80,20 @@ private:
                            const QColor &valueColor = QColor());
     QWidget* createActionButton(const QString &text, const QString &iconPath,
                                 const QColor &bgColor);
+    
+    // File tree helpers (migrated from legacy/app/torrent-page.js buildFilesTree)
+    struct FileTreeNode {
+        QString name;
+        qint64 size = 0;
+        bool isFile = false;
+        int fileIndex = -1;
+        QMap<QString, FileTreeNode*> children;
+        ~FileTreeNode() { qDeleteAll(children); }
+    };
+    FileTreeNode* buildFileTree(const QJsonArray& files);
+    void addTreeNodeToWidget(FileTreeNode* node, QTreeWidgetItem* parent);
+    QString getFileTypeIcon(const QString& filename) const;
+    void collectSelectedFiles(QTreeWidgetItem* item, QList<int>& indices) const;
     
     RatsAPI* api_ = nullptr;
     
