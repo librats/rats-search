@@ -89,10 +89,10 @@ void TestUpdateManager::testCurrentVersion_notEmpty()
 void TestUpdateManager::testCurrentVersion_validFormat()
 {
     QString version = UpdateManager::currentVersion();
-    // Should match semantic versioning pattern (e.g., "2.0.0" or "1.2.3-beta")
-    QRegularExpression semverRegex("^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?$");
-    QVERIFY2(semverRegex.match(version).hasMatch(), 
-             qPrintable(QString("Version '%1' doesn't match semver pattern").arg(version)));
+    // Should match version pattern: "X.Y.Z" or "X.Y.Z.BUILD" (e.g., "2.0.0" or "1.11.0.1196")
+    QRegularExpression versionRegex("^\\d+\\.\\d+\\.\\d+(\\.\\d+)?(-[a-zA-Z0-9]+)?$");
+    QVERIFY2(versionRegex.match(version).hasMatch(), 
+             qPrintable(QString("Version '%1' doesn't match version pattern").arg(version)));
 }
 
 void TestUpdateManager::testCurrentVersionNumber_valid()
