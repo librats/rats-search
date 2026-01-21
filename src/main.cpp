@@ -173,6 +173,30 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     RatsAPI api;
     api.initialize(&database, &p2p, nullptr, &config);
     
+    // Connect to tracker checking for all indexed torrents (like MainWindow does in GUI mode)
+    // Lambda that calls checkTrackers for any indexed torrent
+    auto onTorrentIndexed = [&api](const QString& hash, const QString& name) {
+        Q_UNUSED(name);
+        api.checkTrackers(hash, [hash](const ApiResponse& response) {
+            if (response.success) {
+                QJsonObject data = response.data.toObject();
+                if (data["status"].toString() == "success") {
+                    qDebug() << "Tracker check for" << hash.left(8) 
+                             << "- seeders:" << data["seeders"].toInt()
+                             << "leechers:" << data["leechers"].toInt();
+                }
+            }
+        });
+    };
+    
+    if (config.trackersEnabled()) {
+        // From spider (DHT announce scraping)
+        QObject::connect(&spider, &TorrentSpider::torrentIndexed, onTorrentIndexed);
+        // From RatsAPI (DHT metadata fetch, P2P replication, .torrent import)
+        QObject::connect(&api, &RatsAPI::torrentIndexed, onTorrentIndexed);
+        qInfo() << "Tracker checking enabled for indexed torrents";
+    }
+    
     // Start API server if enabled
     std::unique_ptr<ApiServer> apiServer;
     if (config.restApiEnabled()) {
