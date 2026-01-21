@@ -17,7 +17,6 @@
 #include "api/configmanager.h"
 #include "api/apiserver.h"
 #include "api/updatemanager.h"
-#include "api/translationmanager.h"
 
 // Settings dialog
 #include "settingsdialog.h"
@@ -48,28 +47,17 @@
 #include <QFile>
 #include <QDateTime>
 #include <QContextMenuEvent>
-#include <QFrame>
-#include <QScrollArea>
 #include <QSystemTrayIcon>
 #include <QSettings>
 #include <QDialog>
-#include <QFormLayout>
-#include <QCheckBox>
-#include <QSpinBox>
-#include <QSlider>
-#include <QDialogButtonBox>
-#include <QFileDialog>
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QStyle>
 
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
-    , ui(nullptr)
     , dataDirectory_(dataDirectory)
     , servicesStarted_(false)
-    , currentSortField_("seeders")
-    , currentSortDesc_(true)
     , trayIcon(nullptr)
     , trayMenu(nullptr)
 {

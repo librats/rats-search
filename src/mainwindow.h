@@ -35,10 +35,6 @@ class TopTorrentsWidget;
 class FeedWidget;
 class DownloadsWidget;
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
-QT_END_NAMESPACE
-
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -98,7 +94,6 @@ private:
     void saveSettings();
 
     // UI Components
-    Ui::MainWindow *ui;
     QLineEdit *searchLineEdit;
     QPushButton *searchButton;
     QComboBox *sortComboBox;
@@ -141,8 +136,6 @@ private:
     // State
     bool servicesStarted_;
     QString currentSearchQuery_;
-    QString currentSortField_;
-    bool currentSortDesc_;
     
     // System Tray
     QSystemTrayIcon *trayIcon;
