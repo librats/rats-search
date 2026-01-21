@@ -227,6 +227,20 @@ void ManticoreManager::stop()
             qInfo() << "stopwait finished with code" << stopProcess.exitCode();
         }
     }
+    
+    // Clean up the original QProcess object to prevent "destroyed while running" warning
+    // On Windows daemon mode, the parent process has already exited, but QProcess
+    // may not have properly detected this. We need to ensure it's in NotRunning state.
+    if (process_) {
+        if (process_->state() != QProcess::NotRunning) {
+            // Try to wait for the process to finish (should be instant since parent already exited)
+            if (!process_->waitForFinished(1000)) {
+                // Force cleanup if needed
+                process_->kill();
+                process_->waitForFinished(1000);
+            }
+        }
+    }
 #else
     // On Unix, process runs in foreground with --nodetach
     if (process_ && process_->state() != QProcess::NotRunning) {
