@@ -90,6 +90,48 @@ configure_file(
 # Option to build with system librats or bundled version
 option(RATS_SEARCH_USE_SYSTEM_LIBRATS "Use system-installed librats" OFF)
 option(RATS_SEARCH_BUILD_TESTS "Build tests" OFF)
+option(RATS_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(RATS_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+# Sanitizer configuration - ASAN and TSAN are mutually exclusive
+if(RATS_ENABLE_ASAN AND RATS_ENABLE_TSAN)
+    message(FATAL_ERROR "AddressSanitizer and ThreadSanitizer cannot be enabled simultaneously")
+endif()
+
+# AddressSanitizer configuration
+if(RATS_ENABLE_ASAN)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        set(ASAN_FLAGS "-fsanitize=address -fno-omit-frame-pointer -g")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ASAN_FLAGS}")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ASAN_FLAGS}")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${ASAN_FLAGS}")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${ASAN_FLAGS}")
+        
+        message(STATUS "AddressSanitizer enabled (GCC/Clang)")
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fsanitize=address")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fsanitize=address")
+        
+        message(STATUS "AddressSanitizer enabled (MSVC)")
+    else()
+        message(WARNING "AddressSanitizer is not supported by this compiler")
+    endif()
+endif()
+
+# ThreadSanitizer configuration
+if(RATS_ENABLE_TSAN)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        set(TSAN_FLAGS "-fsanitize=thread -fno-omit-frame-pointer -g")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TSAN_FLAGS}")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${TSAN_FLAGS}")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${TSAN_FLAGS}")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${TSAN_FLAGS}")
+        
+        message(STATUS "ThreadSanitizer enabled (GCC/Clang)")
+    else()
+        message(WARNING "ThreadSanitizer is only supported by GCC/Clang compilers")
+    endif()
+endif()
 
 # Include librats
 if(RATS_SEARCH_USE_SYSTEM_LIBRATS)
@@ -101,6 +143,9 @@ else()
         set(RATS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
         set(RATS_SEARCH_FEATURES ON CACHE BOOL "" FORCE)
         set(RATS_STORAGE ON CACHE BOOL "" FORCE)
+        # Forward sanitizer options to librats
+        set(RATS_ENABLE_ASAN ${RATS_ENABLE_ASAN} CACHE BOOL "" FORCE)
+        set(RATS_ENABLE_TSAN ${RATS_ENABLE_TSAN} CACHE BOOL "" FORCE)
         add_subdirectory(src/librats)
     else()
         message(FATAL_ERROR "librats not found. Please initialize git submodules: git submodule update --init --recursive")
@@ -298,6 +343,8 @@ message(STATUS "Qt6 version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Using system librats: ${RATS_SEARCH_USE_SYSTEM_LIBRATS}")
 message(STATUS "Build tests: ${RATS_SEARCH_BUILD_TESTS}")
+message(STATUS "AddressSanitizer: ${RATS_ENABLE_ASAN}")
+message(STATUS "ThreadSanitizer: ${RATS_ENABLE_TSAN}")
 message(STATUS "=================================")
 message(STATUS "")
 
