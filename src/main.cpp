@@ -3,6 +3,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QStandardPaths>
+#include <QSettings>
 #include <QDebug>
 #include <QTextStream>
 #include <QTimer>
@@ -36,6 +37,22 @@ static TorrentSpider* g_spider = nullptr;
 static P2PNetwork* g_p2p = nullptr;
 static QCoreApplication* g_app = nullptr;
 static bool g_shutdownRequested = false;
+
+// Get saved data directory from QSettings (stored separately from main config)
+// This solves the chicken-and-egg problem: config is in dataDirectory,
+// but we need to know dataDirectory to read config
+QString getSavedDataDirectory()
+{
+    QSettings settings("RatsSearch", "RatsSearch");
+    return settings.value("dataDirectory").toString();
+}
+
+// Save data directory to QSettings
+void saveDataDirectory(const QString& path)
+{
+    QSettings settings("RatsSearch", "RatsSearch");
+    settings.setValue("dataDirectory", path);
+}
 
 #ifdef _WIN32
 // Allocate and attach a console on Windows for stdout/stderr
@@ -413,8 +430,15 @@ int main(int argc, char *argv[])
         QString dataDir;
         if (parser.isSet(dataDirectoryOption)) {
             dataDir = parser.value(dataDirectoryOption);
+            // Save command-line override to settings for future runs
+            saveDataDirectory(dataDir);
         } else {
-            dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            // Try to load saved data directory from QSettings
+            dataDir = getSavedDataDirectory();
+            if (dataDir.isEmpty()) {
+                // Fallback to standard location
+                dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            }
         }
         
         // Create data directory if it doesn't exist
@@ -476,9 +500,15 @@ int main(int argc, char *argv[])
         QString dataDir;
         if (parser.isSet(dataDirectoryOption)) {
             dataDir = parser.value(dataDirectoryOption);
+            // Save command-line override to settings for future runs
+            saveDataDirectory(dataDir);
         } else {
-            // Use standard location
-            dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            // Try to load saved data directory from QSettings
+            dataDir = getSavedDataDirectory();
+            if (dataDir.isEmpty()) {
+                // Fallback to standard location
+                dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            }
         }
         
         // Create data directory if it doesn't exist

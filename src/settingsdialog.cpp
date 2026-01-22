@@ -14,6 +14,7 @@
 #include <QApplication>
 #include <QGridLayout>
 #include <QStyle>
+#include <QSettings>
 
 SettingsDialog::SettingsDialog(ConfigManager* config, RatsAPI* api,
                                const QString& dataDirectory, QWidget *parent)
@@ -436,8 +437,13 @@ void SettingsDialog::loadSettings()
     archivesCheck_->setChecked(enabledTypes.contains("archive"));
     discsCheck_->setChecked(enabledTypes.contains("disc"));
     
-    // Database - load from config, fallback to current runtime directory
-    QString savedDataDir = config_->dataDirectory();
+    // Database - load from QSettings first (source of truth for data directory),
+    // then fallback to config, then to current runtime directory
+    QSettings settings("RatsSearch", "RatsSearch");
+    QString savedDataDir = settings.value("dataDirectory").toString();
+    if (savedDataDir.isEmpty()) {
+        savedDataDir = config_->dataDirectory();
+    }
     if (savedDataDir.isEmpty()) {
         savedDataDir = dataDirectory_;  // Use runtime directory if not saved
     }
@@ -512,6 +518,12 @@ void SettingsDialog::saveSettings()
     QString newDataDir = dataPathEdit_->text();
     if (!newDataDir.isEmpty()) {
         config_->setDataDirectory(newDataDir);
+        
+        // Also save to QSettings so main.cpp can read it at startup
+        // This solves the chicken-and-egg problem: config is in dataDirectory,
+        // but we need to know dataDirectory before loading config
+        QSettings settings("RatsSearch", "RatsSearch");
+        settings.setValue("dataDirectory", newDataDir);
     }
 
     // Check if restart needed (only for settings that can't be applied at runtime)
