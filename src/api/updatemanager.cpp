@@ -120,20 +120,10 @@ QString UpdateManager::getPlatformAssetName() const
     return QString();
 #endif
 
-    // Match the artifact naming from build.yml
-    // e.g., "RatsSearch-Windows-x64.zip", "RatsSearch-Linux-x64.AppImage"
-    QString baseName = QString("RatsSearch-%1-%2").arg(os, arch);
-    
-#ifdef Q_OS_WIN
-    return baseName + ".zip";
-#elif defined(Q_OS_LINUX)
-    // Prefer AppImage, but could also be tar.gz
-    return baseName + ".AppImage";
-#elif defined(Q_OS_MACOS)
-    return baseName + ".zip";
-#else
-    return baseName + ".zip";
-#endif
+    // Return base pattern for matching (without extension)
+    // Files are named like: RatsSearch-Windows-x64-v1.2.3.zip
+    // We return "RatsSearch-Windows-x64" to match the prefix
+    return QString("RatsSearch-%1-%2").arg(os, arch);
 }
 
 void UpdateManager::checkForUpdates()
@@ -210,8 +200,21 @@ void UpdateManager::onCheckReplyFinished()
     }
     
     // Find the appropriate asset for this platform
-    QString assetName = getPlatformAssetName();
-    qInfo() << "Looking for asset:" << assetName;
+    // getPlatformAssetName() returns prefix like "RatsSearch-Windows-x64"
+    QString assetPrefix = getPlatformAssetName();
+    qInfo() << "Looking for asset with prefix:" << assetPrefix;
+    
+    // Determine expected extensions for this platform
+    QStringList expectedExtensions;
+#ifdef Q_OS_WIN
+    expectedExtensions << ".zip";
+#elif defined(Q_OS_LINUX)
+    expectedExtensions << ".AppImage" << ".tar.gz";
+#elif defined(Q_OS_MACOS)
+    expectedExtensions << ".zip";
+#else
+    expectedExtensions << ".zip" << ".tar.gz";
+#endif
     
     QJsonArray assets = release["assets"].toArray();
     for (const QJsonValue& assetVal : assets) {
@@ -220,13 +223,21 @@ void UpdateManager::onCheckReplyFinished()
         
         qDebug() << "Found asset:" << name;
         
-        if (name.contains(assetName, Qt::CaseInsensitive) ||
-            (name.contains("Windows") && assetName.contains("Windows")) ||
-            (name.contains("Linux") && assetName.contains("Linux")) ||
-            (name.contains("macOS") && assetName.contains("macOS"))) {
-            updateInfo_.downloadUrl = asset["browser_download_url"].toString();
-            updateInfo_.downloadSize = asset["size"].toVariant().toLongLong();
-            break;
+        // Check if asset starts with our platform prefix and has correct extension
+        // Handles both old format (RatsSearch-Windows-x64.zip) and
+        // new versioned format (RatsSearch-Windows-x64-v1.2.3.zip)
+        if (name.startsWith(assetPrefix, Qt::CaseInsensitive)) {
+            for (const QString& ext : expectedExtensions) {
+                if (name.endsWith(ext, Qt::CaseInsensitive)) {
+                    updateInfo_.downloadUrl = asset["browser_download_url"].toString();
+                    updateInfo_.downloadSize = asset["size"].toVariant().toLongLong();
+                    qInfo() << "Selected asset:" << name;
+                    break;
+                }
+            }
+            if (!updateInfo_.downloadUrl.isEmpty()) {
+                break;
+            }
         }
     }
     
