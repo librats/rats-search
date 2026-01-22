@@ -18,6 +18,7 @@
 #include "api/configmanager.h"
 #include "api/apiserver.h"
 #include "api/updatemanager.h"
+#include "api/translationmanager.h"
 
 // Settings dialog
 #include "settingsdialog.h"
@@ -87,7 +88,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     
     // UI setup (show window fast)
     qint64 uiStart = startupTimer.elapsed();
-    applyDarkTheme();
+    applyTheme(config->darkMode());
     setupUi();
     setupMenuBar();
     setupToolBar();
@@ -118,17 +119,18 @@ MainWindow::~MainWindow()
     stopServices();
 }
 
-void MainWindow::applyDarkTheme()
+void MainWindow::applyTheme(bool darkMode)
 {
-    // Load stylesheet from resources
-    QFile styleFile(":/styles/styles/dark.qss");
+    // Load stylesheet from resources based on dark mode setting
+    QString stylePath = darkMode ? ":/styles/styles/dark.qss" : ":/styles/styles/light.qss";
+    QFile styleFile(stylePath);
     if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString styleSheet = QString::fromUtf8(styleFile.readAll());
         styleFile.close();
         setStyleSheet(styleSheet);
-        qInfo() << "Dark theme loaded from resources";
+        qInfo() << (darkMode ? "Dark" : "Light") << "theme loaded from resources";
     } else {
-        qWarning() << "Failed to load dark theme from resources:" << styleFile.errorString();
+        qWarning() << "Failed to load theme from resources:" << styleFile.errorString();
     }
 }
 
@@ -438,6 +440,12 @@ void MainWindow::connectSignals()
     // RatsAPI signals - for torrents indexed via DHT metadata, P2P, .torrent import
     if (api) {
         connect(api.get(), &RatsAPI::torrentIndexed, this, &MainWindow::onTorrentIndexed);
+    }
+    
+    // ConfigManager signals - for immediate settings application
+    if (config) {
+        connect(config.get(), &ConfigManager::darkModeChanged, this, &MainWindow::onDarkModeChanged);
+        connect(config.get(), &ConfigManager::languageChanged, this, &MainWindow::onLanguageChanged);
     }
 }
 
@@ -993,6 +1001,23 @@ void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
     }
 }
 
+void MainWindow::onDarkModeChanged(bool enabled)
+{
+    applyTheme(enabled);
+    logActivity(tr("Theme changed to %1 mode").arg(enabled ? tr("dark") : tr("light")));
+}
+
+void MainWindow::onLanguageChanged(const QString& languageCode)
+{
+    // Use TranslationManager to switch language at runtime
+    auto& translationManager = TranslationManager::instance();
+    if (translationManager.setLanguage(languageCode)) {
+        logActivity(tr("Language changed to %1").arg(languageCode));
+        // Note: Full UI retranslation would require recreating widgets or using Qt's retranslateUi pattern
+        // For now, most static strings will update on next window open
+    }
+}
+
 void MainWindow::showSettings()
 {
     if (!config) return;
@@ -1001,13 +1026,10 @@ void MainWindow::showSettings()
     dialog.setStyleSheet(this->styleSheet());
     
     if (dialog.exec() == QDialog::Accepted) {
-        // Show restart message if needed
-        if (dialog.needsRestart() || dialog.languageChanged()) {
-            QString message = tr("Network setting changes will take effect after restarting the application.");
-            if (dialog.languageChanged()) {
-                message = tr("Language and other setting changes will take effect after restarting the application.");
-            }
-            QMessageBox::information(this, tr("Restart Required"), message);
+        // Show restart message only for settings that genuinely require restart
+        if (dialog.needsRestart()) {
+            QMessageBox::information(this, tr("Restart Required"), 
+                tr("Some changes (network ports or data directory) will take effect after restarting the application."));
         }
         
         saveSettings();

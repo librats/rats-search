@@ -87,7 +87,8 @@ void ConfigManager::setDefaults()
         {"trayOnClose", false},
         {"trayOnMinimize", true},
         {"startMinimized", false},
-        {"checkUpdatesOnStartup", true}
+        {"checkUpdatesOnStartup", true},
+        {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)}
     };
 }
 
@@ -484,6 +485,15 @@ void ConfigManager::setStartMinimized(bool enabled) {
 bool ConfigManager::checkUpdatesOnStartup() const { return config_["checkUpdatesOnStartup"].toBool(true); }
 void ConfigManager::setCheckUpdatesOnStartup(bool enabled) { 
     if (setValue("checkUpdatesOnStartup", enabled)) emit checkUpdatesOnStartupChanged(enabled);
+}
+
+QString ConfigManager::dataDirectory() const { 
+    return config_["dataDirectory"].toString(
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+    ); 
+}
+void ConfigManager::setDataDirectory(const QString& path) { 
+    if (setValue("dataDirectory", path)) emit dataDirectoryChanged(path);
 }
 
 // ============================================================================

@@ -37,13 +37,9 @@ public:
 
     /**
      * @brief Check if settings requiring restart were changed
+     * Returns true only for network ports and data directory changes
      */
     bool needsRestart() const { return needsRestart_; }
-    
-    /**
-     * @brief Check if language was changed
-     */
-    bool languageChanged() const { return languageChanged_; }
 
 private slots:
     void onCheckTorrentsClicked();
@@ -61,7 +57,6 @@ private:
     QString dataDirectory_;
     
     bool needsRestart_ = false;
-    bool languageChanged_ = false;
 
     // General settings
     QComboBox* languageCombo_;

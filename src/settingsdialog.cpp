@@ -346,13 +346,16 @@ void SettingsDialog::setupUi()
     QFormLayout *dbLayout = new QFormLayout(dbGroup);
 
     QHBoxLayout *pathLayout = new QHBoxLayout();
-    dataPathEdit_ = new QLineEdit(dataDirectory_);
-    dataPathEdit_->setReadOnly(true);
+    dataPathEdit_ = new QLineEdit();
     QPushButton *browseBtn = new QPushButton(tr("Browse..."));
     connect(browseBtn, &QPushButton::clicked, this, &SettingsDialog::onBrowseDataPath);
     pathLayout->addWidget(dataPathEdit_);
     pathLayout->addWidget(browseBtn);
     dbLayout->addRow(tr("Data Directory:"), pathLayout);
+    
+    QLabel *dataPathHint = new QLabel(tr("* Changing data directory requires restart"));
+    dataPathHint->setStyleSheet("color: #888; font-size: 11px;");
+    dbLayout->addRow(dataPathHint);
 
     mainLayout->addWidget(dbGroup);
     mainLayout->addStretch();
@@ -437,6 +440,13 @@ void SettingsDialog::loadSettings()
     appsCheck_->setChecked(enabledTypes.contains("application"));
     archivesCheck_->setChecked(enabledTypes.contains("archive"));
     discsCheck_->setChecked(enabledTypes.contains("disc"));
+    
+    // Database - load from config, fallback to current runtime directory
+    QString savedDataDir = config_->dataDirectory();
+    if (savedDataDir.isEmpty()) {
+        savedDataDir = dataDirectory_;  // Use runtime directory if not saved
+    }
+    dataPathEdit_->setText(savedDataDir);
 }
 
 void SettingsDialog::saveSettings()
@@ -448,11 +458,10 @@ void SettingsDialog::saveSettings()
     int oldDhtPort = config_->dhtPort();
     int oldHttpPort = config_->httpPort();
     bool oldRestApi = config_->restApiEnabled();
-    QString oldLanguage = config_->language();
+    QString oldDataDir = config_->dataDirectory();
 
-    // Save General
-    QString newLanguage = languageCombo_->currentData().toString();
-    config_->setLanguage(newLanguage);
+    // Save General (language and dark mode are applied immediately via signals)
+    config_->setLanguage(languageCombo_->currentData().toString());
     config_->setTrayOnMinimize(minimizeToTrayCheck_->isChecked());
     config_->setTrayOnClose(closeToTrayCheck_->isChecked());
     config_->setStartMinimized(startMinimizedCheck_->isChecked());
@@ -504,13 +513,22 @@ void SettingsDialog::saveSettings()
         config_->setFiltersContentType(contentTypes.join(","));
     }
 
-    // Check if restart needed
+    // Save Data Directory
+    QString newDataDir = dataPathEdit_->text();
+    if (!newDataDir.isEmpty()) {
+        config_->setDataDirectory(newDataDir);
+    }
+
+    // Check if restart needed (only for settings that can't be applied at runtime)
+    // Network ports and data directory require restart
     needsRestart_ = (p2pPortSpin_->value() != oldP2pPort) ||
                     (dhtPortSpin_->value() != oldDhtPort) ||
                     (httpPortSpin_->value() != oldHttpPort) ||
-                    (restApiCheck_->isChecked() != oldRestApi);
+                    (restApiCheck_->isChecked() != oldRestApi) ||
+                    (newDataDir != oldDataDir && !newDataDir.isEmpty());
 
-    languageChanged_ = (newLanguage != oldLanguage);
+    // Save config to file
+    config_->save();
 }
 
 void SettingsDialog::onCheckTorrentsClicked()

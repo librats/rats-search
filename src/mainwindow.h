@@ -70,6 +70,10 @@ private slots:
     void toggleWindowVisibility();
     void initializeServicesDeferred();  // Deferred heavy initialization
     
+    // Settings slots - applied immediately
+    void onDarkModeChanged(bool enabled);
+    void onLanguageChanged(const QString& languageCode);
+    
     // Update slots
     void onUpdateAvailable(const QString& version, const QString& releaseNotes);
     void onUpdateDownloadProgress(int percent);
@@ -89,7 +93,7 @@ private:
     void performSearch(const QString &query);
     void updateStatusBar();
     void updateStatisticsTab();
-    void applyDarkTheme();
+    void applyTheme(bool darkMode);
     void logActivity(const QString &message);
     void setupSystemTray();
     void loadSettings();
