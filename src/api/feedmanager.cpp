@@ -3,6 +3,7 @@
 #include "../sphinxql.h"
 #include <QDateTime>
 #include <QDebug>
+#include <QJsonDocument>
 #include <cmath>
 
 // ============================================================================
@@ -73,52 +74,38 @@ bool FeedManager::load()
         return false;
     }
     
-    // Create feed table if it doesn't exist
-    // Note: Manticore uses rt (real-time) tables
-    QString createTableSql = R"(
-        CREATE TABLE IF NOT EXISTS feed (
-            id BIGINT,
-            hash STRING,
-            name TEXT,
-            size BIGINT,
-            files INTEGER,
-            contenttype STRING,
-            contentcategory STRING,
-            seeders INTEGER,
-            good INTEGER,
-            bad INTEGER,
-            feeddate BIGINT
-        )
-    )";
+    // Feed table is defined in sphinx.conf (manticoremanager.cpp generateConfig)
+    // Schema: id (auto), feedIndex (rt_field), data (rt_attr_json)
+    // Data is stored as JSON, like legacy feed.js
     
-    if (!sphinxQL->exec(createTableSql)) {
-        qWarning() << "FeedManager: Failed to create feed table:" << sphinxQL->lastError();
-        // Table might already exist, continue anyway
-    }
-    
-    // Load feed items ordered by id (which reflects insertion order = ranking)
-    QString querySql = QString("SELECT * FROM feed ORDER BY id ASC LIMIT %1").arg(maxSize_);
+    // Load feed items - data is stored as JSON in the 'data' column
+    QString querySql = QString("SELECT * FROM feed LIMIT %1").arg(maxSize_);
     SphinxQL::Results rows = sphinxQL->query(querySql);
     
     feed_.clear();
     
     for (const QVariantMap& row : rows) {
-        TorrentFeedItem item;
-        item.hash = row["hash"].toString();
-        item.name = row["name"].toString();
-        item.size = row["size"].toLongLong();
-        item.files = row["files"].toInt();
-        item.contentType = row["contenttype"].toString();
-        item.contentCategory = row["contentcategory"].toString();
-        item.seeders = row["seeders"].toInt();
-        item.good = row["good"].toInt();
-        item.bad = row["bad"].toInt();
-        item.feedDate = row["feeddate"].toLongLong();
+        // Parse JSON data from the 'data' column (like legacy: JSON.parse(f.data))
+        QString jsonData = row["data"].toString();
+        if (jsonData.isEmpty()) {
+            continue;
+        }
         
+        QJsonParseError parseError;
+        QJsonDocument doc = QJsonDocument::fromJson(jsonData.toUtf8(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+            qWarning() << "FeedManager: Failed to parse feed item JSON:" << parseError.errorString();
+            continue;
+        }
+        
+        TorrentFeedItem item = TorrentFeedItem::fromJson(doc.object());
         if (!item.hash.isEmpty()) {
             feed_.append(item);
         }
     }
+    
+    // Sort by ranking score (like legacy _order)
+    reorder();
     
     // Get the latest feedDate as our feed date
     if (!feed_.isEmpty()) {
@@ -148,26 +135,23 @@ bool FeedManager::save()
     
     // Clear and repopulate the feed table
     // (Manticore doesn't support TRUNCATE well, so delete all)
+    // Like legacy: await this.sphinx.query('delete from feed where id > 0')
     if (!sphinxQL->exec("DELETE FROM feed WHERE id > 0")) {
         qWarning() << "FeedManager: Failed to clear feed table:" << sphinxQL->lastError();
         // Continue anyway - may fail if table is empty
     }
     
-    // Insert all items with sequential IDs to maintain ordering
+    // Insert all items with data stored as JSON (like legacy feed.js)
+    // Legacy: 'insert into feed(id, data) values(?, ?)', [++id, JSON.stringify(record)]
     qint64 nextId = 1;
     for (const TorrentFeedItem& item : feed_) {
+        // Serialize item to JSON
+        QJsonObject jsonObj = item.toJson();
+        QString jsonData = QString::fromUtf8(QJsonDocument(jsonObj).toJson(QJsonDocument::Compact));
+        
         QVariantMap values;
         values["id"] = nextId++;
-        values["hash"] = item.hash;
-        values["name"] = item.name;
-        values["size"] = item.size;
-        values["files"] = item.files;
-        values["contenttype"] = item.contentType;
-        values["contentcategory"] = item.contentCategory;
-        values["seeders"] = item.seeders;
-        values["good"] = item.good;
-        values["bad"] = item.bad;
-        values["feeddate"] = item.feedDate;
+        values["data"] = jsonData;
         
         if (!sphinxQL->insertValues("feed", values)) {
             qWarning() << "FeedManager: Failed to save feed item:" << item.hash << sphinxQL->lastError();

@@ -1343,8 +1343,8 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
                 torrent.size = row["size"].toLongLong();
                 torrent.files = row["files"].toInt();
                 torrent.piecelength = row["piecelength"].toInt();
-                torrent.contentTypeId = row["contenttype"].toInt();
-                torrent.contentCategoryId = row["contentcategory"].toInt();
+                torrent.contentTypeId = row["contentType"].toInt();
+                torrent.contentCategoryId = row["contentCategory"].toInt();
                 
                 lastId = torrent.id;
                 checked++;
