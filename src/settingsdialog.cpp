@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QGridLayout>
+#include <QStyle>
 
 SettingsDialog::SettingsDialog(ConfigManager* config, RatsAPI* api,
                                const QString& dataDirectory, QWidget *parent)
@@ -39,7 +40,7 @@ void SettingsDialog::setupUi()
 
     // Title
     QLabel *titleLabel = new QLabel(tr("Rats Search Settings"));
-    titleLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4a9eff;");
+    titleLabel->setObjectName("headerLabel");
     dialogLayout->addWidget(titleLabel);
 
     // Scroll area
@@ -203,7 +204,7 @@ void SettingsDialog::setupUi()
     filtersLayout->addLayout(maxFilesRow);
 
     QLabel *maxFilesHint = new QLabel(tr("* 0 = Disabled (no limit)"));
-    maxFilesHint->setStyleSheet("color: #888; font-size: 11px;");
+    maxFilesHint->setObjectName("hintLabel");
     filtersLayout->addWidget(maxFilesHint);
 
     // Regex filter
@@ -235,7 +236,7 @@ void SettingsDialog::setupUi()
     filtersLayout->addWidget(regexNegativeCheck_);
 
     QLabel *regexHint = new QLabel(tr("* Empty string = Disabled"));
-    regexHint->setStyleSheet("color: #888; font-size: 11px;");
+    regexHint->setObjectName("hintLabel");
     filtersLayout->addWidget(regexHint);
 
     adultFilterCheck_ = new QCheckBox(tr("Adult content filter (ignore XXX content)"));
@@ -265,7 +266,7 @@ void SettingsDialog::setupUi()
     QVBoxLayout *contentTypeLayout = new QVBoxLayout(contentTypeBox);
 
     QLabel *contentTypeHint = new QLabel(tr("Uncheck to disable specific content types:"));
-    contentTypeHint->setStyleSheet("color: #888; font-size: 11px;");
+    contentTypeHint->setObjectName("hintLabel");
     contentTypeLayout->addWidget(contentTypeHint);
 
     QGridLayout *typeGrid = new QGridLayout();
@@ -297,7 +298,7 @@ void SettingsDialog::setupUi()
     cleanupLayout->addWidget(cleanupDesc);
 
     cleanupProgress_ = new QLabel("");
-    cleanupProgress_->setStyleSheet("font-weight: bold;");
+    cleanupProgress_->setObjectName("cleanupProgressLabel");
     cleanupLayout->addWidget(cleanupProgress_);
 
     cleanupProgressBar_ = new QProgressBar();
@@ -308,12 +309,12 @@ void SettingsDialog::setupUi()
     QHBoxLayout *cleanupBtnRow = new QHBoxLayout();
     checkTorrentsBtn_ = new QPushButton(tr("Check Torrents"));
     checkTorrentsBtn_->setToolTip(tr("Count how many torrents would be removed (dry run)"));
-    checkTorrentsBtn_->setStyleSheet("background: #5a6268; padding: 8px 16px;");
+    checkTorrentsBtn_->setObjectName("secondaryButton");
     connect(checkTorrentsBtn_, &QPushButton::clicked, this, &SettingsDialog::onCheckTorrentsClicked);
 
     cleanTorrentsBtn_ = new QPushButton(tr("Clean Torrents"));
     cleanTorrentsBtn_->setToolTip(tr("Remove torrents that don't match the current filters"));
-    cleanTorrentsBtn_->setStyleSheet("background: #dc3545; padding: 8px 16px;");
+    cleanTorrentsBtn_->setObjectName("dangerButton");
     connect(cleanTorrentsBtn_, &QPushButton::clicked, this, &SettingsDialog::onCleanTorrentsClicked);
 
     cleanupBtnRow->addWidget(checkTorrentsBtn_);
@@ -354,7 +355,7 @@ void SettingsDialog::setupUi()
     dbLayout->addRow(tr("Data Directory:"), pathLayout);
     
     QLabel *dataPathHint = new QLabel(tr("* Changing data directory requires restart"));
-    dataPathHint->setStyleSheet("color: #888; font-size: 11px;");
+    dataPathHint->setObjectName("hintLabel");
     dbLayout->addRow(dataPathHint);
 
     mainLayout->addWidget(dbGroup);
@@ -367,12 +368,6 @@ void SettingsDialog::setupUi()
     // Buttons
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
         QDialogButtonBox::Save | QDialogButtonBox::Cancel);
-    buttonBox->setStyleSheet(R"(
-        QPushButton {
-            min-width: 80px;
-            padding: 8px 16px;
-        }
-    )");
     dialogLayout->addWidget(buttonBox);
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, &SettingsDialog::onAccepted);
@@ -536,7 +531,9 @@ void SettingsDialog::onCheckTorrentsClicked()
     if (!api_) return;
 
     cleanupProgress_->setText(tr("Checking torrents..."));
-    cleanupProgress_->setStyleSheet("color: #ffc107; font-weight: bold;");
+    cleanupProgress_->setObjectName("warningLabel");
+    cleanupProgress_->style()->unpolish(cleanupProgress_);
+    cleanupProgress_->style()->polish(cleanupProgress_);
     cleanupProgressBar_->setVisible(true);
     cleanupProgressBar_->setValue(0);
     checkTorrentsBtn_->setEnabled(false);
@@ -555,15 +552,17 @@ void SettingsDialog::onCheckTorrentsClicked()
 
                 if (found > 0) {
                     cleanupProgress_->setText(tr("Found %1 torrents to remove (checked %2)").arg(found).arg(checked));
-                    cleanupProgress_->setStyleSheet("color: #ffc107; font-weight: bold;");
+                    cleanupProgress_->setObjectName("warningLabel");
                 } else {
                     cleanupProgress_->setText(tr("All %1 torrents match filters").arg(checked));
-                    cleanupProgress_->setStyleSheet("color: #28a745; font-weight: bold;");
+                    cleanupProgress_->setObjectName("successLabel");
                 }
             } else {
                 cleanupProgress_->setText(tr("Error: %1").arg(response.error));
-                cleanupProgress_->setStyleSheet("color: #dc3545; font-weight: bold;");
+                cleanupProgress_->setObjectName("errorLabel");
             }
+            cleanupProgress_->style()->unpolish(cleanupProgress_);
+            cleanupProgress_->style()->polish(cleanupProgress_);
         });
     });
 }
@@ -580,7 +579,9 @@ void SettingsDialog::onCleanTorrentsClicked()
     if (reply != QMessageBox::Yes) return;
 
     cleanupProgress_->setText(tr("Cleaning torrents..."));
-    cleanupProgress_->setStyleSheet("color: #dc3545; font-weight: bold;");
+    cleanupProgress_->setObjectName("errorLabel");
+    cleanupProgress_->style()->unpolish(cleanupProgress_);
+    cleanupProgress_->style()->polish(cleanupProgress_);
     cleanupProgressBar_->setVisible(true);
     cleanupProgressBar_->setValue(0);
     checkTorrentsBtn_->setEnabled(false);
@@ -598,11 +599,13 @@ void SettingsDialog::onCleanTorrentsClicked()
                 int checked = data["checked"].toInt();
 
                 cleanupProgress_->setText(tr("Removed %1 torrents (checked %2)").arg(removed).arg(checked));
-                cleanupProgress_->setStyleSheet("color: #28a745; font-weight: bold;");
+                cleanupProgress_->setObjectName("successLabel");
             } else {
                 cleanupProgress_->setText(tr("Error: %1").arg(response.error));
-                cleanupProgress_->setStyleSheet("color: #dc3545; font-weight: bold;");
+                cleanupProgress_->setObjectName("errorLabel");
             }
+            cleanupProgress_->style()->unpolish(cleanupProgress_);
+            cleanupProgress_->style()->polish(cleanupProgress_);
         });
     });
 }

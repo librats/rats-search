@@ -373,15 +373,17 @@ QTabBar::tab:hover:!selected {
    ============================================ */
 
 QScrollBar:vertical {
-    background-color: transparent;
-    width: 10px;
+    background-color: #2a2a2a;
+    width: 14px;
     margin: 4px;
+    border-radius: 7px;
 }
 
 QScrollBar::handle:vertical {
-    background-color: #404040;
-    border-radius: 5px;
+    background-color: #505050;
+    border-radius: 6px;
     min-height: 40px;
+    margin: 1px;
 }
 
 QScrollBar::handle:vertical:hover {
@@ -399,15 +401,17 @@ QScrollBar::sub-page:vertical {
 }
 
 QScrollBar:horizontal {
-    background-color: transparent;
-    height: 10px;
+    background-color: #2a2a2a;
+    height: 14px;
     margin: 4px;
+    border-radius: 7px;
 }
 
 QScrollBar::handle:horizontal {
-    background-color: #404040;
-    border-radius: 5px;
+    background-color: #505050;
+    border-radius: 6px;
     min-width: 40px;
+    margin: 1px;
 }
 
 QScrollBar::handle:horizontal:hover {
@@ -713,6 +717,26 @@ QLabel#completedLabel {
 
 QLabel#errorLabel {
     color: #e74c3c;
+    font-weight: bold;
+}
+
+QLabel#warningLabel {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+QLabel#successLabel {
+    color: #28a745;
+    font-weight: bold;
+}
+
+QLabel#hintLabel {
+    color: #808080;
+    font-size: 11px;
+}
+
+QLabel#cleanupProgressLabel {
+    font-weight: bold;
 }
 
 QLabel#emptyStateLabel {
