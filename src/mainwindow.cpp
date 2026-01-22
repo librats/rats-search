@@ -1039,27 +1039,77 @@ void MainWindow::showSettings()
 
 void MainWindow::showAbout()
 {
-    QMessageBox aboutBox(this);
-    aboutBox.setWindowTitle("About Rats Search");
-    aboutBox.setTextFormat(Qt::RichText);
-    aboutBox.setText(
-        QString(
-        "<div style='text-align: center;'>"
-        "<h2 style='color: #4a9eff;'>🐀 Rats Search %1</h2>"
-        "<p style='font-size: 14px;'>BitTorrent P2P Search Engine</p>"
-        "<p style='color: #666; font-size: 11px;'>Git: %2</p>"
-        "<hr>"
-        "<p>Built with Qt %3 and librats</p>"
-        "<p>A powerful decentralized torrent search engine<br>"
-        "with DHT crawling and full-text search.</p>"
-        "<hr>"
-        "<p style='color: #888;'>Copyright © 2026</p>"
-        "<p><a href='https://github.com/DEgITx/rats-search' style='color: #4a9eff;'>GitHub Repository</a></p>"
-        "</div>"
-        ).arg(RATSSEARCH_VERSION_STRING, RATSSEARCH_GIT_DESCRIBE, qVersion())
-    );
-    aboutBox.setStandardButtons(QMessageBox::Ok);
-    aboutBox.exec();
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("About Rats Search"));
+    dialog.setFixedSize(420, 380);
+    dialog.setStyleSheet(this->styleSheet());
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(12);
+    layout->setContentsMargins(32, 24, 32, 24);
+    
+    // Logo
+    QLabel* logoLabel = new QLabel("🐀");
+    logoLabel->setAlignment(Qt::AlignCenter);
+    logoLabel->setStyleSheet("font-size: 48px;");
+    layout->addWidget(logoLabel);
+    
+    // Title
+    QLabel* titleLabel = new QLabel(QString("Rats Search %1").arg(RATSSEARCH_VERSION_STRING));
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #4a9eff;");
+    layout->addWidget(titleLabel);
+    
+    // Subtitle
+    QLabel* subtitleLabel = new QLabel(tr("BitTorrent P2P Search Engine"));
+    subtitleLabel->setAlignment(Qt::AlignCenter);
+    subtitleLabel->setStyleSheet("font-size: 14px;");
+    layout->addWidget(subtitleLabel);
+    
+    // Git version
+    QLabel* gitLabel = new QLabel(QString("Git: %1").arg(RATSSEARCH_GIT_DESCRIBE));
+    gitLabel->setAlignment(Qt::AlignCenter);
+    gitLabel->setStyleSheet("font-size: 11px; color: #888;");
+    layout->addWidget(gitLabel);
+    
+    layout->addSpacing(8);
+    
+    // Description
+    QLabel* descLabel = new QLabel(QString(tr("Built with Qt %1 and librats\n\n"
+        "A powerful decentralized torrent search engine\n"
+        "with DHT crawling and full-text search.")).arg(qVersion()));
+    descLabel->setAlignment(Qt::AlignCenter);
+    descLabel->setWordWrap(true);
+    layout->addWidget(descLabel);
+    
+    layout->addSpacing(8);
+    
+    // Copyright
+    QLabel* copyrightLabel = new QLabel(tr("Copyright © 2026"));
+    copyrightLabel->setAlignment(Qt::AlignCenter);
+    copyrightLabel->setStyleSheet("color: #888;");
+    layout->addWidget(copyrightLabel);
+    
+    // GitHub link
+    QLabel* linkLabel = new QLabel("<a href='https://github.com/DEgITx/rats-search' style='color: #4a9eff;'>GitHub Repository</a>");
+    linkLabel->setAlignment(Qt::AlignCenter);
+    linkLabel->setOpenExternalLinks(true);
+    layout->addWidget(linkLabel);
+    
+    layout->addStretch();
+    
+    // OK button
+    QPushButton* okButton = new QPushButton(tr("OK"));
+    okButton->setFixedWidth(100);
+    connect(okButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addStretch();
+    layout->addLayout(buttonLayout);
+    
+    dialog.exec();
 }
 
 void MainWindow::showStatistics()
