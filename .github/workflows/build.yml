@@ -133,10 +133,25 @@ jobs:
             Write-Host "Copied libmysql.dll to bin"
           }
 
+      - name: Get version
+        id: version
+        shell: powershell
+        run: |
+          if ("${{ github.ref }}" -match "refs/tags/(.+)") {
+            $version = $matches[1]
+          } else {
+            $version = "dev-${{ github.sha }}".Substring(0, 15)
+          }
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
       - name: Create deployment package
         shell: powershell
         run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
           $packageDir = "RatsSearch-Windows-x64"
+          $zipName = "RatsSearch-Windows-x64-${version}.zip"
+          
           New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
           
           # Copy all files from bin directory
@@ -154,13 +169,14 @@ jobs:
           }
           
           # Create zip
-          Compress-Archive -Path $packageDir -DestinationPath "RatsSearch-Windows-x64.zip" -Force
+          Compress-Archive -Path $packageDir -DestinationPath $zipName -Force
+          Write-Host "Created: $zipName"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-Windows-x64
-          path: RatsSearch-Windows-x64/
+          path: RatsSearch-Windows-x64-*.zip
           retention-days: 30
 
   build-macos-intel:
@@ -493,6 +509,17 @@ jobs:
           echo "Copied Manticore binaries:"
           ls -la "$BIN_DIR/"
 
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="dev-$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
       - name: Install linuxdeploy
         run: |
           curl -L -Z \
@@ -503,12 +530,15 @@ jobs:
 
       - name: Create AppImage
         run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          
           # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
           QT_ROOT="${{ env.QT_ROOT_DIR }}"
           QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
           
           echo "Qt root: $QT_ROOT"
           echo "Qt plugin dir: $QT_PLUGIN_DIR"
+          echo "Version: $VERSION"
           
           # Create AppDir structure
           mkdir -p AppDir/usr/bin
@@ -550,14 +580,14 @@ jobs:
           rm -f "$QT_PLUGIN_DIR/libqsqlmimer.so" 2>/dev/null || true
           
           # Run linuxdeploy with Qt plugin
-          OUTPUT=RatsSearch-Linux-x64.AppImage \
+          OUTPUT="RatsSearch-Linux-x64-${VERSION}.AppImage" \
             ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
             --plugin qt \
             --output appimage || true
           
           # If AppImage creation failed, create a tar.gz instead
-          if [ ! -f RatsSearch-Linux-x64.AppImage ]; then
+          if [ ! -f "RatsSearch-Linux-x64-${VERSION}.AppImage" ]; then
             echo "AppImage creation failed, creating tar.gz package instead"
             mkdir -p RatsSearch-Linux-x64
             cp -r build/bin/* RatsSearch-Linux-x64/
@@ -581,23 +611,23 @@ jobs:
               > RatsSearch-Linux-x64/run.sh
             chmod +x RatsSearch-Linux-x64/run.sh
             
-            tar -czvf RatsSearch-Linux-x64.tar.gz RatsSearch-Linux-x64
+            tar -czvf "RatsSearch-Linux-x64-${VERSION}.tar.gz" RatsSearch-Linux-x64
           fi
 
       - name: Upload artifact (AppImage)
         uses: actions/upload-artifact@v5
-        if: hashFiles('RatsSearch-Linux-x64.AppImage') != ''
+        if: hashFiles('RatsSearch-Linux-x64-*.AppImage') != ''
         with:
           name: RatsSearch-Linux-x64-AppImage
-          path: RatsSearch-Linux-x64.AppImage
+          path: RatsSearch-Linux-x64-*.AppImage
           retention-days: 30
 
       - name: Upload artifact (tar.gz)
         uses: actions/upload-artifact@v5
-        if: hashFiles('RatsSearch-Linux-x64.tar.gz') != ''
+        if: hashFiles('RatsSearch-Linux-x64-*.tar.gz') != ''
         with:
           name: RatsSearch-Linux-x64
-          path: RatsSearch-Linux-x64.tar.gz
+          path: RatsSearch-Linux-x64-*.tar.gz
           retention-days: 30
 
   release:
