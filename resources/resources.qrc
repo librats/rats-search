@@ -2,6 +2,8 @@
     <qresource prefix="/">
         <file>images/rat-logo.png</file>
         <file>images/icon.png</file>
+        <file>images/checkmark.svg</file>
+        <file>images/checkmark-dark.svg</file>
         <file>icon.ico</file>
     </qresource>
     <qresource prefix="/styles">

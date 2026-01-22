@@ -151,11 +151,35 @@ QPushButton#primaryButton {
 QPushButton#successButton {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
         stop:0 #00c853, stop:1 #00e676);
+    color: #ffffff;
+}
+
+QPushButton#successButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #00e676, stop:1 #69f0ae);
+}
+
+QPushButton#successButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #00a844, stop:1 #00c853);
 }
 
 QPushButton#dangerButton {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-        stop:0 #f44336, stop:1 #e57373);
+        stop:0 #f44336, stop:1 #ef5350);
+    color: #ffffff;
+    border: 1px solid #d32f2f;
+}
+
+QPushButton#dangerButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #ef5350, stop:1 #e57373);
+    border-color: #e53935;
+}
+
+QPushButton#dangerButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #c62828, stop:1 #d32f2f);
 }
 
 QPushButton#magnetButton {
@@ -164,12 +188,36 @@ QPushButton#magnetButton {
 }
 
 QPushButton#secondaryButton {
-    background-color: #e8e8e8;
+    background-color: #f0f0f0;
     color: #2c2c2c;
+    border: 2px solid #d0d0d0;
 }
 
 QPushButton#secondaryButton:hover {
-    background-color: #d8d8d8;
+    background-color: #e8e8e8;
+    border-color: #b0b0b0;
+}
+
+QPushButton#secondaryButton:pressed {
+    background-color: #e0e0e0;
+    border-color: #4a9eff;
+}
+
+/* Outline button style - for less prominent actions */
+QPushButton#outlineButton {
+    background-color: transparent;
+    color: #4a9eff;
+    border: 2px solid #4a9eff;
+}
+
+QPushButton#outlineButton:hover {
+    background-color: rgba(74, 158, 255, 0.1);
+    border-color: #3d8ce8;
+    color: #3d8ce8;
+}
+
+QPushButton#outlineButton:pressed {
+    background-color: rgba(74, 158, 255, 0.2);
 }
 
 /* ============================================
@@ -177,25 +225,27 @@ QPushButton#secondaryButton:hover {
    ============================================ */
 
 QCheckBox {
-    spacing: 8px;
+    spacing: 10px;
     color: #2c2c2c;
 }
 
 QCheckBox::indicator {
     width: 20px;
     height: 20px;
-    border: 2px solid #c0c0c0;
-    border-radius: 4px;
+    border: 2px solid #b0b0b0;
+    border-radius: 5px;
     background-color: #ffffff;
 }
 
 QCheckBox::indicator:hover {
     border-color: #4a9eff;
+    background-color: #f5f8ff;
 }
 
 QCheckBox::indicator:checked {
     background-color: #4a9eff;
     border-color: #4a9eff;
+    image: url(:/images/checkmark.svg);
 }
 
 QCheckBox::indicator:checked:hover {
@@ -203,26 +253,37 @@ QCheckBox::indicator:checked:hover {
     border-color: #5eabff;
 }
 
+QCheckBox::indicator:disabled {
+    background-color: #f0f0f0;
+    border-color: #d0d0d0;
+}
+
 QRadioButton {
-    spacing: 8px;
+    spacing: 10px;
     color: #2c2c2c;
 }
 
 QRadioButton::indicator {
     width: 20px;
     height: 20px;
-    border: 2px solid #c0c0c0;
-    border-radius: 10px;
+    border: 2px solid #b0b0b0;
+    border-radius: 11px;
     background-color: #ffffff;
 }
 
 QRadioButton::indicator:hover {
     border-color: #4a9eff;
+    background-color: #f5f8ff;
 }
 
 QRadioButton::indicator:checked {
-    background-color: #4a9eff;
+    background-color: #ffffff;
     border-color: #4a9eff;
+    border-width: 6px;
+}
+
+QRadioButton::indicator:checked:hover {
+    border-color: #5eabff;
 }
 
 /* ============================================
@@ -630,9 +691,9 @@ QGroupBox {
     background-color: #ffffff;
     border: 1px solid #e0e0e0;
     border-radius: 10px;
-    margin-top: 16px;
-    padding: 16px;
-    padding-top: 24px;
+    margin-top: 20px;
+    padding: 20px;
+    padding-top: 28px;
     font-weight: 600;
 }
 
@@ -641,8 +702,34 @@ QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top left;
     left: 16px;
-    padding: 0 8px;
+    padding: 2px 10px;
     background-color: #ffffff;
+    border-radius: 4px;
+}
+
+/* Nested GroupBox - slightly different style */
+QGroupBox QGroupBox {
+    background-color: #fafafa;
+    border-color: #e8e8e8;
+    margin-top: 16px;
+}
+
+QGroupBox QGroupBox::title {
+    background-color: #fafafa;
+}
+
+/* ============================================
+   Form Layout
+   ============================================ */
+
+QFormLayout {
+    spacing: 12px;
+}
+
+/* Form labels should be right-aligned and have some padding */
+QFormLayout QLabel {
+    padding-right: 8px;
+    min-height: 32px;
 }
 
 /* ============================================
@@ -671,16 +758,29 @@ QTextEdit:focus, QPlainTextEdit:focus {
 QProgressBar {
     background-color: #e0e0e0;
     border: none;
-    border-radius: 4px;
-    height: 8px;
+    border-radius: 6px;
+    height: 12px;
     text-align: center;
-    color: transparent;
+    color: #666666;
+    font-size: 10px;
+    font-weight: bold;
 }
 
 QProgressBar::chunk {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
         stop:0 #4a9eff, stop:1 #6eb5ff);
-    border-radius: 4px;
+    border-radius: 6px;
+}
+
+/* Settings dialog progress bar - larger and more visible */
+QDialog QProgressBar {
+    height: 16px;
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+QDialog QProgressBar::chunk {
+    border-radius: 8px;
 }
 
 /* ============================================
@@ -782,9 +882,44 @@ QDialog {
     background-color: #f5f5f5;
 }
 
+QDialogButtonBox {
+    dialogbuttonbox-buttons-have-icons: 0;
+}
+
 QDialogButtonBox QPushButton {
-    min-width: 90px;
+    min-width: 100px;
     min-height: 36px;
+    padding: 8px 20px;
+}
+
+QDialogButtonBox QPushButton[text="Save"],
+QDialogButtonBox QPushButton[text="OK"],
+QDialogButtonBox QPushButton[text="Yes"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #00c853, stop:1 #00e676);
+    color: #ffffff;
+}
+
+QDialogButtonBox QPushButton[text="Save"]:hover,
+QDialogButtonBox QPushButton[text="OK"]:hover,
+QDialogButtonBox QPushButton[text="Yes"]:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #00e676, stop:1 #69f0ae);
+}
+
+QDialogButtonBox QPushButton[text="Cancel"],
+QDialogButtonBox QPushButton[text="No"],
+QDialogButtonBox QPushButton[text="Close"] {
+    background-color: #f0f0f0;
+    color: #2c2c2c;
+    border: 2px solid #d0d0d0;
+}
+
+QDialogButtonBox QPushButton[text="Cancel"]:hover,
+QDialogButtonBox QPushButton[text="No"]:hover,
+QDialogButtonBox QPushButton[text="Close"]:hover {
+    background-color: #e8e8e8;
+    border-color: #b0b0b0;
 }
 
 /* ============================================

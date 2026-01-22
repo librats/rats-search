@@ -350,6 +350,7 @@ void SettingsDialog::setupUi()
     QHBoxLayout *pathLayout = new QHBoxLayout();
     dataPathEdit_ = new QLineEdit();
     QPushButton *browseBtn = new QPushButton(tr("Browse..."));
+    browseBtn->setObjectName("secondaryButton");
     connect(browseBtn, &QPushButton::clicked, this, &SettingsDialog::onBrowseDataPath);
     pathLayout->addWidget(dataPathEdit_);
     pathLayout->addWidget(browseBtn);
