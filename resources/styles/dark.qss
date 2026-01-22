@@ -589,6 +589,34 @@ QComboBox QAbstractItemView {
     selection-background-color: #4a9eff;
     color: #e0e0e0;
     padding: 4px;
+    outline: 0;
+}
+
+QComboBox QAbstractItemView::item {
+    background-color: #2a2a2a;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #353535;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+/* Fix transparent dropdown popup */
+QComboBox QWidget {
+    background-color: #2a2a2a;
+}
+
+QComboBox QFrame {
+    background-color: #2a2a2a;
+    border: 1px solid #404040;
+    border-radius: 8px;
 }
 
 /* ============================================
