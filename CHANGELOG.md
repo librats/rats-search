@@ -1,1124 +1,2204 @@
-# [1.11.0](https://github.com/DEgITx/rats-search/compare/v1.10.0...v1.11.0) (2023-05-21)
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [2.0.1](https://github.com/DEgITx/rats-search/compare/v2.0.0...v2.0.1) (2026-01-23)
 
 
-### Bug Fixes
-
-* **ci:** fix linux build ([2c58fa6](https://github.com/DEgITx/rats-search/commit/2c58fa6fadecfe42c97c79f58ca5d10c3e4cdbf5))
-* **torrent:** fix adding torrent for new manticore version (duplicate field) ([34dca0d](https://github.com/DEgITx/rats-search/commit/34dca0dc5c7493938dd0fb2351351c8eca9c69e6)), closes [#184](https://github.com/DEgITx/rats-search/issues/184)
+### 🏗️ Build
 
 
-### Features
-
-* **core:** update deps ([96779af](https://github.com/DEgITx/rats-search/commit/96779af979c96b83435b0783a04e325d1d9a72fc))
-* **log:** improve logging format ([45959df](https://github.com/DEgITx/rats-search/commit/45959df561770b643462c2b059776e8d55fce087))
-
-# [1.10.0](https://github.com/DEgITx/rats-search/compare/v1.9.0...v1.10.0) (2023-02-26)
+- Add tsan/asan sanitizers support([5a485a3](https://github.com/DEgITx/rats-search/commit/5a485a3243814a38aff18e9f7d8feb9071116e25)) by @DEgITx
 
 
-### Bug Fixes
-
-* **db:** fix replace values func with new manticore ([7279ade](https://github.com/DEgITx/rats-search/commit/7279ade6dfe0001ff12824a7e9997e4c6a09b532))
-* **docker:** fix build ([4340763](https://github.com/DEgITx/rats-search/commit/43407631dc0886f96d39db691282820e0cf70a72))
-* **docker:** fixes ([1feab1c](https://github.com/DEgITx/rats-search/commit/1feab1c42e79617abd46ea3f57e187e02558b6cb))
-* **docker:** more fixes ([bd40cb5](https://github.com/DEgITx/rats-search/commit/bd40cb55abca9246c5355a67a2842a8f28db1945))
-* **docker:** update install command ([61ae1b8](https://github.com/DEgITx/rats-search/commit/61ae1b812402f35285cc25518439a88a9c900cf4))
+### 🐛 Bug Fixes
 
 
-### Features
-
-* **core:** update libs ([581aed4](https://github.com/DEgITx/rats-search/commit/581aed4e4ace59cc31d94bdfb0367bd7a4871203))
-* **core:** update libs ([0d70850](https://github.com/DEgITx/rats-search/commit/0d708501d6ed31e1d7be5e750184a8625e8da8dd))
-* **db:** changed config for manticore 5 support [#176](https://github.com/DEgITx/rats-search/issues/176) ([2b3676d](https://github.com/DEgITx/rats-search/commit/2b3676db37f34e7d459cb119f83852112a97932d))
-* **db:** update to manticore 6.0.2 ([c24ac47](https://github.com/DEgITx/rats-search/commit/c24ac471917c4b241f9aa288a5fb26a8f697eb2e))
-* **linux:** manticore5 ([4a2bcc7](https://github.com/DEgITx/rats-search/commit/4a2bcc726665f5026ae6be1653c3cec1853dfd32))
-* **macos:** manticore5 for macos ([46fa48a](https://github.com/DEgITx/rats-search/commit/46fa48ab998598be3a56e328124c735eb4a766df))
-* **macos:** support of arm64 manticore ([50d05ec](https://github.com/DEgITx/rats-search/commit/50d05ecce5d6e6657705855cbeb8a75e3c0436f6))
-* **win:** switch to manticore 5.0.2 ([c7ba49a](https://github.com/DEgITx/rats-search/commit/c7ba49a362e90d3380b02fd29cb9c84dd8b75b9c))
-
-# [1.9.0](https://github.com/DEgITx/rats-search/compare/v1.8.1...v1.9.0) (2022-08-24)
+- **build:** Version push for bundle([a71ed66](https://github.com/DEgITx/rats-search/commit/a71ed66d06415039eee511166258559864d152cc)) by @DEgITx
+- **settings:** Apply settings issues([0791d5d](https://github.com/DEgITx/rats-search/commit/0791d5dca670f1b79cb540f3cfd77071b88ea2d9)) by @DEgITx
+- **db:** Bad SQL request for feed([18ff7eb](https://github.com/DEgITx/rats-search/commit/18ff7eb4adf11905cf6a67666b936e95b241e964)) by @DEgITx
+- **ui:** Transparent menu([6d541fd](https://github.com/DEgITx/rats-search/commit/6d541fd184b58fe89508ed24b16efe847550e277)) by @DEgITx
+- **ui:** Center about dialog text([1a05e2b](https://github.com/DEgITx/rats-search/commit/1a05e2b23d19d85290692660cc6ca94f8a156436)) by @DEgITx
+- Data directory path([35c84a0](https://github.com/DEgITx/rats-search/commit/35c84a049d813dbe5ff6c108ab2baf7195d0ea0e)) by @DEgITx
+- **ui:** Button style([2096fce](https://github.com/DEgITx/rats-search/commit/2096fcecf4ba50a2244ef2d35354dd3429f2727e)) by @DEgITx
+- **ui:** Light mode background fix([684845f](https://github.com/DEgITx/rats-search/commit/684845fbfc6dc66a9e434fbbca4a31703788cabd)) by @DEgITx
 
 
-### Bug Fixes
-
-* **build:** build only x64 packages for linux ([c05a04e](https://github.com/DEgITx/rats-search/commit/c05a04ea289ccaaa4e57607b4d622005eec4cd4c))
-* **ci:** restore installation on ci ([58c7d4c](https://github.com/DEgITx/rats-search/commit/58c7d4c9d7efc5d3e7985bed8462b705c8402931))
-* **ssl:** ignore cert to fix blob loads ([a502a7a](https://github.com/DEgITx/rats-search/commit/a502a7a0e58fca1364d4fccd4d5e558c25c52546))
-* **torrent:** fix search by magnet ([4d2561e](https://github.com/DEgITx/rats-search/commit/4d2561e23f577e7510fe2573ae605ea14169ba99))
+### 👷 CI
 
 
-### Features
+- Add git-cliff configuration([3d038a8](https://github.com/DEgITx/rats-search/commit/3d038a86d6359cb7f5fbf15730cda62c682296d8)) by @DEgITx
 
-* **core:** update ([06297d2](https://github.com/DEgITx/rats-search/commit/06297d2be3b955b311208be6438590b126272bde))
-* **core:** update deps ([6e160f7](https://github.com/DEgITx/rats-search/commit/6e160f7f3d75d7a75fbf0500857f6d96fa224c16))
-* **core:** update electron ([a280db3](https://github.com/DEgITx/rats-search/commit/a280db32d63d6007ac370014b7ddcf36c5e63a90))
-* **core:** upgrade to electron 16 ([edfc925](https://github.com/DEgITx/rats-search/commit/edfc925583dcf5a05f56678960154e8b7e6f7193))
-* **core:** upgrade to electron 17 ([94fa41a](https://github.com/DEgITx/rats-search/commit/94fa41a7ec147b4b3a1b2350eb816550eb12dbca))
+
+### 📚 Documentation
+
+
+- Add contributors section([c8bb255](https://github.com/DEgITx/rats-search/commit/c8bb2556fd598b2a6d64c64edb7340e7b8d49298)) by @DEgITx
+
+
+### 📦 Miscellaneous
+
+
+- Update submodules to latest([95a89f2](https://github.com/DEgITx/rats-search/commit/95a89f20951d39a7c256900d704336dcdabbc281)) by @DEgITx
+- Update submodules to latest([1ec5942](https://github.com/DEgITx/rats-search/commit/1ec5942cac6fe6f152312762b2846e048871cfc1)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **updater:** Add pattern archives support([ab7188c](https://github.com/DEgITx/rats-search/commit/ab7188c8cb3687ca7c14469351ed40f2eea77b51)) by @DEgITx
+- **ui:** Improve dark/light modes([fc77ce3](https://github.com/DEgITx/rats-search/commit/fc77ce3274aab95fe7f9254d710842ff3c65a241)) by @DEgITx
+- Add checkmarks([75e16ba](https://github.com/DEgITx/rats-search/commit/75e16ba20ad902b173a3cd00c2a10c1e844f3d20)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 16 commits
+
+
+## [2.0.0](https://github.com/DEgITx/rats-search/compare/v1.11.0...v2.0.0) (2026-01-21)
+
+
+### 🐛 Bug Fixes
+
+
+- **readme:** New feature about rest api([78c6df5](https://github.com/DEgITx/rats-search/commit/78c6df5557ea687fb1a2f0956e884acc77c370a1)) by @DEgITx
+- **imports:** Fix checking submodules to prevent error on start([03f0ab7](https://github.com/DEgITx/rats-search/commit/03f0ab7a475b17d6ba2461a939558276bedbd135)) by @DEgITx
+- **core:** Fix support of manticore 6.3 and more recent versions([7c0d5ca](https://github.com/DEgITx/rats-search/commit/7c0d5cadf859a6b5ec2c78c34c9a3fcb6ed14d71)) by @DEgITx
+- **tests:** Fix windows passing([fedc9ed](https://github.com/DEgITx/rats-search/commit/fedc9edf19244d43a776e5773cfbd408bcf84e38)) by @DEgITx
+- **docker:** Upgrade docker image([e5a219a](https://github.com/DEgITx/rats-search/commit/e5a219a98c5fbe6749394ecb703a5d09105f3714)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **core:** Dark mode basic feature support #187([320e169](https://github.com/DEgITx/rats-search/commit/320e169fccf12d6cbe52b58f186b671192285ea5)) by @DEgITx
+- **config:** Better handling of config changes([280298c](https://github.com/DEgITx/rats-search/commit/280298caa3114c4582a02eba08afd2abf873e2d7)) by @DEgITx
+- **db:** Update to manticore search 6.0.4([3cff91d](https://github.com/DEgITx/rats-search/commit/3cff91dbf1b63938c716dc95485f6553003d31ae)) by @DEgITx
+- **p2p:** Publish manticore info([9d17fd2](https://github.com/DEgITx/rats-search/commit/9d17fd28d109098b2ae605bb7e566ed442815ee1)) by @DEgITx
+- **rest:** Basic REST API support for servers as alternative to websocks([fad7c33](https://github.com/DEgITx/rats-search/commit/fad7c338c957a0b1f62ada9df25409e93cebef5d)) by @DEgITx
+- **rest:** Queue for async messages /api/queue([f9ec0c2](https://github.com/DEgITx/rats-search/commit/f9ec0c2cbbf6db2f7bf1a4e91435556e5434ca0b)) by @DEgITx
+- **core:** Update core libs([e07a02f](https://github.com/DEgITx/rats-search/commit/e07a02fe3267b3e801f98f7f17676bb6f517fd0c)) by @DEgITx
+- **core:** Update deps([a0ce313](https://github.com/DEgITx/rats-search/commit/a0ce31350e5360aeb305850be5fcfa61645f0220)) by @DEgITx
+- **core:** Upgrade to new deps([e933ccd](https://github.com/DEgITx/rats-search/commit/e933ccd9b38f589e78eac0712abc67d0a2945294)) by @DEgITx
+- **ci:** Upgrade matrix to 16 and 20 node([c6fb486](https://github.com/DEgITx/rats-search/commit/c6fb4869ca589f5276fd99f704318d0a76b91cf0)) by @DEgITx
+- **core:** Upgrade([bdc51d7](https://github.com/DEgITx/rats-search/commit/bdc51d72e8e9cacaa8dbebd60676fdc98bbf8fb2)) by @DEgITx
+- **core:** Update core components([4142146](https://github.com/DEgITx/rats-search/commit/4142146c51e3d19cee79293b47586d7637277055)) by @DEgITx
+- **core:** Upgrade core deps([cc47e55](https://github.com/DEgITx/rats-search/commit/cc47e550c1b2b76e45b735f8a8ff838728b25f42)) by @DEgITx
+- **server:** Exit codes for rats server([43cac0c](https://github.com/DEgITx/rats-search/commit/43cac0cf8bed3bfefbf641b28c121cef669e878a)) by @DEgITx
+- **test:** Fix crash of tests on unix systems([dadb07c](https://github.com/DEgITx/rats-search/commit/dadb07c52f2aa4a5f0c8e8ce1efa5147e0f7ce4f)) by @DEgITx
+- **tests:** Special debug log print after tests failed([983d06d](https://github.com/DEgITx/rats-search/commit/983d06d1345a6510a1004a20770fb44325800123)) by @DEgITx
+- **p2p:** New p2p protocol([c196f82](https://github.com/DEgITx/rats-search/commit/c196f82834cc7ecae052e98d2cf1931ad8117e7d)) by @DEgITx
+- **translations:** Support de, es, fr translations([d59fda7](https://github.com/DEgITx/rats-search/commit/d59fda7e77d5f5528a2a50a511e49690a29232fa)) by @DEgITx
+- **translations:** New translations hi, it, ja, pt([d6782a6](https://github.com/DEgITx/rats-search/commit/d6782a6b40d548a2b50ec31596aef33ced4fe810)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 24 commits
+
+
+## [1.11.0](https://github.com/DEgITx/rats-search/compare/v1.10.0...v1.11.0) (2023-05-21)
+
+
+### 🐛 Bug Fixes
+
+
+- **ci:** Fix linux build([e2eed07](https://github.com/DEgITx/rats-search/commit/e2eed076de7216dd9c238c401e598a9c144f29c1)) by @DEgITx
+- **torrent:** Fix adding torrent for new manticore version (duplicate field)([cebb462](https://github.com/DEgITx/rats-search/commit/cebb462c53a11dd2e57e3b9302b4b27338f42d29)) by @DEgITx
+- **config:** Proper config debug([5679340](https://github.com/DEgITx/rats-search/commit/56793400389e73f2ce96f0eb4c4b5f91d539631c)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **core:** Update deps([4a3c98c](https://github.com/DEgITx/rats-search/commit/4a3c98c013f3c9c5079a4a9af3d293f0c3673e9f)) by @DEgITx
+- **log:** Improve logging format([0ae124d](https://github.com/DEgITx/rats-search/commit/0ae124daadfa898f3c1bcc429653189ddaa828fd)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 5 commits
+
+
+## [1.10.0](https://github.com/DEgITx/rats-search/compare/v1.9.0...v1.10.0) (2023-02-26)
+
+
+### 🐛 Bug Fixes
+
+
+- **db:** Fix replace values func with new manticore([f1119b5](https://github.com/DEgITx/rats-search/commit/f1119b55168035940c9f539b2a915a46fba083fa)) by @DEgITx
+- **docker:** Update install command([b611e9f](https://github.com/DEgITx/rats-search/commit/b611e9fed35654b1a8b46d5df10b64baa02e7d39)) by @DEgITx
+- **docker:** Fix build([de79321](https://github.com/DEgITx/rats-search/commit/de79321c5f3da9faa7af02c0e1e36de0b7a044d4)) by @DEgITx
+- **docker:** More fixes([411db7b](https://github.com/DEgITx/rats-search/commit/411db7ba1f6f3dc4a28d5c55444b732d89111481)) by @DEgITx
+- **docker:** Fixes([381d120](https://github.com/DEgITx/rats-search/commit/381d1204a7e278cb07f5724d2f5a091728e5d6af)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Added docker instruction #178([da62eda](https://github.com/DEgITx/rats-search/commit/da62edad2a642d6f9b92cfe0d999d00b91bc6bd7)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **core:** Update libs([8c3b5a1](https://github.com/DEgITx/rats-search/commit/8c3b5a1c1fda3bb92744fceed1ecc18a751e4b41)) by @DEgITx
+- **core:** Update libs([c2330a5](https://github.com/DEgITx/rats-search/commit/c2330a5431cabca95fff49590cb5817652da0ca2)) by @DEgITx
+- **win:** Switch to manticore 5.0.2([cf47d25](https://github.com/DEgITx/rats-search/commit/cf47d25d67c86ec767f8ecae1528a5b6f3d73acc)) by @DEgITx
+- **db:** Changed config for manticore 5 support #176([156786b](https://github.com/DEgITx/rats-search/commit/156786b41c5cd838d1a44c4c308ea1c74479ca35)) by @DEgITx
+- **macos:** Manticore5 for macos([2ce6056](https://github.com/DEgITx/rats-search/commit/2ce6056ecf6b97ac20bf0d2977e546dd6cd04333)) by @DEgITx
+- **linux:** Manticore5([7ce5118](https://github.com/DEgITx/rats-search/commit/7ce5118f157076b45dfa006174a5438ed38d46d5)) by @DEgITx
+- **db:** Update to manticore 6.0.2([2d975da](https://github.com/DEgITx/rats-search/commit/2d975da2c9621db69834de30515d80278b07a715)) by @DEgITx
+- **macos:** Support of arm64 manticore([3e9ca46](https://github.com/DEgITx/rats-search/commit/3e9ca464c475d0be78512325860100e0256ef794)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 14 commits
+
+
+## [1.9.0](https://github.com/DEgITx/rats-search/compare/v1.8.1...v1.9.0) (2022-08-24)
+
+
+### 🐛 Bug Fixes
+
+
+- **torrent:** Fix search by magnet([bf6b88a](https://github.com/DEgITx/rats-search/commit/bf6b88aaaacabf910815b7bd8e52ecb38a5cc4fb)) by @DEgITx
+- **ci:** Restore installation on ci([5c269af](https://github.com/DEgITx/rats-search/commit/5c269af2cbfc3bd18ae40046d234b9a0161d66a2)) by @DEgITx
+- **build:** Build only x64 packages for linux([8752809](https://github.com/DEgITx/rats-search/commit/8752809829289173cfc98b1502f1512bb5c79715)) by @DEgITx
+- **ssl:** Ignore cert to fix blob loads([b40df5b](https://github.com/DEgITx/rats-search/commit/b40df5b2cd8e88aeb99672b88eb30bad1a0d6148)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **core:** Upgrade to electron 17([657d49f](https://github.com/DEgITx/rats-search/commit/657d49f453fcafef8b8f6251659ef938987f0bd7)) by @DEgITx
+- **core:** Update electron([b57073e](https://github.com/DEgITx/rats-search/commit/b57073e026d893db5f0cdeb043e78ea576346b7d)) by @DEgITx
+- **core:** Update deps([0e92916](https://github.com/DEgITx/rats-search/commit/0e9291616a3744717e9222e9e45009c013ce5b47)) by @DEgITx
+- **core:** Update([4732266](https://github.com/DEgITx/rats-search/commit/473226651429e8301e5cac30fdf52572b1afb1b4)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
 
 ## [1.8.1](https://github.com/DEgITx/rats-search/compare/v1.8.0...v1.8.1) (2021-09-22)
 
 
-### Bug Fixes
-
-* **windows:** missed library [#154](https://github.com/DEgITx/rats-search/issues/154) ([b23b9c7](https://github.com/DEgITx/rats-search/commit/b23b9c7c139e56503e8ebcf9078541f829ed740c))
-
-# [1.8.0](https://github.com/DEgITx/rats-search/compare/v1.7.1...v1.8.0) (2021-09-12)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **db:** converting db to version 8 ([c19a95d](https://github.com/DEgITx/rats-search/commit/c19a95dc1c2e12eed1bfa79fc4d0b4d7605a28ec))
-* **db:** moving content type to uint values ([f4b7a8d](https://github.com/DEgITx/rats-search/commit/f4b7a8d57766a65e1d33196086159b1ab5152b88))
-* **docker:** moved to 16 version ([1089fa3](https://github.com/DEgITx/rats-search/commit/1089fa347e969c7c914cb6f51ff258c7cff4105e))
-* **linux:** add execute right to searchd.v2 [#152](https://github.com/DEgITx/rats-search/issues/152) ([0bc35c5](https://github.com/DEgITx/rats-search/commit/0bc35c53916d0796c133f235050512d8b9d542b8))
-* **linux:** fix convertation of db under linux system [#152](https://github.com/DEgITx/rats-search/issues/152) ([ea01858](https://github.com/DEgITx/rats-search/commit/ea0185874678f8244b7d981354853d94a450212e))
+- **windows:** Missed library #154([e77b0e4](https://github.com/DEgITx/rats-search/commit/e77b0e4289d24338bf0eab4bd0e02472e284e86f)) by @DEgITx
 
 
-### Features
-
-* **log:** using tagslog ([750dbfd](https://github.com/DEgITx/rats-search/commit/750dbfd477396f4316ec4970eef32262fd16c1b4))
-* **server:** missing rats.log functionality restored [#145](https://github.com/DEgITx/rats-search/issues/145) ([d5243ff](https://github.com/DEgITx/rats-search/commit/d5243ff88ff2e41c984a5fd48cd64767cbdb1e90))
 
 
-### Performance Improvements
+### 👥 Contributors
 
-* **db:** optimize some tables to stored_only_fields to recrudesce memory usage of big databases [#152](https://github.com/DEgITx/rats-search/issues/152) ([762b0d1](https://github.com/DEgITx/rats-search/commit/762b0d163bb2b9a4f4410d8d7740b9c497b34017))
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+## [1.8.0](https://github.com/DEgITx/rats-search/compare/v1.7.1...v1.8.0) (2021-09-12)
+
+
+### ⚡ Performance
+
+
+- **db:** Optimize some tables to stored_only_fields to recrudesce memory usage of big databases #152([d65f214](https://github.com/DEgITx/rats-search/commit/d65f214d4d2ad32badb8cd477e8e5e3bbc5e96e8)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **linux:** Add execute right to searchd.v2 #152([ae6fabc](https://github.com/DEgITx/rats-search/commit/ae6fabc82f4c527691da5c5914c22201b78627b3)) by @DEgITx
+- **linux:** Fix convertation of db under linux system #152([7225af8](https://github.com/DEgITx/rats-search/commit/7225af81d0aa63818fde87867c26736bccdd0564)) by @DEgITx
+- **docker:** Moved to 16 version([83a78c4](https://github.com/DEgITx/rats-search/commit/83a78c4e6c1366713613e8e99eb24909eb725a24)) by @DEgITx
+- **db:** Moving content type to uint values([f716610](https://github.com/DEgITx/rats-search/commit/f7166103dfe68649de1027bc6e5f47de0f57376a)) by @DEgITx
+- **db:** Converting db to version 8([177f8d2](https://github.com/DEgITx/rats-search/commit/177f8d2f110f3a1893dfb5a449cc20adba632a5e)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **README:** Add information about web-version([9e3870f](https://github.com/DEgITx/rats-search/commit/9e3870ff440e29f98f1af781425a2c786e3aaed0)) by @DEgITx
+- **README:** Add desktop section([f3e08b5](https://github.com/DEgITx/rats-search/commit/f3e08b5aa40fcda1bc7502e7335dbd2661b63db3)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **log:** Using tagslog([fa112ff](https://github.com/DEgITx/rats-search/commit/fa112ffd9c5a4753a2e553789ba7f6f931a14466)) by @DEgITx
+- **core:** Upgrade to electron 16([30a6901](https://github.com/DEgITx/rats-search/commit/30a69010771eec0c1ae9bb1a8993688973b8b008)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 10 commits
+
 
 ## [1.7.1](https://github.com/DEgITx/rats-search/compare/v1.7.0...v1.7.1) (2021-07-12)
 
 
-### Bug Fixes
-
-* **core:** update to new version ([022b339](https://github.com/DEgITx/rats-search/commit/022b339b36929fb3569883d1aa0b4fbd301e51dd))
-* **ui:** fix blank screen on app start [#147](https://github.com/DEgITx/rats-search/issues/147) ([05d84df](https://github.com/DEgITx/rats-search/commit/05d84dfea35b13cf368bb8a5f6f851daf1fcdca9))
-* **web:** fixed compilation with create-torrent [#148](https://github.com/DEgITx/rats-search/issues/148) ([678a999](https://github.com/DEgITx/rats-search/commit/678a99945a1b0a4c914e955359d086b283f9ea4f))
-
-# [1.7.0](https://github.com/DEgITx/rats-search/compare/v1.6.0...v1.7.0) (2021-07-11)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **db:** fix order in some cases for future db structure ([c97c981](https://github.com/DEgITx/rats-search/commit/c97c981d32834b026b2d55765bc5a1f7c07e2ebf))
-* **db:** rename deprecated option ([7c3150a](https://github.com/DEgITx/rats-search/commit/7c3150ae5719597e28a259f9bdca20688cb87904))
-* **donate:** change patreon to opencollective ([43fb546](https://github.com/DEgITx/rats-search/commit/43fb5461351bf963763b3c506caf7fe7095786ca))
-* **tests:** fix test on new db engine ([2bb0a7a](https://github.com/DEgITx/rats-search/commit/2bb0a7a48cbdb267f51eb5248794ea84535be51b))
-* **ui:** fix generate button size in ui ([d4913c1](https://github.com/DEgITx/rats-search/commit/d4913c17db03a61b3f13383c21a3f2a59e22c474))
-* **ui:** fix url for [#141](https://github.com/DEgITx/rats-search/issues/141) ([82ae0a9](https://github.com/DEgITx/rats-search/commit/82ae0a9bee5f7d24f3f170b9d092626365b6e858))
+- **core:** Update to new version([5a8ee5b](https://github.com/DEgITx/rats-search/commit/5a8ee5bd5245f2829a80f817a7e16df9007bd51b)) by @DEgITx
+- **web:** Fixed compilation with create-torrent #148([bceb070](https://github.com/DEgITx/rats-search/commit/bceb070b74412420b46b44b6dc19e881dcdbe237)) by @DEgITx
+- **ui:** Fix blank screen on app start #147([45bf73d](https://github.com/DEgITx/rats-search/commit/45bf73d012c659fb751c492c447e751753ac6c21)) by @DEgITx
 
 
-### Features
-
-* **db:** new db patch ([a038f70](https://github.com/DEgITx/rats-search/commit/a038f70a28eca9ffc6850d9347901ec294df7cbd))
-* **db:** switch to new manticore ([94d537e](https://github.com/DEgITx/rats-search/commit/94d537eaca982343d659d2be8c4961e6d76afa72))
-* **discord:** enable webhook for discord channel support ([0c1b5e8](https://github.com/DEgITx/rats-search/commit/0c1b5e85a22dfecf58489c5d9f358e2d80b3202b))
-* **formats:** avif to formats ([83bc352](https://github.com/DEgITx/rats-search/commit/83bc3526ddb8fd427213498705f1ee14d9d87e1c))
-* **generate:** add generated torrent to search list after generation ([2939834](https://github.com/DEgITx/rats-search/commit/2939834c617c85fae7b39f84f539932c72df3396))
-* **p2p:** new bootstrap pear, also fix problem with bootstrap timeout ([7883aac](https://github.com/DEgITx/rats-search/commit/7883aacc3bfb20a7a0a4970c12070430256bcd5b))
-* **tests:** support custom test to run ([35d20bb](https://github.com/DEgITx/rats-search/commit/35d20bb37181b7cb8215a5994140cdecb831b1cb))
-* **torrent:** generation of torrent functionality ([9ce4bb5](https://github.com/DEgITx/rats-search/commit/9ce4bb5b727b8c98b11e6c3482d14aa31e9811ee))
-* **ui:** click on torrent size opens torrent files ([562a88e](https://github.com/DEgITx/rats-search/commit/562a88e1925fc17dbf22bd77ac67496748979770))
-* **ui:** show torrent pie of the content ([fe5cf3f](https://github.com/DEgITx/rats-search/commit/fe5cf3fe10ffbdbb1ec80e47f71293419891c1fb))
-
-# [1.6.0](https://github.com/DEgITx/rats-search/compare/v1.5.0...v1.6.0) (2021-06-10)
+### 🚀 Features
 
 
-### Bug Fixes
-
-* **build:** fix build under windows ([4fb0bb4](https://github.com/DEgITx/rats-search/commit/4fb0bb4d1f9c6801660fa9b104fdb4ed5aebcf85))
-* **changelog:** fix changelog show ([61a8baa](https://github.com/DEgITx/rats-search/commit/61a8baa25abc5bd612df128503c999ec59c72bd4))
-* **db:** first run start fix [#142](https://github.com/DEgITx/rats-search/issues/142) ([af57a58](https://github.com/DEgITx/rats-search/commit/af57a58740fa6aa2dfb0e3ba2bc9e4e2890faf52))
-* **download:** fix download status in recent torrents ([4adbd5c](https://github.com/DEgITx/rats-search/commit/4adbd5c532af8880b5d2f7e5cb3eceb32dffd0ab))
-* **search:** double search on DHT ([f14cdcb](https://github.com/DEgITx/rats-search/commit/f14cdcb45337a6ecb5e12ab23f58ac06e6b3d970))
-* **search:** fix slow query wrong remote response on search ([2329b5a](https://github.com/DEgITx/rats-search/commit/2329b5aa828341145279dc82d32fef3b89755422))
-* **search:** improve search on magnet queries ([a871aed](https://github.com/DEgITx/rats-search/commit/a871aed35f46831f3cf967ca7e7adeb47c95c1a9))
-* **tests:** fix timeout testing ([826b3a7](https://github.com/DEgITx/rats-search/commit/826b3a789bccd6759603165957c9363ae3387713))
+- **server:** Missing rats.log functionality restored #145([e306c8d](https://github.com/DEgITx/rats-search/commit/e306c8d46c3bb3fea3ce2964313d3c07ea102d2c)) by @DEgITx
 
 
-### Features
-
-* **core:** update all deps ([4162dc7](https://github.com/DEgITx/rats-search/commit/4162dc79337681e4171dfe9aa21ea04ac7d5d57b))
-* **core:** update components ([7ceffc8](https://github.com/DEgITx/rats-search/commit/7ceffc8050e414a31b7236f77e35497d6d067138))
-* **test:** details test ([d02592e](https://github.com/DEgITx/rats-search/commit/d02592e8830fb8ead25385de8b65ca8bedfbacf5))
-
-# [1.5.0](https://github.com/DEgITx/rats-search/compare/v1.4.2...v1.5.0) (2021-01-14)
 
 
-### Bug Fixes
-
-* **changelog:** fix changelog on new electron ([1d25ba0](https://github.com/DEgITx/rats-search/commit/1d25ba06e4be9265d4910cae56b653176ba36255))
-* **gui:** connection status fix detection in some situations ([1914e17](https://github.com/DEgITx/rats-search/commit/1914e1744500960478b1790335a51f4f70c9165a))
-* **relay:** ignore relays errors [#112](https://github.com/DEgITx/rats-search/issues/112) ([d977ecb](https://github.com/DEgITx/rats-search/commit/d977ecbf6ff58b5db50c774460cdece3d242e4d9))
-* **relay:** ignore some situations when relay not needed ([506e9f3](https://github.com/DEgITx/rats-search/commit/506e9f3c480d1d825363efd0b8fdc53d4522e7bd))
-* **server:** error handling for server [#112](https://github.com/DEgITx/rats-search/issues/112) ([81c61fb](https://github.com/DEgITx/rats-search/commit/81c61fb0012970f745451a1f56e43f1f809ccc6c))
-* **tests:** fix tests on new api ([6d58fde](https://github.com/DEgITx/rats-search/commit/6d58fdef1aa7d565a2a8c1d25360136e460b32bf))
-* **web:** fix web version ([d2569c3](https://github.com/DEgITx/rats-search/commit/d2569c3a869fb49cd2e44a9d034c5398b0c5f89b))
+### 👥 Contributors
 
 
-### Features
 
-* **deps:** switch to new electron ([3d17004](https://github.com/DEgITx/rats-search/commit/3d170042890e77166f1fdceb09698d76036c7c30))
-* **relay:** bootstrap timeout ([8d48c80](https://github.com/DEgITx/rats-search/commit/8d48c80189fa92f08ccb615da14d70272dd3698c))
-* **update:** update everything to new versions ([57ee517](https://github.com/DEgITx/rats-search/commit/57ee51731e188236baecff0a2110ffcf50865c8e))
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+## [1.7.0](https://github.com/DEgITx/rats-search/compare/v1.6.0...v1.7.0) (2021-07-11)
+
+
+### 🐛 Bug Fixes
+
+
+- **db:** Fix order in some cases for future db structure([b4c2627](https://github.com/DEgITx/rats-search/commit/b4c2627ed50a5c8cf4e5d6f12e8e7af365ec517c)) by @DEgITx
+- **tests:** Fix test on new db engine([52a448e](https://github.com/DEgITx/rats-search/commit/52a448ef0989c4c1231d2ca112300ad4be4c2301)) by @DEgITx
+- **db:** Rename deprecated option([2ec7ad0](https://github.com/DEgITx/rats-search/commit/2ec7ad0501f8f3ed0f8903a89d3a45f17fdd0bc8)) by @DEgITx
+- **ui:** Fix url for #141([0aaff50](https://github.com/DEgITx/rats-search/commit/0aaff5033329cf96a82c8e80a049c7deb0eb8f58)) by @DEgITx
+- **donate:** Change patreon to opencollective([1686f3e](https://github.com/DEgITx/rats-search/commit/1686f3e0287364751344bbe4a5181be3289ec8c7)) by @DEgITx
+- **ui:** Fix generate button size in ui([3e4e26f](https://github.com/DEgITx/rats-search/commit/3e4e26fa1230cd0bb1cc4b4bcfba7729787f5bfa)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **tests:** Support custom test to run([0e79ce4](https://github.com/DEgITx/rats-search/commit/0e79ce42ca3bfbb740619896d5211ca097b1a669)) by @DEgITx
+- **db:** New db patch([8df02cb](https://github.com/DEgITx/rats-search/commit/8df02cb296d2ca5b60df0b5e250f0eaeef74c1b7)) by @DEgITx
+- **db:** Switch to new manticore([8e4940e](https://github.com/DEgITx/rats-search/commit/8e4940ec521da6c3aa51e7466320e78ae028b154)) by @DEgITx
+- **ui:** Click on torrent size opens torrent files([79f23d0](https://github.com/DEgITx/rats-search/commit/79f23d00bdac05d3e7fb9ca5edc8641ae0fda376)) by @DEgITx
+- **formats:** Avif to formats([777cd2b](https://github.com/DEgITx/rats-search/commit/777cd2bd6257c440ac59817a95a113772426e388)) by @DEgITx
+- **ui:** Show torrent pie of the content([2029c14](https://github.com/DEgITx/rats-search/commit/2029c142b7c9fd283ee0f8eccb5f8fa5faf7ba6e)) by @DEgITx
+- **p2p:** New bootstrap pear, also fix problem with bootstrap timeout([0325d71](https://github.com/DEgITx/rats-search/commit/0325d714a5f5342b46ee5548ace863c3abc0887c)) by @DEgITx
+- **discord:** Enable webhook for discord channel support([d772b7f](https://github.com/DEgITx/rats-search/commit/d772b7f9c45fda29c95e4af2668142e5ef970a4e)) by @DEgITx
+- **torrent:** Generation of torrent functionality([9699f1e](https://github.com/DEgITx/rats-search/commit/9699f1eb7f3a4e74a07438d0d7b17baf4e4166dd)) by @DEgITx
+- **generate:** Add generated torrent to search list after generation([b90de1d](https://github.com/DEgITx/rats-search/commit/b90de1dfc06a89bbff3c420041956dc3d1ca3365)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 16 commits
+
+
+## [1.6.0](https://github.com/DEgITx/rats-search/compare/v1.5.0...v1.6.0) (2021-06-10)
+
+
+### 🐛 Bug Fixes
+
+
+- **download:** Fix download status in recent torrents([8b1fc51](https://github.com/DEgITx/rats-search/commit/8b1fc513ad70523aa3c29b202af02b6d1ec1dee9)) by @DEgITx
+- **search:** Double search on DHT([619b3cc](https://github.com/DEgITx/rats-search/commit/619b3ccd32f12e716d8261f9a2a011b9cce3affa)) by @DEgITx
+- **search:** Improve search on magnet queries([9d684b8](https://github.com/DEgITx/rats-search/commit/9d684b89a697b51c126263b8ad1f800636890ab8)) by @DEgITx
+- **search:** Fix slow query wrong remote response on search([5a712f7](https://github.com/DEgITx/rats-search/commit/5a712f77b5a0da9937905a7d9e5de614c9960d63)) by @DEgITx
+- **db:** First run start fix #142([48cc019](https://github.com/DEgITx/rats-search/commit/48cc01953c4e437d85ce80647bbfcf8ad32a475f)) by @DEgITx
+- **build:** Fix build under windows([af91c9c](https://github.com/DEgITx/rats-search/commit/af91c9c294944e3a7ce9681fd032585a47f5e97d)) by @DEgITx
+- **changelog:** Fix changelog show([48701df](https://github.com/DEgITx/rats-search/commit/48701df4c8eab964f0bbb9c2c0139681b097648d)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **test:** Details test([ac7e3cf](https://github.com/DEgITx/rats-search/commit/ac7e3cfe9f0ddcc146c479a7344065535a64fb76)) by @DEgITx
+- **core:** Update components([9804ee7](https://github.com/DEgITx/rats-search/commit/9804ee7c6cbb3028f86fb262db3cf85512704731)) by @DEgITx
+- **core:** Update all deps([9da27b5](https://github.com/DEgITx/rats-search/commit/9da27b5f22acc09e4560b882a24ca525ef102ebc)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 10 commits
+
+
+## [1.5.0](https://github.com/DEgITx/rats-search/compare/v1.4.2...v1.5.0) (2021-01-14)
+
+
+### 🐛 Bug Fixes
+
+
+- **server:** Error handling for server #112([05a712e](https://github.com/DEgITx/rats-search/commit/05a712e6766819f68e7321d867025e42a589f776)) by @DEgITx
+- **relay:** Ignore relays errors #112([be81f81](https://github.com/DEgITx/rats-search/commit/be81f810327b6ce7f44b22c2f5534e7170f67f95)) by @DEgITx
+- **gui:** Connection status fix detection in some situations([2e05bc9](https://github.com/DEgITx/rats-search/commit/2e05bc9e682396612b30ee1aa979b381b44c4b9c)) by @DEgITx
+- **relay:** Ignore some situations when relay not needed([ab5303e](https://github.com/DEgITx/rats-search/commit/ab5303ecaec616628cd9aa7fde63289bab3f3b3c)) by @DEgITx
+- **tests:** Fix tests on new api([4b763c9](https://github.com/DEgITx/rats-search/commit/4b763c937762858afbf6014d9b5049c356931920)) by @DEgITx
+- **changelog:** Fix changelog on new electron([8522f00](https://github.com/DEgITx/rats-search/commit/8522f0068593d710c05d0110240598f20fcf3af0)) by @DEgITx
+- **web:** Fix web version([7c3ad12](https://github.com/DEgITx/rats-search/commit/7c3ad128191e1e12c6c2a9ca86ddcd9219e54376)) by @DEgITx
+- **tests:** Fix timeout testing([1c8b3a3](https://github.com/DEgITx/rats-search/commit/1c8b3a36a2eae586cfd07c09d82dafe56ae3aa65)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **deps:** Switch to new electron([e3c20a6](https://github.com/DEgITx/rats-search/commit/e3c20a6fe2ae8bff5b554d852fe32796581df423)) by @DEgITx
+- **update:** Update everything to new versions([95fc935](https://github.com/DEgITx/rats-search/commit/95fc9354385e1eb3842e5c38fe7842c581a28c36)) by @DEgITx
+- **relay:** Bootstrap timeout([39d12f1](https://github.com/DEgITx/rats-search/commit/39d12f1d1ab11e200a71f671cb71cfc0b57e9769)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 11 commits
+
 
 ## [1.4.2](https://github.com/DEgITx/rats-search/compare/v1.4.1...v1.4.2) (2020-01-04)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **feed:** fix feed error [#111](https://github.com/DEgITx/rats-search/issues/111) ([1554f7d](https://github.com/DEgITx/rats-search/commit/1554f7d51cee829bf3aed4898861a2dcef09e94a))
-* **log:** exceptions log handling ([8474817](https://github.com/DEgITx/rats-search/commit/84748176e8ac548f3484071cba6200eda96f132d))
-* **test:** fix tests ([65fab30](https://github.com/DEgITx/rats-search/commit/65fab30a5068ea60403959b711beec3cd5fa6609))
+
+- **feed:** Fix feed error #111([1316839](https://github.com/DEgITx/rats-search/commit/13168393ba64e2d93ff261f7950ed73576425af3)) by @DEgITx
+- **log:** Exceptions log handling([5260d51](https://github.com/DEgITx/rats-search/commit/5260d514abe547f0988259af332f4c123b139b9d)) by @DEgITx
+- **test:** Fix tests([9d191f6](https://github.com/DEgITx/rats-search/commit/9d191f665cca1f6fc3ba4c929fcd9c679071be96)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
 
 ## [1.4.1](https://github.com/DEgITx/rats-search/compare/v1.4.0...v1.4.1) (2019-11-10)
 
 
-### Bug Fixes
-
-* **download:** fix download to directory after update ([ca2df63](https://github.com/DEgITx/rats-search/commit/ca2df63901244363ada6759200194a761fcd510d))
-* **download:** fix search for double download cases ([656f8f7](https://github.com/DEgITx/rats-search/commit/656f8f7b73383e744725fdb3ecde680a953457d2))
-* **gui:** fix inresaction of search panel with other elements [#102](https://github.com/DEgITx/rats-search/issues/102) ([e163547](https://github.com/DEgITx/rats-search/commit/e163547c2d9e32c58c2bf2c896f69dafb0cdae81))
-* **settings:** fix regression with folder selection [#101](https://github.com/DEgITx/rats-search/issues/101) ([b11388a](https://github.com/DEgITx/rats-search/commit/b11388a6a1c56d5aae805ef8cf0a787d44c286dd))
-* **tests:** fix tests on new version ([d088412](https://github.com/DEgITx/rats-search/commit/d08841210c6e613f33b501988ddee6d9133120e8))
-* **windows:** fix some startup problem under windows platform ([a397d09](https://github.com/DEgITx/rats-search/commit/a397d094c60c054b71ad9c5ae677becbcce0d6b0))
-
-# [1.4.0](https://github.com/DEgITx/rats-search/compare/v1.3.0...v1.4.0) (2019-09-28)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **rutr:** test fix ([17c085e](https://github.com/DEgITx/rats-search/commit/17c085e))
-* **search:** fix error on some cases of torrent opening ([24d2f18](https://github.com/DEgITx/rats-search/commit/24d2f18)), closes [#98](https://github.com/DEgITx/rats-search/issues/98)
-
-
-### Features
-
-* **core:** core update ([14ab914](https://github.com/DEgITx/rats-search/commit/14ab914))
-* **drop:** support drop torrent file from web version [#99](https://github.com/DEgITx/rats-search/issues/99) ([a997929](https://github.com/DEgITx/rats-search/commit/a997929))
-
-# [1.3.0](https://github.com/DEgITx/rats-search/compare/v1.2.2...v1.3.0) (2019-08-02)
+- **tests:** Fix tests on new version([5ede693](https://github.com/DEgITx/rats-search/commit/5ede6935acdf1aa13eeeb7176b41448c945802a1)) by @DEgITx
+- **download:** Fix download to directory after update([f121c11](https://github.com/DEgITx/rats-search/commit/f121c118a310e797f4e4155ef55365a4dad673bb)) by @DEgITx
+- **settings:** Fix regression with folder selection #101([40e7aaa](https://github.com/DEgITx/rats-search/commit/40e7aaa2dbddb0b7a2f7a6ad2cc8e6946b900831)) by @DEgITx
+- **gui:** Fix inresaction of search panel with other elements #102([aafc245](https://github.com/DEgITx/rats-search/commit/aafc245688e3b7953b86ae71e176fa95bd19c94c)) by @DEgITx
+- **download:** Fix search for double download cases([d94656a](https://github.com/DEgITx/rats-search/commit/d94656a3472f8dadacf746004b87c06dd697fac6)) by @DEgITx
+- **windows:** Fix some startup problem under windows platform([177d6ff](https://github.com/DEgITx/rats-search/commit/177d6ffc1a1c08cbfec9197d19726d96e59ce18e)) by @DEgITx
 
 
-### Features
-
-* **app:** start app in minimized look ([138c323](https://github.com/DEgITx/rats-search/commit/138c323))
-* **deps:** core update ([3538ba8](https://github.com/DEgITx/rats-search/commit/3538ba8))
-* **feed:** auto-loading feed list ([4bac050](https://github.com/DEgITx/rats-search/commit/4bac050))
-* **gui:** tip about torrent drops ([21f4c0b](https://github.com/DEgITx/rats-search/commit/21f4c0b))
-* **log:** web/desktop log message ([0bd1940](https://github.com/DEgITx/rats-search/commit/0bd1940))
-
-## [1.2.2](https://github.com/DEgITx/rats-search/compare/v1.2.1...v1.2.2) (2019-04-04)
+### 🧪 Testing
 
 
-### Bug Fixes
+- **download:** Testing file folder download([bbc68d7](https://github.com/DEgITx/rats-search/commit/bbc68d73f456985b16384b22eb213d31ff5be0cd)) by @DEgITx
 
-* **p2p:** additional myself check ([ae760ec](https://github.com/DEgITx/rats-search/commit/ae760ec))
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 7 commits
+
+
+## [1.4.0](https://github.com/DEgITx/rats-search/compare/v1.2.2...v1.4.0) (2019-09-28)
+
+
+### 🐛 Bug Fixes
+
+
+- **rutr:** Test fix([e281163](https://github.com/DEgITx/rats-search/commit/e281163a1881edc12f5eb1081d9c560e8ea8e4c1)) by @DEgITx
+- **search:** Fix error on some cases of torrent opening([faabeed](https://github.com/DEgITx/rats-search/commit/faabeed246ea3d763bbe74b2ae0e43a429c753c0)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **app:** Start app in minimized look([8daaa63](https://github.com/DEgITx/rats-search/commit/8daaa63b737efc4914cc9232c0f7e70ca3fdb46e)) by @DEgITx
+- **deps:** Core update([e575e3f](https://github.com/DEgITx/rats-search/commit/e575e3f7c82d9ddd9c64c4cc54222dcf7a76b654)) by @DEgITx
+- **feed:** Auto-loading feed list([5ccdbc0](https://github.com/DEgITx/rats-search/commit/5ccdbc01fead0d60f428ea01b51dda127a8fb3b7)) by @DEgITx
+- **log:** Web/desktop log message([ca6f499](https://github.com/DEgITx/rats-search/commit/ca6f49932c43a1a112c4e82acf1fdfcfef195703)) by @DEgITx
+- **gui:** Tip about torrent drops([bac310d](https://github.com/DEgITx/rats-search/commit/bac310d76685614f6d42b1540c4830feace39b26)) by @DEgITx
+- **core:** Core update([52e9ba1](https://github.com/DEgITx/rats-search/commit/52e9ba1a4d3cf1281b23d2c7b251204f18320a7f)) by @DEgITx
+- **drop:** Support drop torrent file from web version #99([d4f390d](https://github.com/DEgITx/rats-search/commit/d4f390dda712046da2c5faa8ad558c7770806ad2)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 9 commits
+
+
+## [1.2.2](https://github.com/DEgITx/rats-search/compare/v1.2.1...v1.2.2) (2019-04-03)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Additional myself check([829a12b](https://github.com/DEgITx/rats-search/commit/829a12be35c82c6586a2315c955037aa5895146b)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
 
 ## [1.2.1](https://github.com/DEgITx/rats-search/compare/v1.2.0...v1.2.1) (2019-04-03)
 
 
-### Bug Fixes
-
-* **core:** fix sometimes calc of torrents sizes ([41ebb68](https://github.com/DEgITx/rats-search/commit/41ebb68))
-* **relay:** priority to relays peers ([c168903](https://github.com/DEgITx/rats-search/commit/c168903))
-
-# [1.2.0](https://github.com/DEgITx/rats-search/compare/v1.1.4...v1.2.0) (2019-03-31)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **p2p:** additional check of dublicated peers ([11ff3d0](https://github.com/DEgITx/rats-search/commit/11ff3d0))
+- **relay:** Priority to relays peers([620a6c0](https://github.com/DEgITx/rats-search/commit/620a6c0c5e181557c34552973f244d1e515e60ec)) by @DEgITx
 
 
-### Features
 
-* **p2p:** replaced old ssh relay to new relay mechanism (improved p2p network stablity over NAT). ([ae15f59](https://github.com/DEgITx/rats-search/commit/ae15f59))
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+## [1.2.0](https://github.com/DEgITx/rats-search/compare/v1.1.4...v1.2.0) (2019-03-31)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Additional check of dublicated peers([726afd7](https://github.com/DEgITx/rats-search/commit/726afd750c23be5ed69a02fff62c2c2f1fe7354f)) by @DEgITx
+- **core:** Fix sometimes calc of torrents sizes([f255b87](https://github.com/DEgITx/rats-search/commit/f255b8770a78ec765755fb3ebdc092e4b531b54d)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **linux:** Some centos doc([8a5a302](https://github.com/DEgITx/rats-search/commit/8a5a30211af7eb1d78574a0038c17906a2c77cfe)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **p2p:** Replaced old ssh relay to new relay mechanism (improved p2p network stablity over NAT).([df1ebd1](https://github.com/DEgITx/rats-search/commit/df1ebd1e036629486c5bb5fd790990d96a66b4b1)) by @DEgITx
+
+
+### 🧪 Testing
+
+
+- **1337x:** Disabled test for now([9dc684a](https://github.com/DEgITx/rats-search/commit/9dc684a0978354d2bcce6102d46ea171989b0416)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 5 commits
+
 
 ## [1.1.4](https://github.com/DEgITx/rats-search/compare/v1.1.3...v1.1.4) (2019-02-19)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **p2p:** break backward p2p compability < 1.1.0 ([e0a1c87](https://github.com/DEgITx/rats-search/commit/e0a1c87))
+
+- **p2p:** Break backward p2p compability < 1.1.0([32ceb6d](https://github.com/DEgITx/rats-search/commit/32ceb6de6e97f916630c4bf1e66e3e4862cd128a)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
 
 ## [1.1.3](https://github.com/DEgITx/rats-search/compare/v1.1.2...v1.1.3) (2019-01-31)
 
 
-### Bug Fixes
-
-* **test:** less agressive start timeout ([badfd21](https://github.com/DEgITx/rats-search/commit/badfd21))
-* **updater:** linux update format was broken ([116cbd7](https://github.com/DEgITx/rats-search/commit/116cbd7))
+### ⚡ Performance
 
 
-### Performance Improvements
+- **memory:** Fix memory leak on gui size([60f3052](https://github.com/DEgITx/rats-search/commit/60f3052b31d8f60af6cd1060838a103098b258b1)) by @DEgITx
 
-* **memory:** fix memory leak on gui size ([d0d02cd](https://github.com/DEgITx/rats-search/commit/d0d02cd))
+
+### 🐛 Bug Fixes
+
+
+- **updater:** Linux update format was broken([c7041cc](https://github.com/DEgITx/rats-search/commit/c7041cc4968f6533749d96e1918f9a4b3449aeec)) by @DEgITx
+- **test:** Less agressive start timeout([fc889db](https://github.com/DEgITx/rats-search/commit/fc889db4f7817f54f3723da31ca1df299b2903eb)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
 
 ## [1.1.2](https://github.com/DEgITx/rats-search/compare/v1.1.1...v1.1.2) (2019-01-28)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **bootstrap:** fix preventing bootstrap saving [#74](https://github.com/DEgITx/rats-search/issues/74) [#69](https://github.com/DEgITx/rats-search/issues/69) ([a68ebc5](https://github.com/DEgITx/rats-search/commit/a68ebc5))
+
+- **bootstrap:** Fix preventing bootstrap saving #74 #69([6e79ae4](https://github.com/DEgITx/rats-search/commit/6e79ae4db3aa52294374d2c656277cb9597804f2)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
 
 ## [1.1.1](https://github.com/DEgITx/rats-search/compare/v1.1.0...v1.1.1) (2019-01-26)
 
 
-### Bug Fixes
-
-* **portative:** fix updater check [#71](https://github.com/DEgITx/rats-search/issues/71) ([b524845](https://github.com/DEgITx/rats-search/commit/b524845))
-
-# [1.1.0](https://github.com/DEgITx/rats-search/compare/v1.0.0...v1.1.0) (2019-01-26)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **1337x:** proper poster in some cases ([515d30c](https://github.com/DEgITx/rats-search/commit/515d30c))
-* **arm:** ignore relay on arm [#66](https://github.com/DEgITx/rats-search/issues/66) ([e8cb4d8](https://github.com/DEgITx/rats-search/commit/e8cb4d8))
-* **build:** fix production build after upgrade to new engine ([09ef602](https://github.com/DEgITx/rats-search/commit/09ef602))
-* **p2p:** fix files in db count on new architecture ([073eefe](https://github.com/DEgITx/rats-search/commit/073eefe))
-* **p2p:** potencial problem with some p2p decoding messages ([db48f44](https://github.com/DEgITx/rats-search/commit/db48f44))
-* **tests:** fix check of starting download ([0dee20d](https://github.com/DEgITx/rats-search/commit/0dee20d))
-* **tests:** more timeout time for some strategies ([471efc1](https://github.com/DEgITx/rats-search/commit/471efc1))
+- **portative:** Fix updater check #71([e7b8533](https://github.com/DEgITx/rats-search/commit/e7b85335ed09265e2ea09b1bab7401c3e08b9131)) by @DEgITx
 
 
-### Features
-
-* **arm:** added testing arm support ([8b9f9f6](https://github.com/DEgITx/rats-search/commit/8b9f9f6))
-* **core:** updated to new browser engine ([2370847](https://github.com/DEgITx/rats-search/commit/2370847))
-* **strategies:** 1337 strategie ([3f75cce](https://github.com/DEgITx/rats-search/commit/3f75cce))
-* **strategies:** autoload trackers strategies ([4367da9](https://github.com/DEgITx/rats-search/commit/4367da9))
-* **ui:** settings tabs ([5cb119f](https://github.com/DEgITx/rats-search/commit/5cb119f))
 
 
-### Performance Improvements
-
-* **start:** simplify some init statistic calls ([c788569](https://github.com/DEgITx/rats-search/commit/c788569))
-
-# [1.0.0](https://github.com/DEgITx/rats-search/compare/v0.30.1...v1.0.0) (2018-12-02)
+### 👥 Contributors
 
 
-### Bug Fixes
 
-* **feed:** rating also accumulate for times over ([b72d365](https://github.com/DEgITx/rats-search/commit/b72d365))
-
-
-### Performance Improvements
-
-* **architecture:** Big performance improvements over big databases and files highlight in search. ([#63](https://github.com/DEgITx/rats-search/issues/63)) ([92d0d13](https://github.com/DEgITx/rats-search/commit/92d0d13))
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
 
 
-### BREAKING CHANGES
+## [1.1.0](https://github.com/DEgITx/rats-search/compare/v1.0.0...v1.1.0) (2019-01-26)
 
-* **architecture:** databases v6 and v7 are incompatible and need a lot of time for updating (may be even some days/a lot of hours on very big databases)
+
+### ⚡ Performance
+
+
+- **start:** Simplify some init statistic calls([57883b0](https://github.com/DEgITx/rats-search/commit/57883b0ba42e6519353b0d7b7eb271f7d8768e94)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix files in db count on new architecture([9ed0ad9](https://github.com/DEgITx/rats-search/commit/9ed0ad9683b87ef9e41998dcd9a3179cb19ffeab)) by @DEgITx
+- **build:** Fix production build after upgrade to new engine([7fb5c9a](https://github.com/DEgITx/rats-search/commit/7fb5c9a500367b10631cdfdcacdf3d2d4cb9035b)) by @DEgITx
+- **tests:** Fix check of starting download([9453ab8](https://github.com/DEgITx/rats-search/commit/9453ab8ba8c1281be6380488a7795341b7c76cac)) by @DEgITx
+- **arm:** Ignore relay on arm #66([aa60148](https://github.com/DEgITx/rats-search/commit/aa6014862d023be1d82ab7d23f0fed2d404f9cce)) by @DEgITx
+- **tests:** More timeout time for some strategies([8dd8b37](https://github.com/DEgITx/rats-search/commit/8dd8b3769c2928fd8e72a43eb4eeaf61fb4cb11c)) by @DEgITx
+- **p2p:** Potencial problem with some p2p decoding messages([159bb10](https://github.com/DEgITx/rats-search/commit/159bb10f6ad660e915928a65e6623d9fb25132ba)) by @DEgITx
+- **1337x:** Proper poster in some cases([db3c6fa](https://github.com/DEgITx/rats-search/commit/db3c6faab29f437c74085bee25ca3aec24c6ad40)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **trackers:** Documentation about how write own strategy([b7c0105](https://github.com/DEgITx/rats-search/commit/b7c0105cfca3be4d39843c0c08b022d1eab92afa)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **strategies:** Autoload trackers strategies([23e2871](https://github.com/DEgITx/rats-search/commit/23e28716695137880415dfc2519951cd35fa1881)) by @DEgITx
+- **core:** Updated to new browser engine([a43f743](https://github.com/DEgITx/rats-search/commit/a43f7431ddade07d768bd0765905a4d6f6245357)) by @DEgITx
+- **strategies:** 1337 strategie([44a800d](https://github.com/DEgITx/rats-search/commit/44a800dbbb5ae684ec1617721eac27fbc56ab54c)) by @DEgITx
+- **arm:** Added testing arm support([c78e559](https://github.com/DEgITx/rats-search/commit/c78e5597d2c80764976972370c31cb9b4ae557f3)) by @DEgITx
+- **ui:** Settings tabs([dd982da](https://github.com/DEgITx/rats-search/commit/dd982da6b1abfafe3cd9e9cce12f2bca82715980)) by @DEgITx
+
+
+### 🧪 Testing
+
+
+- **downloading:** Add downloading test([7277ffb](https://github.com/DEgITx/rats-search/commit/7277ffba8f5389afafd3bd04306f137fe51fad05)) by @DEgITx
+- **downloading:** Add downloading tab & some buttons tests([491b99f](https://github.com/DEgITx/rats-search/commit/491b99fd088ce11ff692dc0d6c3934c4120da35b)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 16 commits
+
+
+## [1.0.0](https://github.com/DEgITx/rats-search/compare/v0.30.1...v1.0.0) (2018-12-02)
+
+
+### ⚡ Performance
+
+
+- **architecture:** Big performance improvements over big databases and files highlight in search. ([6afe857](https://github.com/DEgITx/rats-search/commit/6afe85798a2111c53081933fc4ea370814cdac7d)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **feed:** Rating also accumulate for times over([564a973](https://github.com/DEgITx/rats-search/commit/564a973adff6d6524d5a6cae1e8eb5645d6c593a)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
 
 ## [0.30.1](https://github.com/DEgITx/rats-search/compare/v0.30.0...v0.30.1) (2018-10-17)
 
 
-### Bug Fixes
-
-* **config:** fully disable p2p activity if option with p2p search disabled ([20f9a6b](https://github.com/DEgITx/rats-search/commit/20f9a6b))
-* **downloading:** fix continue downloading on selection ([d4608b6](https://github.com/DEgITx/rats-search/commit/d4608b6))
-* **downloading:** fix finishing files in some cases ([b7cd443](https://github.com/DEgITx/rats-search/commit/b7cd443))
-* **windows:** fix starting under some path'es ([2c11120](https://github.com/DEgITx/rats-search/commit/2c11120))
-
-# [0.30.0](https://github.com/DEgITx/rats-search/compare/v0.29.3...v0.30.0) (2018-09-02)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **feed:** temporary hide adult torrents from feed ([b23fabd](https://github.com/DEgITx/rats-search/commit/b23fabd))
-* **gui:** fix some warnings ([cb1c1f4](https://github.com/DEgITx/rats-search/commit/cb1c1f4))
-* **rutor:** fix problems with dir creation ([b09dc9b](https://github.com/DEgITx/rats-search/commit/b09dc9b))
-* **rutor:** fix x rutor file update ([c2d8de5](https://github.com/DEgITx/rats-search/commit/c2d8de5))
-* **rutor:** little fix ([9ec6aaf](https://github.com/DEgITx/rats-search/commit/9ec6aaf))
-* **tests:** rutor test ([9316463](https://github.com/DEgITx/rats-search/commit/9316463))
-* **top:** fix top tab redraw bug regression in v0.29.3 ([860bb30](https://github.com/DEgITx/rats-search/commit/860bb30))
-* **transfer:** fix multiple transfer requests ([654767c](https://github.com/DEgITx/rats-search/commit/654767c))
+- **windows:** Fix starting under some path'es([ed67c4a](https://github.com/DEgITx/rats-search/commit/ed67c4a95c45c5034e296ffa3f554c246b7ebcef)) by @DEgITx
+- **config:** Fully disable p2p activity if option with p2p search disabled([659a2aa](https://github.com/DEgITx/rats-search/commit/659a2aa002715d7c68b6628c0695fe84cca1ec30)) by @DEgITx
+- **downloading:** Fix finishing files in some cases([03230a0](https://github.com/DEgITx/rats-search/commit/03230a0ff49d7e21ff97021e6444510094087316)) by @DEgITx
+- **downloading:** Fix continue downloading on selection([97f184c](https://github.com/DEgITx/rats-search/commit/97f184cd9c0e33ee15b8b31cfd941889bfd60a76)) by @DEgITx
 
 
-### Features
+### 📚 Documentation
 
-* **downloading:** ability to choose files which you wanna download ([11275e7](https://github.com/DEgITx/rats-search/commit/11275e7))
-* **downloading:** choose dir on new download ([c771af7](https://github.com/DEgITx/rats-search/commit/c771af7))
-* **p2p:** file transfer p2p feature ([e69ced7](https://github.com/DEgITx/rats-search/commit/e69ced7))
-* **p2p:** folder transfer feature ([64be590](https://github.com/DEgITx/rats-search/commit/64be590))
-* **rutor:** category rutor ([c675974](https://github.com/DEgITx/rats-search/commit/c675974))
-* **rutor:** rutor strategie ([ad01a77](https://github.com/DEgITx/rats-search/commit/ad01a77))
-* **rutor:** visual gui display ([8f3b936](https://github.com/DEgITx/rats-search/commit/8f3b936))
-* **search:** search among info indexes ([f196071](https://github.com/DEgITx/rats-search/commit/f196071))
-* **trackers:** closing ability ([073479d](https://github.com/DEgITx/rats-search/commit/073479d))
-* **transfer:** download everything to tmp dir to prevent unfinish transfers ([a3ae966](https://github.com/DEgITx/rats-search/commit/a3ae966))
+
+- **readme:** Add new features in readme, removed old one about data transfer that mean something other (will be reformulated)([acd549e](https://github.com/DEgITx/rats-search/commit/acd549ea8f620c2c7ce4866b8f7514a689426619)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 5 commits
+
+
+## [0.30.0](https://github.com/DEgITx/rats-search/compare/v0.29.3...v0.30.0) (2018-09-02)
+
+
+### 🐛 Bug Fixes
+
+
+- **top:** Fix top tab redraw bug regression in v0.29.3([7bb61e1](https://github.com/DEgITx/rats-search/commit/7bb61e100f1f9d6a8246b13171ed4402e73df68c)) by @DEgITx
+- **gui:** Fix some warnings([2773db3](https://github.com/DEgITx/rats-search/commit/2773db3949bc6dd79dab63ed88944ddd99590faa)) by @DEgITx
+- **tests:** Rutor test([851391e](https://github.com/DEgITx/rats-search/commit/851391e187b54f3853131e74905af34a8f6ffe32)) by @DEgITx
+- **rutor:** Fix problems with dir creation([1b30898](https://github.com/DEgITx/rats-search/commit/1b308981dd91fa89820574de58c0fbc9204760b9)) by @DEgITx
+- **feed:** Temporary hide adult torrents from feed([0e9ae95](https://github.com/DEgITx/rats-search/commit/0e9ae9584f306e3fa87d81662454dd058066eb33)) by @DEgITx
+- **transfer:** Fix multiple transfer requests([7098bdd](https://github.com/DEgITx/rats-search/commit/7098bdd0b3581a2177a32fa93ee1d2955d51e1ea)) by @DEgITx
+- **rutor:** Little fix([720946d](https://github.com/DEgITx/rats-search/commit/720946d518742343b7e52e1c57ebeddbbefae583)) by @DEgITx
+- **rutor:** Fix x rutor file update([f9d2c06](https://github.com/DEgITx/rats-search/commit/f9d2c06ab6702af3ededac39d40af197ba1d23d7)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **downloading:** Ability to choose files which you wanna download([0b329b8](https://github.com/DEgITx/rats-search/commit/0b329b83287dfdb7bcc1555252e14c697d7e6d6d)) by @DEgITx
+- **downloading:** Choose dir on new download([4c2ff46](https://github.com/DEgITx/rats-search/commit/4c2ff465f26670b79568886572c728049d1e2927)) by @DEgITx
+- **search:** Search among info indexes([ff28e70](https://github.com/DEgITx/rats-search/commit/ff28e70251500c79061c1b6c0d75651569489545)) by @DEgITx
+- **trackers:** Closing ability([0fe31cb](https://github.com/DEgITx/rats-search/commit/0fe31cbb6e7f9910dbd1927bea5581a5a4c5c113)) by @DEgITx
+- **p2p:** File transfer p2p feature([3e6ac4c](https://github.com/DEgITx/rats-search/commit/3e6ac4c00dbd2a50ac5baef35c25e1eeac24184a)) by @DEgITx
+- **p2p:** Folder transfer feature([8ee277e](https://github.com/DEgITx/rats-search/commit/8ee277e764e3ca26fe7713ebd9494daad6a870ea)) by @DEgITx
+- **rutor:** Rutor strategie([73fd698](https://github.com/DEgITx/rats-search/commit/73fd69802097e33524a3af13e8d88db614469aa6)) by @DEgITx
+- **transfer:** Download everything to tmp dir to prevent unfinish transfers([4334463](https://github.com/DEgITx/rats-search/commit/4334463e3c8f2e04256691365ce4f71cfb084002)) by @DEgITx
+- **rutor:** Category rutor([429263e](https://github.com/DEgITx/rats-search/commit/429263e61e8590a9a74bb189c6f3d45c1975ad64)) by @DEgITx
+- **rutor:** Visual gui display([a982a2c](https://github.com/DEgITx/rats-search/commit/a982a2cf9d6850744b356ba354fa05cd245c64ac)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 18 commits
+
 
 ## [0.29.3](https://github.com/DEgITx/rats-search/compare/v0.29.2...v0.29.3) (2018-08-26)
 
 
-### Bug Fixes
-
-* **gui:** fix memory leak on events handling ([4801a24](https://github.com/DEgITx/rats-search/commit/4801a24))
-* **log:** display render log in main log ([3719d53](https://github.com/DEgITx/rats-search/commit/3719d53))
+### ⚡ Performance
 
 
-### Performance Improvements
+- **top:** Opmization on top load([1e09243](https://github.com/DEgITx/rats-search/commit/1e09243756333b87cd5682bcf148a45e537a11cb)) by @DEgITx
+- **top:** Fix unnecessary drawing on top page([ff4b98b](https://github.com/DEgITx/rats-search/commit/ff4b98bd1f9f9ddf4255b721621bc5f1c8d4e193)) by @DEgITx
 
-* **top:** fix unnecessary drawing on top page ([55eda2b](https://github.com/DEgITx/rats-search/commit/55eda2b))
-* **top:** opmization on top load ([44d2495](https://github.com/DEgITx/rats-search/commit/44d2495))
+
+### 🐛 Bug Fixes
+
+
+- **gui:** Fix memory leak on events handling([349eede](https://github.com/DEgITx/rats-search/commit/349eedee0a18dd3b4eccf492567ab95a1ca7fdf5)) by @DEgITx
+- **log:** Display render log in main log([1acc6fa](https://github.com/DEgITx/rats-search/commit/1acc6fafb4c615d86200a121aabed4f17ef63e68)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
 
 ## [0.29.2](https://github.com/DEgITx/rats-search/compare/v0.29.1...v0.29.2) (2018-08-20)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **feed:** fix check adding record on info table ([58ea5cb](https://github.com/DEgITx/rats-search/commit/58ea5cb))
-* **nyaa:** fix errors on nyaa ([64547e8](https://github.com/DEgITx/rats-search/commit/64547e8))
-* **translations:** fix translations change on server version ([6b4a1bd](https://github.com/DEgITx/rats-search/commit/6b4a1bd))
+
+- **feed:** Fix check adding record on info table([4dfd5cd](https://github.com/DEgITx/rats-search/commit/4dfd5cd15a0923203503416e9b877acc89e36530)) by @DEgITx
+- **nyaa:** Fix errors on nyaa([91fcc5d](https://github.com/DEgITx/rats-search/commit/91fcc5d68e9e4455669be943a9cc282abf48140c)) by @DEgITx
+- **translations:** Fix translations change on server version([e111fea](https://github.com/DEgITx/rats-search/commit/e111fea12a3f09be49db22f6f93cca39edcacfd5)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
 
 ## [0.29.1](https://github.com/DEgITx/rats-search/compare/v0.29.0...v0.29.1) (2018-08-19)
 
 
-### Bug Fixes
-
-* **gui:** display feed fix ([e3d7c73](https://github.com/DEgITx/rats-search/commit/e3d7c73))
-
-# [0.29.0](https://github.com/DEgITx/rats-search/compare/v0.28.0...v0.29.0) (2018-08-18)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **closing:** another part of closing fixes ([24a3fa0](https://github.com/DEgITx/rats-search/commit/24a3fa0))
-* **db:** broke remote connection (security purposes) ([0ba03c7](https://github.com/DEgITx/rats-search/commit/0ba03c7))
-* **db:** fix external sphinx openning check in some cases [#57](https://github.com/DEgITx/rats-search/issues/57) ([d46ede3](https://github.com/DEgITx/rats-search/commit/d46ede3))
-* **gui:** fix new window on middle clicks and open external on link clicks ([505787c](https://github.com/DEgITx/rats-search/commit/505787c))
-* **linux:** fix closing on linux in some cases ([125a857](https://github.com/DEgITx/rats-search/commit/125a857))
-* **nyaa:** nyaa test fix ([aa97708](https://github.com/DEgITx/rats-search/commit/aa97708))
-* **replication:** fix replication from object info ([49c52d7](https://github.com/DEgITx/rats-search/commit/49c52d7))
-* **rutracker:** encoding fix ([16d9dc1](https://github.com/DEgITx/rats-search/commit/16d9dc1))
-* **rutracker:** fix first post ([d0e5d29](https://github.com/DEgITx/rats-search/commit/d0e5d29))
-* **rutracker:** rutracker id feat ([e358587](https://github.com/DEgITx/rats-search/commit/e358587))
-* **ssh:** prevent ssh relay startup on exit ([229752b](https://github.com/DEgITx/rats-search/commit/229752b))
-* **trackers:** fix updating trackers on page open ([ae6111a](https://github.com/DEgITx/rats-search/commit/ae6111a))
+- **gui:** Display feed fix([cb7d90b](https://github.com/DEgITx/rats-search/commit/cb7d90b2e2253951ea7cb357cfcf38ceb3a9b825)) by @DEgITx
 
 
-### Features
-
-* **config:** add config to disable trackers ([0551402](https://github.com/DEgITx/rats-search/commit/0551402))
-* **drop:** support torrents folder drag and drop with recursive scan torrents files ([aa78216](https://github.com/DEgITx/rats-search/commit/aa78216))
-* **gui:** trackers basic display ([c8e1dcf](https://github.com/DEgITx/rats-search/commit/c8e1dcf))
-* **nyaa:** support of nyaa torrents ([cfb8235](https://github.com/DEgITx/rats-search/commit/cfb8235))
-* **rutracker:** category and torrent name from rutracker ([8d77e0c](https://github.com/DEgITx/rats-search/commit/8d77e0c))
-* **rutracker:** rutracker basic integratioin ([34f2344](https://github.com/DEgITx/rats-search/commit/34f2344))
-* **search:** support japanese, korean, chinese propper search ([1411b83](https://github.com/DEgITx/rats-search/commit/1411b83))
-* **tests:** search test ([ee7fa63](https://github.com/DEgITx/rats-search/commit/ee7fa63))
-* **trackers:** basic trackers integration ([abd1b85](https://github.com/DEgITx/rats-search/commit/abd1b85))
-* **trackers:** display descriptions ([73cfc89](https://github.com/DEgITx/rats-search/commit/73cfc89))
-* **trackers:** merge trackers info ([d7a10d3](https://github.com/DEgITx/rats-search/commit/d7a10d3))
-* **udp-trackers:** more alternative ([47afb46](https://github.com/DEgITx/rats-search/commit/47afb46))
-
-# [0.28.0](https://github.com/DEgITx/rats-search/compare/v0.27.0...v0.28.0) (2018-08-07)
 
 
-### Bug Fixes
-
-* **closing:** fix errors on closing ([e04548a](https://github.com/DEgITx/rats-search/commit/e04548a))
-* **db:** under mac and linux using alternative pool mechanism ([a3644c0](https://github.com/DEgITx/rats-search/commit/a3644c0))
-* **log:** color log (part 2) ([ea8d93e](https://github.com/DEgITx/rats-search/commit/ea8d93e))
-* **log:** color log (part 3) ([bc23379](https://github.com/DEgITx/rats-search/commit/bc23379))
-* **log:** color messages (part 1) ([27b224d](https://github.com/DEgITx/rats-search/commit/27b224d))
-* **server:** color log server fix ([17b377c](https://github.com/DEgITx/rats-search/commit/17b377c))
+### 👥 Contributors
 
 
-### Features
 
-* **log:** color log ([62bbc46](https://github.com/DEgITx/rats-search/commit/62bbc46))
-* **log:** error display with separate color [#31](https://github.com/DEgITx/rats-search/issues/31) ([70dd4a3](https://github.com/DEgITx/rats-search/commit/70dd4a3))
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
 
 
-### Performance Improvements
-
-* **replication:** replicate number accordion to cpu usage ([6af3b7a](https://github.com/DEgITx/rats-search/commit/6af3b7a))
-* **torrents:** ability to disable integrity check on torrents adding torrents [#47](https://github.com/DEgITx/rats-search/issues/47) ([080fc92](https://github.com/DEgITx/rats-search/commit/080fc92))
-
-# [0.27.0](https://github.com/DEgITx/rats-search/compare/v0.26.2...v0.27.0) (2018-08-06)
+## [0.29.0](https://github.com/DEgITx/rats-search/compare/v0.28.0...v0.29.0) (2018-08-18)
 
 
-### Bug Fixes
-
-* **background:** one closing pattern ([63158dc](https://github.com/DEgITx/rats-search/commit/63158dc))
-* **closing:** window can be closing on event ([84e9573](https://github.com/DEgITx/rats-search/commit/84e9573))
-* **gui:** top tabs text overlap ([45168a2](https://github.com/DEgITx/rats-search/commit/45168a2))
-* **linux:** fix closing on linux ([75ad00a](https://github.com/DEgITx/rats-search/commit/75ad00a))
-* **linux:** fix console control after exit ([29cd05a](https://github.com/DEgITx/rats-search/commit/29cd05a))
-* **macos:** fix crashes under Mac OS X ([015447c](https://github.com/DEgITx/rats-search/commit/015447c))
-* **macos:** stabilization with connection pool ([769521f](https://github.com/DEgITx/rats-search/commit/769521f))
-* **scanner:** fix enconding names in some cases [#55](https://github.com/DEgITx/rats-search/issues/55) ([f1043eb](https://github.com/DEgITx/rats-search/commit/f1043eb))
-* **server:** fix exit on server version [#54](https://github.com/DEgITx/rats-search/issues/54) [#52](https://github.com/DEgITx/rats-search/issues/52) ([4109ef9](https://github.com/DEgITx/rats-search/commit/4109ef9))
-* **translations:** hash translation ([f5a6f17](https://github.com/DEgITx/rats-search/commit/f5a6f17))
+### 🐛 Bug Fixes
 
 
-### Features
+- **ssh:** Prevent ssh relay startup on exit([5cf5bea](https://github.com/DEgITx/rats-search/commit/5cf5bea884c0d22e2d5f66e67e3cd3c8ed8d4fea)) by @DEgITx
+- **db:** Fix external sphinx openning check in some cases #57([34cdc7f](https://github.com/DEgITx/rats-search/commit/34cdc7fb0999b175b0263ed844175bcf1facca46)) by @DEgITx
+- **db:** Broke remote connection (security purposes)([dba7162](https://github.com/DEgITx/rats-search/commit/dba71624afe9f3e4e339de580a91cd20f2a9ea70)) by @DEgITx
+- **linux:** Fix closing on linux in some cases([a423087](https://github.com/DEgITx/rats-search/commit/a4230874f5a44c63c81bb13602d459e006b69d8e)) by @DEgITx
+- **closing:** Another part of closing fixes([e3fd5a4](https://github.com/DEgITx/rats-search/commit/e3fd5a4c844215b60cb0b39886687303eaea53f9)) by @DEgITx
+- **rutracker:** Rutracker id feat([1d76939](https://github.com/DEgITx/rats-search/commit/1d76939e26a32fcea0ccf261efff773b46387e29)) by @DEgITx
+- **trackers:** Fix updating trackers on page open([34981c3](https://github.com/DEgITx/rats-search/commit/34981c36093a77117c92c4fda15306fc0883d3f2)) by @DEgITx
+- **rutracker:** Encoding fix([266c103](https://github.com/DEgITx/rats-search/commit/266c103321c5b6c2f850ff75d607c8c37a2a8bdb)) by @DEgITx
+- **rutracker:** Fix first post([f8fe2fc](https://github.com/DEgITx/rats-search/commit/f8fe2fc3598a401a1dc759fee6bb7063f61f9356)) by @DEgITx
+- **gui:** Fix new window on middle clicks and open external on link clicks([8330d4c](https://github.com/DEgITx/rats-search/commit/8330d4c2ad97f72f8496267b3c2155aa80adeb5e)) by @DEgITx
+- **replication:** Fix replication from object info([14a109d](https://github.com/DEgITx/rats-search/commit/14a109d5d76e7c0187ea14a7d59cf5a78664f87e)) by @DEgITx
+- **nyaa:** Nyaa test fix([f5bacca](https://github.com/DEgITx/rats-search/commit/f5bacca85572c107c59ef6d9df40d7d85c417bb1)) by @DEgITx
 
-* **cleaning:** fix cleaning checking and removing torrents (also display cleaning status in more details) [#52](https://github.com/DEgITx/rats-search/issues/52) ([7e0c565](https://github.com/DEgITx/rats-search/commit/7e0c565))
-* **closing:** fast window closing/hiding ([019700e](https://github.com/DEgITx/rats-search/commit/019700e))
-* **search:** add remote torrents in db via dht and search requests ([1e44164](https://github.com/DEgITx/rats-search/commit/1e44164))
-* **search:** hash/magnet search support in db ([1e57789](https://github.com/DEgITx/rats-search/commit/1e57789))
-* **torrents:** add support for dropping torrent to base just with window ([6d82291](https://github.com/DEgITx/rats-search/commit/6d82291))
+
+### 🚀 Features
 
 
-### Performance Improvements
+- **tests:** Search test([ae7b6fe](https://github.com/DEgITx/rats-search/commit/ae7b6fe793ef9ddd1f3b243ea061b1f840bb2654)) by @DEgITx
+- **drop:** Support torrents folder drag and drop with recursive scan torrents files([82e7764](https://github.com/DEgITx/rats-search/commit/82e77640d685624ca36a0b8cca4b98a5d62d992e)) by @DEgITx
+- **search:** Support japanese, korean, chinese propper search([08d6672](https://github.com/DEgITx/rats-search/commit/08d6672eb040c8b5c26fc7820181b15b49f24f32)) by @DEgITx
+- **trackers:** Basic trackers integration([317cfdd](https://github.com/DEgITx/rats-search/commit/317cfdd3fb707d94d0089e66990d2cc8133b05e7)) by @DEgITx
+- **trackers:** Merge trackers info([17371bd](https://github.com/DEgITx/rats-search/commit/17371bd8ff95a8675fbb3e63ab7420c6519ced59)) by @DEgITx
+- **gui:** Trackers basic display([7cf5c17](https://github.com/DEgITx/rats-search/commit/7cf5c17fe4f6187f081b315657622205e18699b2)) by @DEgITx
+- **trackers:** Display descriptions([cd9a88a](https://github.com/DEgITx/rats-search/commit/cd9a88a608ff906fc820f34291f3ca21f64ef672)) by @DEgITx
+- **rutracker:** Category and torrent name from rutracker([466d10c](https://github.com/DEgITx/rats-search/commit/466d10ccd5afcdeb17ac6cb2449a6056800af244)) by @DEgITx
+- **config:** Add config to disable trackers([6531b53](https://github.com/DEgITx/rats-search/commit/6531b5315f85e6b73e95946c5f75e31597fea3cb)) by @DEgITx
+- **udp-trackers:** More alternative([d522a53](https://github.com/DEgITx/rats-search/commit/d522a53988a16ed8cfd08742c894547aa7372eee)) by @DEgITx
 
-* **replication:** replication thread optimization ([c5427a6](https://github.com/DEgITx/rats-search/commit/c5427a6))
+
+### 🧪 Testing
+
+
+- **search:** Description to asserts([0cd43d6](https://github.com/DEgITx/rats-search/commit/0cd43d674da5802425a3cda56b0689524beb1c2c)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 23 commits
+
+
+## [0.28.0](https://github.com/DEgITx/rats-search/compare/v0.27.0...v0.28.0) (2018-08-07)
+
+
+### ⚡ Performance
+
+
+- **replication:** Replicate number accordion to cpu usage([35f7d33](https://github.com/DEgITx/rats-search/commit/35f7d33e8f2e028c74dcd91646eb6cfa5589dfc2)) by @DEgITx
+- **torrents:** Ability to disable integrity check on torrents adding torrents #47([e7b035a](https://github.com/DEgITx/rats-search/commit/e7b035a1a8a630db8ff06db40a8062db43f0023e)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **log:** Color messages (part 1)([5bdab1b](https://github.com/DEgITx/rats-search/commit/5bdab1b516aa32264e1e1da9434f0a3d41788efd)) by @DEgITx
+- **log:** Color log (part 2)([bf62a2d](https://github.com/DEgITx/rats-search/commit/bf62a2de16a321d770fba59776d83d9ae6c1aa05)) by @DEgITx
+- **log:** Color log (part 3)([9981c97](https://github.com/DEgITx/rats-search/commit/9981c9706536a1c714affe4f73c574f27f978f96)) by @DEgITx
+- **server:** Color log server fix([725632e](https://github.com/DEgITx/rats-search/commit/725632e70950009c66d834cc62cb26df0858e9ec)) by @DEgITx
+- **db:** Under mac and linux using alternative pool mechanism([297baac](https://github.com/DEgITx/rats-search/commit/297baac3d335a618460d082be1e166e04edccd7a)) by @DEgITx
+- **closing:** Fix errors on closing([463eb7c](https://github.com/DEgITx/rats-search/commit/463eb7cce7c0cad68c4ff06b167c4f81d1e5f950)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **log:** Color log([aa68200](https://github.com/DEgITx/rats-search/commit/aa68200bc585378c9c6736b0d0dd1de8b3472d17)) by @DEgITx
+- **log:** Error display with separate color #31([ddfd434](https://github.com/DEgITx/rats-search/commit/ddfd43498ddacfbf75fd349e30afec518781146e)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 10 commits
+
+
+## [0.27.0](https://github.com/DEgITx/rats-search/compare/v0.26.2...v0.27.0) (2018-08-06)
+
+
+### ⚡ Performance
+
+
+- **replication:** Replication thread optimization([e777757](https://github.com/DEgITx/rats-search/commit/e77775794fda049c88251092b782bcf3bb6ca404)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **server:** Fix exit on server version #54 #52([e420804](https://github.com/DEgITx/rats-search/commit/e42080469739431ed73a19284d3e5aab2a45d68f)) by @DEgITx
+- **translations:** Hash translation([1cec380](https://github.com/DEgITx/rats-search/commit/1cec38020264ef0a9e71a0a25f41cecb6cee1857)) by @DEgITx
+- **gui:** Top tabs text overlap([c2da0c3](https://github.com/DEgITx/rats-search/commit/c2da0c304728f3eff3bf9c43af3a91f731f47c49)) by @DEgITx
+- **linux:** Fix closing on linux([2631662](https://github.com/DEgITx/rats-search/commit/2631662168f76fca2299edf074a7192f8e85403d)) by @DEgITx
+- **linux:** Fix console control after exit([eb5d7d1](https://github.com/DEgITx/rats-search/commit/eb5d7d1594c7ac8bc99e931fb3bc72954649a1a2)) by @DEgITx
+- **scanner:** Fix enconding names in some cases #55([28c07fc](https://github.com/DEgITx/rats-search/commit/28c07fc68939e012247de4ce69065ab72324ccb5)) by @DEgITx
+- **background:** One closing pattern([0f450d3](https://github.com/DEgITx/rats-search/commit/0f450d3133b538b072a899b5396343dfff375c69)) by @DEgITx
+- **closing:** Window can be closing on event([9d5667e](https://github.com/DEgITx/rats-search/commit/9d5667eb0045f7a0242631dfbd52ba2fdc431290)) by @DEgITx
+- **macos:** Fix crashes under Mac OS X([45af9bd](https://github.com/DEgITx/rats-search/commit/45af9bddeaf62a6d804879eedddd3ad1fd9e15b9)) by @DEgITx
+- **macos:** Stabilization with connection pool([25a3d8b](https://github.com/DEgITx/rats-search/commit/25a3d8b6dd86ec2b4d141b2567b557825d62cc9d)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **manual:** Updated usage guide([67badfb](https://github.com/DEgITx/rats-search/commit/67badfbe75ae28478ecd072fa424abb545299992)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **cleaning:** Fix cleaning checking and removing torrents (also display cleaning status in more details) #52([e58ffa4](https://github.com/DEgITx/rats-search/commit/e58ffa4531dd5249b564bf59936d7db165eeec67)) by @DEgITx
+- **search:** Hash/magnet search support in db([b48ac7f](https://github.com/DEgITx/rats-search/commit/b48ac7f97364d278dd7d5681bc16232012401769)) by @DEgITx
+- **search:** Add remote torrents in db via dht and search requests([c6bef2f](https://github.com/DEgITx/rats-search/commit/c6bef2f94ab851c4f260a56b530e0c07a011af68)) by @DEgITx
+- **torrents:** Add support for dropping torrent to base just with window([1442a65](https://github.com/DEgITx/rats-search/commit/1442a65c6e6bb3798c666745f60845c0b3dfd092)) by @DEgITx
+- **rutracker:** Rutracker basic integratioin([bf23587](https://github.com/DEgITx/rats-search/commit/bf23587211bebc988f8d24cd2ed2846bc34c5a4c)) by @DEgITx
+- **nyaa:** Support of nyaa torrents([ffd0643](https://github.com/DEgITx/rats-search/commit/ffd0643c0b1e593115e555a48321fa3d665d7c59)) by @DEgITx
+- **closing:** Fast window closing/hiding([585b683](https://github.com/DEgITx/rats-search/commit/585b68338052ed7f7913779e949617a9d4dab6c2)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 19 commits
+
 
 ## [0.26.2](https://github.com/DEgITx/rats-search/compare/v0.26.1...v0.26.2) (2018-07-22)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **feed:** fix store unsync case ([c3b99c4](https://github.com/DEgITx/rats-search/commit/c3b99c4))
+
+- **feed:** Fix store unsync case([08fbca6](https://github.com/DEgITx/rats-search/commit/08fbca648a0cd7a63cf451acbb6436f6f09a9a66)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
 
 ## [0.26.1](https://github.com/DEgITx/rats-search/compare/v0.26.0...v0.26.1) (2018-07-22)
 
 
-### Bug Fixes
-
-* **feed:** fix fileList coruption of feed replication ([27fa805](https://github.com/DEgITx/rats-search/commit/27fa805))
-* **feed:** keep feed alive on down votes ([0e33c93](https://github.com/DEgITx/rats-search/commit/0e33c93))
-* **feed:** replicate all feed record on new feed ([3e4460f](https://github.com/DEgITx/rats-search/commit/3e4460f))
-* **filters:** fix filter cleanup on categories [#51](https://github.com/DEgITx/rats-search/issues/51) ([7ec95cb](https://github.com/DEgITx/rats-search/commit/7ec95cb))
-
-# [0.26.0](https://github.com/DEgITx/rats-search/compare/v0.25.0...v0.26.0) (2018-07-20)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **feed:** exchage feeds with same size but more new ([0223ad9](https://github.com/DEgITx/rats-search/commit/0223ad9))
-
-
-### Features
-
-* **gui:** remember scroll on back [#13](https://github.com/DEgITx/rats-search/issues/13) ([71ce6b9](https://github.com/DEgITx/rats-search/commit/71ce6b9))
-
-# [0.25.0](https://github.com/DEgITx/rats-search/compare/v0.24.0...v0.25.0) (2018-07-19)
+- **filters:** Fix filter cleanup on categories #51([cb4787b](https://github.com/DEgITx/rats-search/commit/cb4787b2c5f5ad3b25579f9d6fcb407f33f26b25)) by @DEgITx
+- **feed:** Keep feed alive on down votes([f52d789](https://github.com/DEgITx/rats-search/commit/f52d7891f38593b253aa9b04cb4d96f5fa31d744)) by @DEgITx
+- **feed:** Fix fileList coruption of feed replication([2d41bac](https://github.com/DEgITx/rats-search/commit/2d41bacf9b8fa26f596a2dfa442dbf610c88f097)) by @DEgITx
+- **feed:** Replicate all feed record on new feed([7e08d70](https://github.com/DEgITx/rats-search/commit/7e08d70d56d02be73c8e8618b96351f5bbd81fca)) by @DEgITx
 
 
-### Bug Fixes
-
-* **bootstrap:** parallel bootstrap saving ([908163e](https://github.com/DEgITx/rats-search/commit/908163e))
-* **feed:** feed error ordering resolved ([a442964](https://github.com/DEgITx/rats-search/commit/a442964))
-* **feed:** fix feed synchronization ([d602003](https://github.com/DEgITx/rats-search/commit/d602003))
-* **network:** fix network availability detection [#45](https://github.com/DEgITx/rats-search/issues/45) ([5be36fa](https://github.com/DEgITx/rats-search/commit/5be36fa))
-* **scroll:** fix jolting on menu clicks ([d429b8a](https://github.com/DEgITx/rats-search/commit/d429b8a))
-* **web:** set default nodejs version 8 for web version ([743b27b](https://github.com/DEgITx/rats-search/commit/743b27b))
 
 
-### Features
-
-* **filters:** add size filter ([1e941f5](https://github.com/DEgITx/rats-search/commit/1e941f5))
-* **filters:** content type filters [#49](https://github.com/DEgITx/rats-search/issues/49) ([785dc7c](https://github.com/DEgITx/rats-search/commit/785dc7c))
-* **p2p:** information about feed ([37ff661](https://github.com/DEgITx/rats-search/commit/37ff661))
-* **portative:** display message about update in portative version [#41](https://github.com/DEgITx/rats-search/issues/41) ([a89c390](https://github.com/DEgITx/rats-search/commit/a89c390))
-* **scroll:** smaller scrollbar for more comport view ([25a2aae](https://github.com/DEgITx/rats-search/commit/25a2aae))
+### 👥 Contributors
 
 
-### Performance Improvements
 
-* **torrents:** optimization files saving ([a84f8c7](https://github.com/DEgITx/rats-search/commit/a84f8c7))
-
-# [0.24.0](https://github.com/DEgITx/rats-search/compare/v0.23.0...v0.24.0) (2018-07-13)
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
 
 
-### Bug Fixes
-
-* **db:** fix startup on broken db after hardware shutdown [#43](https://github.com/DEgITx/rats-search/issues/43) ([2c00d8c](https://github.com/DEgITx/rats-search/commit/2c00d8c))
-* **ignore:** ignore more server files ([77035f1](https://github.com/DEgITx/rats-search/commit/77035f1))
-* **menu:** new page struct update in menu list ([3fad6c2](https://github.com/DEgITx/rats-search/commit/3fad6c2))
-* **patch:** fix memory issue ([a339d01](https://github.com/DEgITx/rats-search/commit/a339d01))
-* **updater:** fix errors messages on updater if no internet connection [#45](https://github.com/DEgITx/rats-search/issues/45) ([6ec6609](https://github.com/DEgITx/rats-search/commit/6ec6609))
+## [0.26.0](https://github.com/DEgITx/rats-search/compare/v0.25.0...v0.26.0) (2018-07-20)
 
 
-### Features
-
-* **bootstrap:** always load bootstrap peers when no peers situation (not only on startup) ([3a5c934](https://github.com/DEgITx/rats-search/commit/3a5c934))
-* **p2p:** new optimized peer exchange algorithm ([65e61c5](https://github.com/DEgITx/rats-search/commit/65e61c5))
-* **search:** part words search feature ([8836607](https://github.com/DEgITx/rats-search/commit/8836607))
-
-# [0.23.0](https://github.com/DEgITx/rats-search/compare/v0.22.0...v0.23.0) (2018-07-02)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **db:** fix broken connections in some cases [#37](https://github.com/DEgITx/rats-search/issues/37) ([57e7b18](https://github.com/DEgITx/rats-search/commit/57e7b18))
-* **db:** fix connection limitation ([4a0b04d](https://github.com/DEgITx/rats-search/commit/4a0b04d))
-* **downloading:** always show downloading on list even if download not started ([76cb896](https://github.com/DEgITx/rats-search/commit/76cb896))
-* **downloading:** fix recheck progress indication on start and finish ([048c0f6](https://github.com/DEgITx/rats-search/commit/048c0f6))
-* **downloading:** fix state on some torrent cases ([125ce95](https://github.com/DEgITx/rats-search/commit/125ce95))
-* **feed:** keep downloading values seperate ([8d04df4](https://github.com/DEgITx/rats-search/commit/8d04df4))
-* **gui:** padding on some long torrent names ([e1f83a6](https://github.com/DEgITx/rats-search/commit/e1f83a6))
-* **header:** replaced button places in top header ([f262af6](https://github.com/DEgITx/rats-search/commit/f262af6))
-* **replication:** fix replication on some cases of downloading ([ac046d0](https://github.com/DEgITx/rats-search/commit/ac046d0))
-* **tests:** fix intersect test case ([88644ec](https://github.com/DEgITx/rats-search/commit/88644ec))
-* **tests:** simplify tests ([c3d62f5](https://github.com/DEgITx/rats-search/commit/c3d62f5))
+- **feed:** Exchage feeds with same size but more new([454d65d](https://github.com/DEgITx/rats-search/commit/454d65d6235d12a86ba9f3fc1fddfe659f9e1931)) by @DEgITx
 
 
-### Features
-
-* **config:** p2p replication client and server separate for performance optimization ([a5e0afc](https://github.com/DEgITx/rats-search/commit/a5e0afc))
-* **downloading:** download speed ([f9ac98f](https://github.com/DEgITx/rats-search/commit/f9ac98f))
-* **downloading:** removing after download ability ([886c4d1](https://github.com/DEgITx/rats-search/commit/886c4d1))
-* **downloading:** save download session support ([652f9a0](https://github.com/DEgITx/rats-search/commit/652f9a0))
-* **downloading:** tooltips on torrent element ([e73ca1c](https://github.com/DEgITx/rats-search/commit/e73ca1c))
-* **downloading:** torrent pause feature ([6d8c04e](https://github.com/DEgITx/rats-search/commit/6d8c04e))
-
-# [0.22.0](https://github.com/DEgITx/rats-search/compare/v0.21.1...v0.22.0) (2018-06-24)
+### 🚀 Features
 
 
-### Bug Fixes
-
-* **closing:** more proper closing without errors ([b3fa8bf](https://github.com/DEgITx/rats-search/commit/b3fa8bf))
-* **linux:** fix AppImage build [#35](https://github.com/DEgITx/rats-search/issues/35) ([fd3d2cd](https://github.com/DEgITx/rats-search/commit/fd3d2cd))
-* **p2p:** p2p proper closing ([d839859](https://github.com/DEgITx/rats-search/commit/d839859))
-* **replication:** fix partitial torrent adding ([260afc5](https://github.com/DEgITx/rats-search/commit/260afc5))
+- **gui:** Remember scroll on back #13([246a7a9](https://github.com/DEgITx/rats-search/commit/246a7a979798930c6186947bf11ea760dae8d576)) by @DEgITx
 
 
-### Features
 
-* **debug:** debug rejections ([c9e0fb2](https://github.com/DEgITx/rats-search/commit/c9e0fb2))
-* **gui:** tips over some buttons ([a1bdaa5](https://github.com/DEgITx/rats-search/commit/a1bdaa5))
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
+## [0.25.0](https://github.com/DEgITx/rats-search/compare/v0.24.0...v0.25.0) (2018-07-19)
+
+
+### ⚡ Performance
+
+
+- **torrents:** Optimization files saving([16aa6d7](https://github.com/DEgITx/rats-search/commit/16aa6d7e62a9b40ea66f335d7460e42c727477e0)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **scroll:** Fix jolting on menu clicks([376ddc7](https://github.com/DEgITx/rats-search/commit/376ddc7678a1fb2f82386d442978e72307cdb0a8)) by @DEgITx
+- **feed:** Fix feed synchronization([0c16bea](https://github.com/DEgITx/rats-search/commit/0c16bead45203306443b0b24e1b059ce67dac392)) by @DEgITx
+- **bootstrap:** Parallel bootstrap saving([5a2a6a5](https://github.com/DEgITx/rats-search/commit/5a2a6a5db5d26bea5e772847e2266f3a27391f1f)) by @DEgITx
+- **web:** Set default nodejs version 8 for web version([4b16e2d](https://github.com/DEgITx/rats-search/commit/4b16e2d065e829ef0c622287a3bd48b97eaf12bb)) by @DEgITx
+- **network:** Fix network availability detection #45([87bbb4f](https://github.com/DEgITx/rats-search/commit/87bbb4fbe4a2e75fc80faf8e346a9f9e9c17f334)) by @DEgITx
+- **feed:** Feed error ordering resolved([b5a775e](https://github.com/DEgITx/rats-search/commit/b5a775e7d539aeeb983a1eff854beb9bac375fcb)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Add support link([2f9e393](https://github.com/DEgITx/rats-search/commit/2f9e393ad8fcd644cc704ab3422a3e033d4b08d3)) by @DEgITx
+
+
+### 📦 Miscellaneous
+
+
+- **log:** Add node version log([c2c0977](https://github.com/DEgITx/rats-search/commit/c2c0977561e33620c4b54933db1adba0ffb771cb)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **scroll:** Smaller scrollbar for more comport view([b9885b3](https://github.com/DEgITx/rats-search/commit/b9885b3cb0e406ea24f058978275a7e14b8873c3)) by @DEgITx
+- **filters:** Add size filter([0727da3](https://github.com/DEgITx/rats-search/commit/0727da32367b2d5591f5680eeec17aafd04a3aaa)) by @DEgITx
+- **filters:** Content type filters #49([8792da8](https://github.com/DEgITx/rats-search/commit/8792da82d53e16d49ebcbe7301151529af9cf1be)) by @DEgITx
+- **p2p:** Information about feed([bd8921c](https://github.com/DEgITx/rats-search/commit/bd8921c18666262ad6478a96e06cf0b6aaa562e9)) by @DEgITx
+- **portative:** Display message about update in portative version #41([66fea26](https://github.com/DEgITx/rats-search/commit/66fea269c68a10c7588b872bc6d082b84698318f)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 14 commits
+
+
+## [0.24.0](https://github.com/DEgITx/rats-search/compare/v0.23.0...v0.24.0) (2018-07-13)
+
+
+### 🐛 Bug Fixes
+
+
+- **ignore:** Ignore more server files([7799f1f](https://github.com/DEgITx/rats-search/commit/7799f1fd21d7252173e5c3afb2e7bf88612079ea)) by @DEgITx
+- **patch:** Fix memory issue([064c93c](https://github.com/DEgITx/rats-search/commit/064c93c17616b665c848b26ea222cd9eac8fe035)) by @DEgITx
+- **menu:** New page struct update in menu list([a44769d](https://github.com/DEgITx/rats-search/commit/a44769d350e078b4a61d785e4a607ed79a7ef917)) by @DEgITx
+- **updater:** Fix errors messages on updater if no internet connection #45([67b0215](https://github.com/DEgITx/rats-search/commit/67b0215c9375b27614b9300495040e22dfa3a9f5)) by @DEgITx
+- **db:** Fix startup on broken db after hardware shutdown #43([1f7ff44](https://github.com/DEgITx/rats-search/commit/1f7ff446cc463c9c9c369b44405bf5ae6347280c)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Little translation guide([9e2986d](https://github.com/DEgITx/rats-search/commit/9e2986d993f18dd13c03a3ec99d89800d569ccaf)) by @DEgITx
+
+
+### 📦 Miscellaneous
+
+
+- **readme:** Add new readme screens and test([d6fc200](https://github.com/DEgITx/rats-search/commit/d6fc2004cd80b17046a230e0c244ecc8fe017420)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **search:** Part words search feature([8adcdac](https://github.com/DEgITx/rats-search/commit/8adcdac6f4660d6702feca0091efe705b528d6c9)) by @DEgITx
+- **p2p:** New optimized peer exchange algorithm([67ec475](https://github.com/DEgITx/rats-search/commit/67ec475a3a752f9f797c1a99090fbbf044fead2f)) by @DEgITx
+- **bootstrap:** Always load bootstrap peers when no peers situation (not only on startup)([fce0d0b](https://github.com/DEgITx/rats-search/commit/fce0d0b275af3f6c023b6d2a1e9a96841c74f5cb)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 10 commits
+
+
+## [0.23.0](https://github.com/DEgITx/rats-search/compare/v0.22.0...v0.23.0) (2018-07-02)
+
+
+### 🐛 Bug Fixes
+
+
+- **db:** Fix broken connections in some cases #37([0d9bb12](https://github.com/DEgITx/rats-search/commit/0d9bb12fe89d17634d652a31f892aee61645a391)) by @DEgITx
+- **header:** Replaced button places in top header([a3abb2f](https://github.com/DEgITx/rats-search/commit/a3abb2f49936787f190f2cc3ea17080e4fbe112c)) by @DEgITx
+- **gui:** Padding on some long torrent names([ec861e1](https://github.com/DEgITx/rats-search/commit/ec861e1f0a53f27119367a0a3463eb827bdb70f1)) by @DEgITx
+- **downloading:** Always show downloading on list even if download not started([6bd4d69](https://github.com/DEgITx/rats-search/commit/6bd4d69e4cc610a1399836479492698dc0ee1625)) by @DEgITx
+- **downloading:** Fix state on some torrent cases([ea07872](https://github.com/DEgITx/rats-search/commit/ea07872137a7caa17c80663680a334c602c03cbb)) by @DEgITx
+- **downloading:** Fix recheck progress indication on start and finish([1a23973](https://github.com/DEgITx/rats-search/commit/1a23973ba2039127270e93f917535b0eb3f7db90)) by @DEgITx
+- **feed:** Keep downloading values seperate([7592612](https://github.com/DEgITx/rats-search/commit/7592612a3d46037fab8bf2df0f34d0921e4304d5)) by @DEgITx
+- **replication:** Fix replication on some cases of downloading([72828b8](https://github.com/DEgITx/rats-search/commit/72828b860f778ff85adeae80bb5418b57b07438a)) by @DEgITx
+- **tests:** Simplify tests([8dc7cfe](https://github.com/DEgITx/rats-search/commit/8dc7cfecf9667a47521e685c3920e59233186127)) by @DEgITx
+- **db:** Fix connection limitation([db7217f](https://github.com/DEgITx/rats-search/commit/db7217ff0dc87602ac2241ea2d931493e16ae13f)) by @DEgITx
+- **tests:** Fix intersect test case([352213a](https://github.com/DEgITx/rats-search/commit/352213ae0e7753e869eb6d8dca69a3b003984658)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **downloading:** Download speed([c321286](https://github.com/DEgITx/rats-search/commit/c321286d6ce38fdd18c47d87d15f509f035fa3c0)) by @DEgITx
+- **downloading:** Save download session support([0d81364](https://github.com/DEgITx/rats-search/commit/0d81364ca82268b43833313a583b350466a2fdc2)) by @DEgITx
+- **downloading:** Removing after download ability([d1d816e](https://github.com/DEgITx/rats-search/commit/d1d816ed030e1e8e214444fa23d1398d788fe502)) by @DEgITx
+- **downloading:** Tooltips on torrent element([545f772](https://github.com/DEgITx/rats-search/commit/545f772918e08f31bf089fb66f8784a9af14b84c)) by @DEgITx
+- **downloading:** Torrent pause feature([070119c](https://github.com/DEgITx/rats-search/commit/070119c352727ed0d18245c9f62d370624696ec0)) by @DEgITx
+- **config:** P2p replication client and server separate for performance optimization([f8c6a40](https://github.com/DEgITx/rats-search/commit/f8c6a401bca9893c3bf8e97add9833bf4485ca60)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 17 commits
+
+
+## [0.22.0](https://github.com/DEgITx/rats-search/compare/v0.21.1...v0.22.0) (2018-06-24)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** P2p proper closing([5efb309](https://github.com/DEgITx/rats-search/commit/5efb309dc1912bf77e5cb95cee5c8ba399300971)) by @DEgITx
+- **replication:** Fix partitial torrent adding([3515745](https://github.com/DEgITx/rats-search/commit/35157457c7d1e13e8e98093735a29cf5cd484c90)) by @DEgITx
+- **closing:** More proper closing without errors([16164c2](https://github.com/DEgITx/rats-search/commit/16164c25d87d994eff74b02e6e3f01c25e5d1600)) by @DEgITx
+- **linux:** Fix AppImage build #35([86692ee](https://github.com/DEgITx/rats-search/commit/86692ee857ca3cfb8a0ecdb32f9b230ae4a54a1d)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **debug:** Debug rejections([ead88b0](https://github.com/DEgITx/rats-search/commit/ead88b0a037253a02fd47d3f4bae88adc315ec76)) by @DEgITx
+- **gui:** Tips over some buttons([8868bae](https://github.com/DEgITx/rats-search/commit/8868bae97d9f6fc6958bf06b714438319cddebcd)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
 
 ## [0.21.1](https://github.com/DEgITx/rats-search/compare/v0.21.0...v0.21.1) (2018-06-19)
 
 
-### Bug Fixes
-
-* **download:** crash on download page click in some cases [#34](https://github.com/DEgITx/rats-search/issues/34) ([3f4812e](https://github.com/DEgITx/rats-search/commit/3f4812e))
-
-# [0.21.0](https://github.com/DEgITx/rats-search/compare/v0.20.1...v0.21.0) (2018-06-18)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **feed:** always insert new feed item ([385e701](https://github.com/DEgITx/rats-search/commit/385e701))
-* **feed:** fix feed build ([7111988](https://github.com/DEgITx/rats-search/commit/7111988))
-* **feed:** fix feed live update ([8fa9ed3](https://github.com/DEgITx/rats-search/commit/8fa9ed3))
-* **feed:** fix p2p load error ([27ec3cc](https://github.com/DEgITx/rats-search/commit/27ec3cc))
-* **feed:** type in adding feed entity ([ecac7f4](https://github.com/DEgITx/rats-search/commit/ecac7f4))
-* **gui:** always back to main from torrent page, even torrent is loading ([9365219](https://github.com/DEgITx/rats-search/commit/9365219))
-* **gui:** fix potencial false window load ([6e0fec2](https://github.com/DEgITx/rats-search/commit/6e0fec2))
-* **gui:** little fixes ([7325fc2](https://github.com/DEgITx/rats-search/commit/7325fc2))
-* **spider:** fix compiling error on start ([672d14d](https://github.com/DEgITx/rats-search/commit/672d14d))
-* **store:** fix limitation on records sync ([81c471b](https://github.com/DEgITx/rats-search/commit/81c471b))
-* **store:** fix potential out of records on find request ([3579d24](https://github.com/DEgITx/rats-search/commit/3579d24))
-* **trackers:** fix tracker response error ([f74b129](https://github.com/DEgITx/rats-search/commit/f74b129))
-* **translations-ru:** fix some messages (thanks to Viktor Lukash) ([deb6c79](https://github.com/DEgITx/rats-search/commit/deb6c79))
-* **vote:** ignore voting if already vote ([a9ebef7](https://github.com/DEgITx/rats-search/commit/a9ebef7))
+- **download:** Crash on download page click in some cases #34([44efa61](https://github.com/DEgITx/rats-search/commit/44efa6138e79ff06beb510be0c051191b74dc2ba)) by @DEgITx
 
 
-### Features
-
-* **activity:** activity page / feed separate ([e296289](https://github.com/DEgITx/rats-search/commit/e296289))
-* **feed:** feed widget support ([3aefdc8](https://github.com/DEgITx/rats-search/commit/3aefdc8))
-* **feed:** replicate remote feed from peers ([d2cc42f](https://github.com/DEgITx/rats-search/commit/d2cc42f))
-* **gui:** display rating in torrent line (gui part) ([605672b](https://github.com/DEgITx/rats-search/commit/605672b))
-* **p2p:** p2p feed ([e368910](https://github.com/DEgITx/rats-search/commit/e368910))
-* **search:** new search navigation ([96f347b](https://github.com/DEgITx/rats-search/commit/96f347b))
-* **server:** update dependecy server module babel installation [#33](https://github.com/DEgITx/rats-search/issues/33) ([4f60539](https://github.com/DEgITx/rats-search/commit/4f60539))
-* **store:** live sync store records on connection to every peer ([9c7379e](https://github.com/DEgITx/rats-search/commit/9c7379e))
-* **translations-ua:** Ukraine translation (thanks to Viktor Lukash) ([476fc7e](https://github.com/DEgITx/rats-search/commit/476fc7e))
-* **tray:** tray hide on closing [#32](https://github.com/DEgITx/rats-search/issues/32) ([d7d3939](https://github.com/DEgITx/rats-search/commit/d7d3939))
-* **vote:** rating update on torrent request ([8c28728](https://github.com/DEgITx/rats-search/commit/8c28728))
 
 
-### Performance Improvements
+### 👥 Contributors
 
-* **db:** little faster cycles over small requests ([3f76d11](https://github.com/DEgITx/rats-search/commit/3f76d11))
 
-<a name="0.20.1"></a>
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+## [0.21.0](https://github.com/DEgITx/rats-search/compare/v0.20.1...v0.21.0) (2018-06-18)
+
+
+### Translations
+
+
+- **ru:** Some new tr([26669cf](https://github.com/DEgITx/rats-search/commit/26669cf7643a3d547e3f2b67000f706b1e992571)) by @DEgITx
+
+
+### ⚡ Performance
+
+
+- **db:** Little faster cycles over small requests([859770b](https://github.com/DEgITx/rats-search/commit/859770bdcfb627af60b46da9cf60793f4c54a7ec)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **translations-ru:** Fix some messages (thanks to Viktor Lukash)([f735565](https://github.com/DEgITx/rats-search/commit/f7355657681c3ce8485458365e66051bd055135b)) by @DEgITx
+- **trackers:** Fix tracker response error([e6276f0](https://github.com/DEgITx/rats-search/commit/e6276f06c2a10c18a4796addf4a5636b459d6253)) by @DEgITx
+- **spider:** Fix compiling error on start([ea787ec](https://github.com/DEgITx/rats-search/commit/ea787ec358bb3a8c2a463cd3f7146dd70f8a0600)) by @DEgITx
+- **store:** Fix limitation on records sync([7772129](https://github.com/DEgITx/rats-search/commit/77721293e44db316f0c0dcff5f20fbe16b24ace7)) by @DEgITx
+- **feed:** Fix feed build([88c3b3e](https://github.com/DEgITx/rats-search/commit/88c3b3e3dbb687e8cedf309676fb8be9a85a3f95)) by @DEgITx
+- **vote:** Ignore voting if already vote([88a0771](https://github.com/DEgITx/rats-search/commit/88a0771579458113dd00d815bf8dc8ee61f326f3)) by @DEgITx
+- **store:** Fix potential out of records on find request([9502e53](https://github.com/DEgITx/rats-search/commit/9502e53fc1e2613d3aa7a067059ac9328ff9b4bc)) by @DEgITx
+- **feed:** Always insert new feed item([e0f4319](https://github.com/DEgITx/rats-search/commit/e0f43191fb4230bb8e69e150ef8db0afeb7da7ef)) by @DEgITx
+- **feed:** Fix p2p load error([545a067](https://github.com/DEgITx/rats-search/commit/545a0676c0a20503233c30226c3a0280d52f768d)) by @DEgITx
+- **gui:** Fix potencial false window load([94218b7](https://github.com/DEgITx/rats-search/commit/94218b7b74114d2a060511cb7fa53ca525be74cb)) by @DEgITx
+- **gui:** Little fixes([06e54fc](https://github.com/DEgITx/rats-search/commit/06e54fca0f1cf227cfef8e8e5926360de88c427a)) by @DEgITx
+- **gui:** Always back to main from torrent page, even torrent is loading([2d653ca](https://github.com/DEgITx/rats-search/commit/2d653caaa71222c396f92e0a3b9693de3a1d0023)) by @DEgITx
+- **feed:** Type in adding feed entity([5250b0f](https://github.com/DEgITx/rats-search/commit/5250b0f86c3392b2574b9a65b498b4f1ec19fd04)) by @DEgITx
+- **feed:** Fix feed live update([bed8b5b](https://github.com/DEgITx/rats-search/commit/bed8b5b51b8b3baf0634a89236dcbb49ce899c86)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **translations-ua:** Ukraine translation (thanks to Viktor Lukash)([6decf60](https://github.com/DEgITx/rats-search/commit/6decf602d356c4db3f1754159f11070bca089435)) by @DEgITx
+- **server:** Update dependecy server module babel installation #33([ae8b84f](https://github.com/DEgITx/rats-search/commit/ae8b84fed6c826f1e2738dae57a3768243cb7a56)) by @DEgITx
+- **tray:** Tray hide on closing #32([50a95ae](https://github.com/DEgITx/rats-search/commit/50a95aeb721142abc29e008f953c515ed5086364)) by @DEgITx
+- **feed:** Feed widget support([027be8c](https://github.com/DEgITx/rats-search/commit/027be8c3f397ae90e23d925088dd685a1016a533)) by @DEgITx
+- **gui:** Display rating in torrent line (gui part)([a9c2708](https://github.com/DEgITx/rats-search/commit/a9c27083dad272f24df9d425a91f5eaa6e1bf2d8)) by @DEgITx
+- **vote:** Rating update on torrent request([51caccb](https://github.com/DEgITx/rats-search/commit/51caccbce476b0dd4f7826eacbb291a31596197d)) by @DEgITx
+- **p2p:** P2p feed([dd8dc7b](https://github.com/DEgITx/rats-search/commit/dd8dc7b4189cb46122fd6fa26c033418387425a6)) by @DEgITx
+- **feed:** Replicate remote feed from peers([5dfc4dd](https://github.com/DEgITx/rats-search/commit/5dfc4ddc384bb58c3df1aec8c329886cfa73cb68)) by @DEgITx
+- **activity:** Activity page / feed separate([f09c6ab](https://github.com/DEgITx/rats-search/commit/f09c6ab43f16e6f65fc7cd38bb5493c31d05834b)) by @DEgITx
+- **search:** New search navigation([da6093a](https://github.com/DEgITx/rats-search/commit/da6093ad4ab2bbcbd5d4fcee7fa36af71795e76a)) by @DEgITx
+- **store:** Live sync store records on connection to every peer([19380db](https://github.com/DEgITx/rats-search/commit/19380dbd9f18ee092ddedb627d8313c45eb58831)) by @DEgITx
+
+
+### 🧪 Testing
+
+
+- **bigtable:** Test for bigtable script([1fbc889](https://github.com/DEgITx/rats-search/commit/1fbc889011abd9ec1d965dec30fef89ad3c6c3ae)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 28 commits
+
+
 ## [0.20.1](https://github.com/DEgITx/rats-search/compare/v0.20.0...v0.20.1) (2018-05-20)
 
 
-### Bug Fixes
-
-* **changelog:** fix changelog display ([6705b86](https://github.com/DEgITx/rats-search/commit/6705b86))
-* **header:** fix panel stick ([be3347b](https://github.com/DEgITx/rats-search/commit/be3347b))
-
-<a name="0.20.0"></a>
-# [0.20.0](https://github.com/DEgITx/rats-search/compare/v0.19.2...v0.20.0) (2018-05-20)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **cicleci:** fix build on cicleci ([d9ca345](https://github.com/DEgITx/rats-search/commit/d9ca345))
-* **header:** fix advanced search ([1907f68](https://github.com/DEgITx/rats-search/commit/1907f68))
-* **header:** fix header wrap ([5257ffd](https://github.com/DEgITx/rats-search/commit/5257ffd))
-* **header:** more enchantment over header ([006bb2c](https://github.com/DEgITx/rats-search/commit/006bb2c))
-* **header:** normal error padding on search panel ([eadbcde](https://github.com/DEgITx/rats-search/commit/eadbcde))
-* **log:** clear query log on every start ([bcc8e8f](https://github.com/DEgITx/rats-search/commit/bcc8e8f))
-* **search:** fix container width ([5ae7106](https://github.com/DEgITx/rats-search/commit/5ae7106))
-* **search:** fix search more button indication on peer search ([5549c12](https://github.com/DEgITx/rats-search/commit/5549c12))
-* **top:** bold like styling on tab chose ([5552284](https://github.com/DEgITx/rats-search/commit/5552284))
-* **translations:** checked language at menu ([520a359](https://github.com/DEgITx/rats-search/commit/520a359))
-* **translations:** init app translations ([8cd1309](https://github.com/DEgITx/rats-search/commit/8cd1309))
-* **translations:** more translations ([b3e04f5](https://github.com/DEgITx/rats-search/commit/b3e04f5))
+- **header:** Fix panel stick([52cdf93](https://github.com/DEgITx/rats-search/commit/52cdf93942d32f5f7b376ce58e5184ceaf85a261)) by @DEgITx
+- **changelog:** Fix changelog display([db68f8b](https://github.com/DEgITx/rats-search/commit/db68f8b92618f16cf009402d891b039344e4b201)) by @DEgITx
 
 
-### Features
 
-* **core:** dependency update ([e75cb48](https://github.com/DEgITx/rats-search/commit/e75cb48))
-* **core:** more deps update ([542dd2e](https://github.com/DEgITx/rats-search/commit/542dd2e))
-* **filtering:** negative name filter ([b16ca68](https://github.com/DEgITx/rats-search/commit/b16ca68))
-* **header:** statistic panel interface ([71c86e2](https://github.com/DEgITx/rats-search/commit/71c86e2))
-* **p2p:** mapping all peers dicts ([ba5fb63](https://github.com/DEgITx/rats-search/commit/ba5fb63))
-* **p2p:** peerId protocol handshake ([a216279](https://github.com/DEgITx/rats-search/commit/a216279))
-* **search:** moved search to header (now search are always on) ([5a870a0](https://github.com/DEgITx/rats-search/commit/5a870a0))
-* **top:** top over different time over all types [#26](https://github.com/DEgITx/rats-search/issues/26) ([663325a](https://github.com/DEgITx/rats-search/commit/663325a))
-* **translations:** basic translations support ([87f23e7](https://github.com/DEgITx/rats-search/commit/87f23e7))
-* **translations:** generate words on translation ([d24c793](https://github.com/DEgITx/rats-search/commit/d24c793))
-* **translations:** menu translations ([8f76005](https://github.com/DEgITx/rats-search/commit/8f76005))
-* **translations-ru:** more translations (part 2) ([7f91b9e](https://github.com/DEgITx/rats-search/commit/7f91b9e))
-* **translations-ru:** translation to russian (part 1) ([09688e6](https://github.com/DEgITx/rats-search/commit/09688e6))
 
-<a name="0.19.2"></a>
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
+## [0.20.0](https://github.com/DEgITx/rats-search/compare/v0.19.2...v0.20.0) (2018-05-20)
+
+
+### 🐛 Bug Fixes
+
+
+- **search:** Fix search more button indication on peer search([f909fb5](https://github.com/DEgITx/rats-search/commit/f909fb5aaa5abc1e510fb5553bf339c2074e37f9)) by @DEgITx
+- **log:** Clear query log on every start([92fdd54](https://github.com/DEgITx/rats-search/commit/92fdd54ffa5d38a0979fe89381d156bb303888ae)) by @DEgITx
+- **header:** Fix advanced search([8423f19](https://github.com/DEgITx/rats-search/commit/8423f19a745e14ea7d1809d3af41d22d2a25daf6)) by @DEgITx
+- **header:** More enchantment over header([0fe7ee2](https://github.com/DEgITx/rats-search/commit/0fe7ee2a1fc77d58153816591787c06f2b3dcd5b)) by @DEgITx
+- **header:** Fix header wrap([643cfaf](https://github.com/DEgITx/rats-search/commit/643cfaf2e1025179bd2b9ceea8cc1da2f8fdb6b0)) by @DEgITx
+- **header:** Normal error padding on search panel([80fea92](https://github.com/DEgITx/rats-search/commit/80fea92cbbc764274d3ce06180a9b20917554aad)) by @DEgITx
+- **cicleci:** Fix build on cicleci([fa7e04d](https://github.com/DEgITx/rats-search/commit/fa7e04d05676609afffe2cdd7b9feabc1243138d)) by @DEgITx
+- **top:** Bold like styling on tab chose([090a34f](https://github.com/DEgITx/rats-search/commit/090a34fb8799062824256a23f5d1756fc9a98562)) by @DEgITx
+- **translations:** Init app translations([d3edbb6](https://github.com/DEgITx/rats-search/commit/d3edbb60fae39e7748cedbc643b638fec8dd3c42)) by @DEgITx
+- **translations:** Checked language at menu([127192b](https://github.com/DEgITx/rats-search/commit/127192b14df13b099d9ca142dd63f839a6a6d21d)) by @DEgITx
+- **translations:** More translations([d94e609](https://github.com/DEgITx/rats-search/commit/d94e609b9a5862d088c0e601fbbb7b9433062ac2)) by @DEgITx
+- **search:** Fix container width([b1fceb5](https://github.com/DEgITx/rats-search/commit/b1fceb5450807a76191cc599d5748395a7998dc4)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **search:** Moved search to header (now search are always on)([31a6a44](https://github.com/DEgITx/rats-search/commit/31a6a44184d6327f47d2b9ec5f3a391bc974dfaf)) by @DEgITx
+- **p2p:** PeerId protocol handshake([524b4d9](https://github.com/DEgITx/rats-search/commit/524b4d9601fd32f1122a7899998f463b5c004ee2)) by @DEgITx
+- **header:** Statistic panel interface([666f4c1](https://github.com/DEgITx/rats-search/commit/666f4c11a05b957fa9d1de217e634891664c68c8)) by @DEgITx
+- **top:** Top over different time over all types #26([7ba5aab](https://github.com/DEgITx/rats-search/commit/7ba5aab9a2fc1f5eaea659d9a3de2e08c207bd02)) by @DEgITx
+- **core:** Dependency update([4bc63e3](https://github.com/DEgITx/rats-search/commit/4bc63e3b8c22db0f02205232ffb851fa023dc68f)) by @DEgITx
+- **core:** More deps update([f882f6b](https://github.com/DEgITx/rats-search/commit/f882f6b1aabdac606bbb8090ff2429fa58274553)) by @DEgITx
+- **p2p:** Mapping all peers dicts([60b5e8d](https://github.com/DEgITx/rats-search/commit/60b5e8d8b0d0555fc8284c735e78dbece1fc5f64)) by @DEgITx
+- **filtering:** Negative name filter([21dedba](https://github.com/DEgITx/rats-search/commit/21dedba555d700d84ae56c683c9490644075a68e)) by @DEgITx
+- **translations:** Basic translations support([feff322](https://github.com/DEgITx/rats-search/commit/feff3225920312e7360a7bfb603171b8728a865a)) by @DEgITx
+- **translations:** Generate words on translation([0d39bbd](https://github.com/DEgITx/rats-search/commit/0d39bbd9c35f458ac17f52a49a2c103d84ea240b)) by @DEgITx
+- **translations:** Menu translations([3056779](https://github.com/DEgITx/rats-search/commit/305677989535a9e7f3a875b303bdbff5986d1cbe)) by @DEgITx
+- **translations-ru:** Translation to russian (part 1)([7f172cf](https://github.com/DEgITx/rats-search/commit/7f172cf6be5f38358a7aac8f522d917197110d04)) by @DEgITx
+- **translations-ru:** More translations (part 2)([c341130](https://github.com/DEgITx/rats-search/commit/c341130da1fd245fe6ce8b863557a17203298472)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 25 commits
+
+
 ## [0.19.2](https://github.com/DEgITx/rats-search/compare/v0.19.1...v0.19.2) (2018-05-04)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **linux:** fix patching on some systems without electron ([7c39658](https://github.com/DEgITx/rats-search/commit/7c39658))
-* **search:** error on sorting files in search ([63768a2](https://github.com/DEgITx/rats-search/commit/63768a2))
-* **trackers:** fix possible trackers error on scrape ([81b5ead](https://github.com/DEgITx/rats-search/commit/81b5ead))
 
-<a name="0.19.1"></a>
+- **search:** Error on sorting files in search([6a59744](https://github.com/DEgITx/rats-search/commit/6a59744f73b29142796ce1c127efa534f6283ee2)) by @DEgITx
+- **linux:** Fix patching on some systems without electron([2d2a3ad](https://github.com/DEgITx/rats-search/commit/2d2a3ad3ca33debfc8e23adad6f8c76e1fa56af4)) by @DEgITx
+- **trackers:** Fix possible trackers error on scrape([611e390](https://github.com/DEgITx/rats-search/commit/611e3908526c8c3d1786ae9ed16ba7689d7e01fb)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **alpine:** Docs about alpine prebuild binaries([1dac470](https://github.com/DEgITx/rats-search/commit/1dac4707b3c7206a0b4b0ce8b2d1b029b2d58128)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
 ## [0.19.1](https://github.com/DEgITx/rats-search/compare/v0.19.0...v0.19.1) (2018-04-30)
 
 
-### Bug Fixes
-
-* **donate:** more relevant donate view, display also patreon donate :) ([7152b36](https://github.com/DEgITx/rats-search/commit/7152b36))
-
-<a name="0.19.0"></a>
-# [0.19.0](https://github.com/DEgITx/rats-search/compare/v0.18.0...v0.19.0) (2018-04-26)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **content:** basic adult filtration ([6a85538](https://github.com/DEgITx/rats-search/commit/6a85538))
-* **header:** more pleasant animation ([3690d3a](https://github.com/DEgITx/rats-search/commit/3690d3a))
-* **peerdb:** transfer data fix ([cd054b3](https://github.com/DEgITx/rats-search/commit/cd054b3))
-* **search:** fix some unsafe results in safe search ([541acca](https://github.com/DEgITx/rats-search/commit/541acca))
-* **search:** show types of torrents on files search fix ([4b8ef41](https://github.com/DEgITx/rats-search/commit/4b8ef41))
-* **store:** store on all peers ([ed9c323](https://github.com/DEgITx/rats-search/commit/ed9c323))
-* **vote:** proper vote data sequencing ([e87e51e](https://github.com/DEgITx/rats-search/commit/e87e51e))
-* **votes:** actual votes display works now ([75e7159](https://github.com/DEgITx/rats-search/commit/75e7159))
+- **donate:** More relevant donate view, display also patreon donate :)([f3e5edf](https://github.com/DEgITx/rats-search/commit/f3e5edf6ec3dd204b9ae9844a1a397f338169bb4)) by @DEgITx
 
 
-### Features
-
-* **filters:** adult filter ([6aa952a](https://github.com/DEgITx/rats-search/commit/6aa952a))
-* **filters:** some examples of regex [#25](https://github.com/DEgITx/rats-search/issues/25) ([b112900](https://github.com/DEgITx/rats-search/commit/b112900))
-* **header:** fixed header on main window ([e7cda54](https://github.com/DEgITx/rats-search/commit/e7cda54))
-* **peerDB:** store on peers feature ([912be10](https://github.com/DEgITx/rats-search/commit/912be10))
-* **replication:** replicate torrent on open ([6acf17f](https://github.com/DEgITx/rats-search/commit/6acf17f))
-* **search:** separate adult remote content on search ([660192e](https://github.com/DEgITx/rats-search/commit/660192e))
-* **vote:** replicate torrent on voting ([d524ff4](https://github.com/DEgITx/rats-search/commit/d524ff4))
-* **vote:** restored voting (now working over p2p) ([9caa593](https://github.com/DEgITx/rats-search/commit/9caa593))
+### 📚 Documentation
 
 
-### Performance Improvements
-
-* **peerdb:** faster store sync ([fc0388c](https://github.com/DEgITx/rats-search/commit/fc0388c))
-* **top:** less cpu usage on top page update ([b39a933](https://github.com/DEgITx/rats-search/commit/b39a933))
-
-<a name="0.18.0"></a>
-# [0.18.0](https://github.com/DEgITx/rats-search/compare/v0.17.1...v0.18.0) (2018-04-07)
+- **server:** Documentation about server configuration([3eb898d](https://github.com/DEgITx/rats-search/commit/3eb898db9b496693904d60acb038dcbf6af4a97e)) by @DEgITx
+- **readme:** More relevant information about features([3c825e2](https://github.com/DEgITx/rats-search/commit/3c825e2846925653c2358e0cc60989f3bec684c1)) by @DEgITx
+- **imgs:** Updated screenshots on usage manual([61d35e0](https://github.com/DEgITx/rats-search/commit/61d35e03fb5f2b37fa6ab5270e7046a3fc5b609f)) by @DEgITx
 
 
-### Bug Fixes
-
-* **server:** little makeup for server version ([99115f9](https://github.com/DEgITx/rats-search/commit/99115f9))
-* **server:** restored server messages ([e9da8db](https://github.com/DEgITx/rats-search/commit/e9da8db))
 
 
-### Features
+### 👥 Contributors
 
-* **p2p:** random peer exchange ([c2a0933](https://github.com/DEgITx/rats-search/commit/c2a0933))
-* **search:** show current request with text [#23](https://github.com/DEgITx/rats-search/issues/23) ([e3ab4d4](https://github.com/DEgITx/rats-search/commit/e3ab4d4))
-* **server:** seperate server part and ability to run server without electron ([3246d15](https://github.com/DEgITx/rats-search/commit/3246d15))
-* **web:** web version available again ([bfbc660](https://github.com/DEgITx/rats-search/commit/bfbc660))
 
-<a name="0.17.1"></a>
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+## [0.19.0](https://github.com/DEgITx/rats-search/compare/v0.18.0...v0.19.0) (2018-04-26)
+
+
+### ⚡ Performance
+
+
+- **top:** Less cpu usage on top page update([fce7fe4](https://github.com/DEgITx/rats-search/commit/fce7fe43691de4abba399747cc00f9dbbb5840b8)) by @DEgITx
+- **peerdb:** Faster store sync([0768e8d](https://github.com/DEgITx/rats-search/commit/0768e8d3e054970af028eed0d8db2512a3789f0b)) by @DEgITx
+
+
+### 🐛 Bug Fixes
+
+
+- **header:** More pleasant animation([410c827](https://github.com/DEgITx/rats-search/commit/410c827905ec41a6905d9e1e940d2db38fa30657)) by @DEgITx
+- **peerdb:** Transfer data fix([0aa2809](https://github.com/DEgITx/rats-search/commit/0aa2809f97f4fe1d0a53728d4d599148613adf3b))
+- **votes:** Actual votes display works now([5e02b0d](https://github.com/DEgITx/rats-search/commit/5e02b0df73e67d8994df80a843965be19e2ea22c)) by @DEgITx
+- **vote:** Proper vote data sequencing([f233100](https://github.com/DEgITx/rats-search/commit/f23310065d3bb79cdf25da3fd27062f1a4228ce1)) by @DEgITx
+- **store:** Store on all peers([5773fa7](https://github.com/DEgITx/rats-search/commit/5773fa7408c304eba1c2eed3510f302cf456a5be)) by @DEgITx
+- **search:** Show types of torrents on files search fix([e5e9aa2](https://github.com/DEgITx/rats-search/commit/e5e9aa2a889667e24bb5a81381db8f6177dc234b)) by @DEgITx
+- **search:** Fix some unsafe results in safe search([1465dc9](https://github.com/DEgITx/rats-search/commit/1465dc9677d0491ff043c991641432557629a436)) by @DEgITx
+- **content:** Basic adult filtration([aae2ddf](https://github.com/DEgITx/rats-search/commit/aae2ddf458247edf0997e30b1da640bea81f3232)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **header:** Fixed header on main window([5ae597f](https://github.com/DEgITx/rats-search/commit/5ae597f35a2ba27d4e7f7876dc416e2b0813175c)) by @DEgITx
+- **peerDB:** Store on peers feature([5407ef8](https://github.com/DEgITx/rats-search/commit/5407ef8c59eb9fa42f1def2d74dbc2e4f72fe60d)) by @DEgITx
+- **vote:** Restored voting (now working over p2p)([c8e37ae](https://github.com/DEgITx/rats-search/commit/c8e37ae4b2208e1635dc14ee700767e162fd356a)) by @DEgITx
+- **replication:** Replicate torrent on open([34e9641](https://github.com/DEgITx/rats-search/commit/34e964126b8829fcbb3292de742c2132b07d55ba)) by @DEgITx
+- **filters:** Some examples of regex #25([3c6e959](https://github.com/DEgITx/rats-search/commit/3c6e959d499808ecc2e815f9ac62c1f17eea711d)) by @DEgITx
+- **vote:** Replicate torrent on voting([9593440](https://github.com/DEgITx/rats-search/commit/959344080ee467010b5c954d452cb8e8be33c64f)) by @DEgITx
+- **search:** Separate adult remote content on search([81bd30c](https://github.com/DEgITx/rats-search/commit/81bd30c8a358dcc8c854578352ee1a56065322b4)) by @DEgITx
+- **filters:** Adult filter([89a0e86](https://github.com/DEgITx/rats-search/commit/89a0e8689d86d4c131f4d3d61501f51c4c4bf86d)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 17 commits
+
+
+## [0.18.0](https://github.com/DEgITx/rats-search/compare/v0.17.1...v0.18.0) (2018-04-07)
+
+
+### 🐛 Bug Fixes
+
+
+- **server:** Restored server messages([a2ade1c](https://github.com/DEgITx/rats-search/commit/a2ade1cd68a4a3b93dc7f6a04773dbc35d3d4bd1)) by @DEgITx
+- **server:** Little makeup for server version([3b49d52](https://github.com/DEgITx/rats-search/commit/3b49d52afe4aef9aea6251a0c824cd5000c4f8c7)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **server:** Web version setup docs([e0f7df9](https://github.com/DEgITx/rats-search/commit/e0f7df9706cb90be152b7a7f967512833001f841)) by @DEgITx
+
+
+### 🔧 Refactor
+
+
+- **closing:** Refactoring saving peers on closing([5daf9f5](https://github.com/DEgITx/rats-search/commit/5daf9f5c65a399fecd68abae7a96fdf94329d9e4)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **search:** Show current request with text #23([bd47d43](https://github.com/DEgITx/rats-search/commit/bd47d432545fa5a30ca701b0954918d651d647e7)) by @DEgITx
+- **p2p:** Random peer exchange([fac6736](https://github.com/DEgITx/rats-search/commit/fac6736710b9b80582af5d086b3f66acb6a1f8ad)) by @DEgITx
+- **server:** Seperate server part and ability to run server without electron([e244fab](https://github.com/DEgITx/rats-search/commit/e244fabd2c8c6b87464793e7991e444942ab2a7e)) by @DEgITx
+- **web:** Web version available again([e25e8f0](https://github.com/DEgITx/rats-search/commit/e25e8f05a4f8752f08cd40429a293d6942a8abab)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
 ## [0.17.1](https://github.com/DEgITx/rats-search/compare/v0.17.0...v0.17.1) (2018-04-04)
 
 
-### Bug Fixes
-
-* **db:** fix search index on replication ([969d8dc](https://github.com/DEgITx/rats-search/commit/969d8dc))
-* **db:** ignore patching already created db ([4e22eb1](https://github.com/DEgITx/rats-search/commit/4e22eb1))
-* **db:** optimization after patching ([f14aefd](https://github.com/DEgITx/rats-search/commit/f14aefd))
-* **db:** resolving old database indexes ([cfd4459](https://github.com/DEgITx/rats-search/commit/cfd4459))
-* **filter:** cleaning fix on big db ([07c931c](https://github.com/DEgITx/rats-search/commit/07c931c))
-* **tests:** fixed patching on tests ([8d7359e](https://github.com/DEgITx/rats-search/commit/8d7359e))
-
-<a name="0.17.0"></a>
-# [0.17.0](https://github.com/DEgITx/rats-search/compare/v0.16.2...v0.17.0) (2018-04-01)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
+- **db:** Fix search index on replication([000947a](https://github.com/DEgITx/rats-search/commit/000947a6c2de413c87252ad5a786635a76d769f6)) by @DEgITx
+- **filter:** Cleaning fix on big db([e581d95](https://github.com/DEgITx/rats-search/commit/e581d95194724d9b19407ec9091d201d09661f58)) by @DEgITx
+- **db:** Resolving old database indexes([7a00f5e](https://github.com/DEgITx/rats-search/commit/7a00f5e2d1d2004a76d3d2eae6c96f6ddd913b38)) by @DEgITx
+- **db:** Optimization after patching([74f1686](https://github.com/DEgITx/rats-search/commit/74f168695e6d0b759bfc75a99477d0b19eb115b5)) by @DEgITx
+- **db:** Ignore patching already created db([0df2023](https://github.com/DEgITx/rats-search/commit/0df20237bb814af5e26cc3141e93972e55c6be12)) by @DEgITx
+- **tests:** Fixed patching on tests([bcb8fa5](https://github.com/DEgITx/rats-search/commit/bcb8fa564d2b3bd8146c8859b89fa539b39f5811)) by @DEgITx
 
-* **p2p:** save only existing peers ([e74c68f](https://github.com/DEgITx/rats-search/commit/e74c68f))
-* **peers:** fix display peers count in gui ([a255c47](https://github.com/DEgITx/rats-search/commit/a255c47))
-* **tests:** fix net code on test env ([cb022b0](https://github.com/DEgITx/rats-search/commit/cb022b0))
-* **tests:** fix quit timeout ([efff28a](https://github.com/DEgITx/rats-search/commit/efff28a))
+
+### 📚 Documentation
 
 
-### Features
+- **readme:** Display arch in readme([3b40e75](https://github.com/DEgITx/rats-search/commit/3b40e755dabd0e7fa21470bee214279bdfdcb1df)) by @DEgITx
 
-* **bootstrap:** reserved p2p peers server ([13e0107](https://github.com/DEgITx/rats-search/commit/13e0107))
-* **filter:** naming filtering [#17](https://github.com/DEgITx/rats-search/issues/17) ([d766f94](https://github.com/DEgITx/rats-search/commit/d766f94))
-* **filter:** torrents filters (basic maxFiles filter) ([37d5d18](https://github.com/DEgITx/rats-search/commit/37d5d18))
 
-<a name="0.16.2"></a>
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 7 commits
+
+
+## [0.17.0](https://github.com/DEgITx/rats-search/compare/v0.16.2...v0.17.0) (2018-04-01)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Save only existing peers([1c89e3b](https://github.com/DEgITx/rats-search/commit/1c89e3b5eabbc4459bf8ea7e47ff988a98f1642c)) by @DEgITx
+- **peers:** Fix display peers count in gui([99c9c28](https://github.com/DEgITx/rats-search/commit/99c9c281646e5e057051583079fd65c8a9fd24cf)) by @DEgITx
+- **tests:** Fix quit timeout([4837293](https://github.com/DEgITx/rats-search/commit/4837293af4a1e68a697ad281c9d2d2590a4fc8c6)) by @DEgITx
+- **tests:** Fix net code on test env([534999d](https://github.com/DEgITx/rats-search/commit/534999d1cb058619ca88d5038045f38999fc0b25))
+
+
+### 🚀 Features
+
+
+- **bootstrap:** Reserved p2p peers server([bda58b1](https://github.com/DEgITx/rats-search/commit/bda58b135cfa505ade8fd08ef2201268d3e08a26)) by @DEgITx
+- **filter:** Torrents filters (basic maxFiles filter)([5348d1f](https://github.com/DEgITx/rats-search/commit/5348d1f88f4581440fada516b697165d6e51b8ee)) by @DEgITx
+- **filter:** Naming filtering #17([99d9004](https://github.com/DEgITx/rats-search/commit/99d90049066979705badf08ce013a590c2b4d21c)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
 ## [0.16.2](https://github.com/DEgITx/rats-search/compare/v0.16.1...v0.16.2) (2018-03-31)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **replication:** show correct torrent types on replication ([3c6698e](https://github.com/DEgITx/rats-search/commit/3c6698e))
 
-<a name="0.16.1"></a>
+- **replication:** Show correct torrent types on replication([6215c0e](https://github.com/DEgITx/rats-search/commit/6215c0ed60a61fc890d51b43a4b6d46b84202af3)) by @DEgITx
+
+
+### 🔧 Refactor
+
+
+- **faketors:** Removed old fake torrents code([884f93d](https://github.com/DEgITx/rats-search/commit/884f93d799698119edda4d00a27b259f6acf7aa6)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
 ## [0.16.1](https://github.com/DEgITx/rats-search/compare/v0.16.0...v0.16.1) (2018-03-30)
 
 
-### Bug Fixes
-
-* **p2p:** fix torrents count ([d4b9958](https://github.com/DEgITx/rats-search/commit/d4b9958))
-
-<a name="0.16.0"></a>
-# [0.16.0](https://github.com/DEgITx/rats-search/compare/v0.15.2...v0.16.0) (2018-03-30)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **db:** fix some null values errors ([640cadd](https://github.com/DEgITx/rats-search/commit/640cadd))
-* **linux:** 32bit linux builds [#21](https://github.com/DEgITx/rats-search/issues/21) ([5a0da90](https://github.com/DEgITx/rats-search/commit/5a0da90))
-* **replication:** enable replication by default ([6e8b01a](https://github.com/DEgITx/rats-search/commit/6e8b01a))
-* **replication:** fix error on replication ([7ab42e9](https://github.com/DEgITx/rats-search/commit/7ab42e9))
+- **p2p:** Fix torrents count([eec2412](https://github.com/DEgITx/rats-search/commit/eec241291b8548a1106ff672bfad9511cef633a0)) by @DEgITx
 
 
-### Features
 
-* **p2p:** app version on p2p ([8c4e659](https://github.com/DEgITx/rats-search/commit/8c4e659))
-* **p2p:** show torrents number of other clients ([a4fa0b1](https://github.com/DEgITx/rats-search/commit/a4fa0b1))
 
-<a name="0.15.2"></a>
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+## [0.16.0](https://github.com/DEgITx/rats-search/compare/v0.15.2...v0.16.0) (2018-03-30)
+
+
+### 🐛 Bug Fixes
+
+
+- **linux:** 32bit linux builds #21([7952c28](https://github.com/DEgITx/rats-search/commit/7952c283efc3ed4bd9e2510ae2bf66e40cc50b4a)) by @DEgITx
+- **replication:** Fix error on replication([b5c19cc](https://github.com/DEgITx/rats-search/commit/b5c19ccae6e72125ed4a9f6caaccaf26a06f723c)) by @DEgITx
+- **replication:** Enable replication by default([6ae6713](https://github.com/DEgITx/rats-search/commit/6ae67135737860899ed073e45eca209c704b7f18)) by @DEgITx
+- **db:** Fix some null values errors([fe4e293](https://github.com/DEgITx/rats-search/commit/fe4e2932d1953e16dc779862a8e9762ac1331753)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **p2p:** App version on p2p([6a63bc6](https://github.com/DEgITx/rats-search/commit/6a63bc626df473de512422f16878df0dea640368)) by @DEgITx
+- **p2p:** Show torrents number of other clients([2ba4938](https://github.com/DEgITx/rats-search/commit/2ba49380f61200264b5e1a9baf347dc57dd20e56)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
 ## [0.15.2](https://github.com/DEgITx/rats-search/compare/v0.15.1...v0.15.2) (2018-03-28)
 
 
-### Bug Fixes
+### 🐛 Bug Fixes
 
-* **settings:** save settings fix [#19](https://github.com/DEgITx/rats-search/issues/19) ([7544de3](https://github.com/DEgITx/rats-search/commit/7544de3))
 
-<a name="0.15.1"></a>
+- **settings:** Save settings fix #19([eaa7aa7](https://github.com/DEgITx/rats-search/commit/eaa7aa7f7c7cefe14f4cc3612768991801c570f3)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
 ## [0.15.1](https://github.com/DEgITx/rats-search/compare/v0.15.0...v0.15.1) (2018-03-27)
 
 
-### Bug Fixes
-
-* **top:** remote top shown fix ([2f66398](https://github.com/DEgITx/rats-search/commit/2f66398))
-
-<a name="0.15.0"></a>
-# [0.15.0](https://github.com/DEgITx/rats-search/compare/v0.14.1...v0.15.0) (2018-03-26)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **portable:** portable win32 build ([bec76e7](https://github.com/DEgITx/rats-search/commit/bec76e7))
-* **top:** fix week and month top load ([84cd86d](https://github.com/DEgITx/rats-search/commit/84cd86d))
+- **top:** Remote top shown fix([c1cb197](https://github.com/DEgITx/rats-search/commit/c1cb1976b5714c167bf7e14e1fd916fdf980808d)) by @DEgITx
 
 
-### Features
 
-* **header:** back to main button at top ([0cb81ec](https://github.com/DEgITx/rats-search/commit/0cb81ec))
-* **top:** categories to tab items and new items load ([6f1a3c3](https://github.com/DEgITx/rats-search/commit/6f1a3c3))
-* **top:** p2p top search ([7f10267](https://github.com/DEgITx/rats-search/commit/7f10267))
-* **win:** win 32bit build ([80f56aa](https://github.com/DEgITx/rats-search/commit/80f56aa)), closes [#18](https://github.com/DEgITx/rats-search/issues/18)
 
-<a name="0.14.1"></a>
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+## [0.15.0](https://github.com/DEgITx/rats-search/compare/v0.14.1...v0.15.0) (2018-03-26)
+
+
+### 🐛 Bug Fixes
+
+
+- **portable:** Portable win32 build([653d393](https://github.com/DEgITx/rats-search/commit/653d3936ae3d8c78f377557f281bfb52cae4e90f)) by @DEgITx
+- **top:** Fix week and month top load([99b48ef](https://github.com/DEgITx/rats-search/commit/99b48ef28525727f6ea7f3317c2f5b65f89398fd)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Screenshots([9e00d0f](https://github.com/DEgITx/rats-search/commit/9e00d0ff691eafca749ad11ab797c2f8643fb842)) by @DEgITx
+
+
+### 🔧 Refactor
+
+
+- **api:** Moved to seperate file([5c777cb](https://github.com/DEgITx/rats-search/commit/5c777cb6297c68f6d832f2d4e49d11263f9f4218)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **win:** Win 32bit build([d353edc](https://github.com/DEgITx/rats-search/commit/d353edc56fe8231e7abc97cf89af243c03fcd89f)) by @DEgITx
+- **top:** P2p top search([960731f](https://github.com/DEgITx/rats-search/commit/960731fb8045094ad5d376f68fb1e9e41baaf843)) by @DEgITx
+- **top:** Categories to tab items and new items load([c78857d](https://github.com/DEgITx/rats-search/commit/c78857db60c208dc6cac2750ac5598cc640b19cd)) by @DEgITx
+- **header:** Back to main button at top([0714131](https://github.com/DEgITx/rats-search/commit/0714131a5f06f7bce1844fd00abc6d4ab639c06c)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
 ## [0.14.1](https://github.com/DEgITx/rats-search/compare/v0.14.0...v0.14.1) (2018-03-17)
 
 
-### Bug Fixes
-
-* **p2p:** still fix adding youself to list ([bfad498](https://github.com/DEgITx/rats-search/commit/bfad498))
-
-<a name="0.14.0"></a>
-# [0.14.0](https://github.com/DEgITx/rats-search/compare/v0.13.0...v0.14.0) (2018-03-17)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **p2p:** disconnect on protocol bad handshake on server side ([c6b73ee](https://github.com/DEgITx/rats-search/commit/c6b73ee))
-* **portable:** fix error on renaming portable directory ([4714728](https://github.com/DEgITx/rats-search/commit/4714728))
-* **ssh:** fix closing ssh on exit ([426886d](https://github.com/DEgITx/rats-search/commit/426886d))
+- **p2p:** Still fix adding youself to list([ca881ff](https://github.com/DEgITx/rats-search/commit/ca881fff8121518abff7ac3a52568f98eec4dac3)) by @DEgITx
 
 
-### Features
-
-* **menu:** new menu items (support) ([c6b28f0](https://github.com/DEgITx/rats-search/commit/c6b28f0))
-* **menu:** version as menu item ([e139256](https://github.com/DEgITx/rats-search/commit/e139256))
-* **p2p:** tunnels support for bad peers ([ec143d9](https://github.com/DEgITx/rats-search/commit/ec143d9))
-* **ssh:** fix key store ([5b26500](https://github.com/DEgITx/rats-search/commit/5b26500))
-
-<a name="0.13.0"></a>
-# [0.13.0](https://github.com/DEgITx/rats-search/compare/v0.12.0...v0.13.0) (2018-03-13)
 
 
-### Bug Fixes
-
-* **gui:** fix date displaing in torrent details ([3d6baca](https://github.com/DEgITx/rats-search/commit/3d6baca))
-* **gui:** loading progress when open top ([a06a81a](https://github.com/DEgITx/rats-search/commit/a06a81a))
-* **info:** fix info files limitation in output ([6285ab4](https://github.com/DEgITx/rats-search/commit/6285ab4))
-* **p2p:** fix connection by yourself in process ([ce08b3b](https://github.com/DEgITx/rats-search/commit/ce08b3b))
-* **scanner:** always add id - replication fix ([979ef1b](https://github.com/DEgITx/rats-search/commit/979ef1b))
+### 👥 Contributors
 
 
-### Features
 
-* **gui:** compact header design ([9566c77](https://github.com/DEgITx/rats-search/commit/9566c77))
-* **gui:** new header design (more compressed) ([51ecfd0](https://github.com/DEgITx/rats-search/commit/51ecfd0))
-* **gui:** settings on header ([93dd5af](https://github.com/DEgITx/rats-search/commit/93dd5af))
-* **manual:** usage manual (help) in menu ([7420544](https://github.com/DEgITx/rats-search/commit/7420544))
-* **p2p:** p2p torrents replication ([999ab0c](https://github.com/DEgITx/rats-search/commit/999ab0c))
-
-<a name="0.12.0"></a>
-# [0.12.0](https://github.com/DEgITx/rats-search/compare/v0.11.0...v0.12.0) (2018-03-10)
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
 
 
-### Bug Fixes
-
-* **gui:** typo in save settings ([8043f4a](https://github.com/DEgITx/rats-search/commit/8043f4a))
-* **macos:** mac os icon size fix [#10](https://github.com/DEgITx/rats-search/issues/10) ([b6a7f85](https://github.com/DEgITx/rats-search/commit/b6a7f85))
+## [0.14.0](https://github.com/DEgITx/rats-search/compare/v0.13.0...v0.14.0) (2018-03-17)
 
 
-### Features
-
-* **config:** peers number settings ([61d0f25](https://github.com/DEgITx/rats-search/commit/61d0f25))
-* **p2p:** bootstrap peers ([3292e8f](https://github.com/DEgITx/rats-search/commit/3292e8f))
-* **p2p:** life peers exchange ([8035e57](https://github.com/DEgITx/rats-search/commit/8035e57))
-* **p2p:** peers limitation to prevent connection spam ([9177691](https://github.com/DEgITx/rats-search/commit/9177691))
-* **portable:** portable win64 version support [#9](https://github.com/DEgITx/rats-search/issues/9) ([f16393b](https://github.com/DEgITx/rats-search/commit/f16393b))
-* **search:** add 100 mb interval to search [#12](https://github.com/DEgITx/rats-search/issues/12) ([ddaf9e1](https://github.com/DEgITx/rats-search/commit/ddaf9e1))
-
-<a name="0.11.0"></a>
-# [0.11.0](https://github.com/DEgITx/rats-search/compare/v0.10.0...v0.11.0) (2018-03-07)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **changelog:** fix modal peers display ([fb3a28b](https://github.com/DEgITx/rats-search/commit/fb3a28b))
-* **p2p:** situation when ignoring yourself address is very slow ([d55c8f2](https://github.com/DEgITx/rats-search/commit/d55c8f2))
-* **search:** show torrent page from remote peer ([9a69f07](https://github.com/DEgITx/rats-search/commit/9a69f07))
+- **p2p:** Disconnect on protocol bad handshake on server side([349a015](https://github.com/DEgITx/rats-search/commit/349a01557e90d1444805142a4a54a43098824aba)) by @DEgITx
+- **portable:** Fix error on renaming portable directory([07f3ab2](https://github.com/DEgITx/rats-search/commit/07f3ab2bd94465089535742c040c51916525efaa)) by @DEgITx
+- **ssh:** Fix closing ssh on exit([cc1fd1d](https://github.com/DEgITx/rats-search/commit/cc1fd1d49d5fd1a621813b79ffa858c5055c6e28)) by @DEgITx
 
 
-### Features
-
-* **donate:** donate window ([da3a646](https://github.com/DEgITx/rats-search/commit/da3a646))
-* **download:** torrent downloads manager ([73d2c3c](https://github.com/DEgITx/rats-search/commit/73d2c3c))
-* **gui:** access to top from menu ([20bd280](https://github.com/DEgITx/rats-search/commit/20bd280))
-
-<a name="0.10.0"></a>
-# [0.10.0](https://github.com/DEgITx/rats-search/compare/v0.9.0...v0.10.0) (2018-03-03)
+### 🚀 Features
 
 
-### Bug Fixes
-
-* **gui:** cleanup footer ([ebda2d7](https://github.com/DEgITx/rats-search/commit/ebda2d7))
-* **gui:** some incorrect information removed from top header ([894bcaf](https://github.com/DEgITx/rats-search/commit/894bcaf))
-* **log:** dont show any upnp messages in log ([bf9af3f](https://github.com/DEgITx/rats-search/commit/bf9af3f))
-* **network:** fix stun error on startup if no network available ([09de03a](https://github.com/DEgITx/rats-search/commit/09de03a)), closes [#7](https://github.com/DEgITx/rats-search/issues/7)
-* **p2p:** fix back connection ([cce0f9a](https://github.com/DEgITx/rats-search/commit/cce0f9a))
-* **p2p:** some ignoring of local addresses ([835038b](https://github.com/DEgITx/rats-search/commit/835038b))
-* **search:** merge files in search when same torrent twice in a row ([22d3173](https://github.com/DEgITx/rats-search/commit/22d3173))
-* **vote:** just disable for future improvements in p2p ([1d318d7](https://github.com/DEgITx/rats-search/commit/1d318d7))
+- **menu:** New menu items (support)([b346a1a](https://github.com/DEgITx/rats-search/commit/b346a1a25a832c66e8f60aec2af4fc7a4c83ac02)) by @DEgITx
+- **menu:** Version as menu item([0f2a7b4](https://github.com/DEgITx/rats-search/commit/0f2a7b44dd4f8e16da4ab623ceb4640b87b85c2d)) by @DEgITx
+- **p2p:** Tunnels support for bad peers([500b852](https://github.com/DEgITx/rats-search/commit/500b8522091514717da1a64a1f58f3dacf6aa8a3)) by @DEgITx
+- **ssh:** Fix key store([0b8732c](https://github.com/DEgITx/rats-search/commit/0b8732cbb8bd009fae41b7e9f5c075beb6e76633)) by @DEgITx
 
 
-### Features
-
-* **p2p:** peers backup on exit ([449460d](https://github.com/DEgITx/rats-search/commit/449460d))
-* **p2p:** peers exchange ([dfd8378](https://github.com/DEgITx/rats-search/commit/dfd8378))
-* **p2p:** protocol check and support responce p2p connection ([b37bbb4](https://github.com/DEgITx/rats-search/commit/b37bbb4))
-* **search:** visual separate p2p torrents ([43780bc](https://github.com/DEgITx/rats-search/commit/43780bc))
-* **secure:** responce only to rats messages ([16aa63e](https://github.com/DEgITx/rats-search/commit/16aa63e))
-
-<a name="0.9.0"></a>
-# [0.9.0](https://github.com/DEgITx/rats-search/compare/v0.8.0...v0.9.0) (2018-03-02)
 
 
-### Features
-
-* **network:** UPnP support ([6ba0d05](https://github.com/DEgITx/rats-search/commit/6ba0d05))
-
-<a name="0.8.0"></a>
-# [0.8.0](https://github.com/DEgITx/rats-search/compare/v0.7.1...v0.8.0) (2018-03-01)
+### 👥 Contributors
 
 
-### Features
 
-* **config:** new scanning options ([b946877](https://github.com/DEgITx/rats-search/commit/b946877))
-* **config:** some network limitations ([1751ad6](https://github.com/DEgITx/rats-search/commit/1751ad6))
-* **menu:** report bug in application ([1a8af14](https://github.com/DEgITx/rats-search/commit/1a8af14))
+- [@DEgITx](https://github.com/DEgITx) — 7 commits
 
 
-### Performance Improvements
+## [0.13.0](https://github.com/DEgITx/rats-search/compare/v0.12.0...v0.13.0) (2018-03-13)
 
-* **network:** limit package usage ([f6a8e89](https://github.com/DEgITx/rats-search/commit/f6a8e89))
-* **network:** network usage optimization ([e1e0074](https://github.com/DEgITx/rats-search/commit/e1e0074))
 
-<a name="0.7.1"></a>
+### 🐛 Bug Fixes
+
+
+- **info:** Fix info files limitation in output([cfff5c7](https://github.com/DEgITx/rats-search/commit/cfff5c7603c2aa8566f60705601b2ff148300346)) by @DEgITx
+- **p2p:** Fix connection by yourself in process([223fe8c](https://github.com/DEgITx/rats-search/commit/223fe8c1abcaa91bd60ee530e8606342636678da)) by @DEgITx
+- **gui:** Fix date displaing in torrent details([911c650](https://github.com/DEgITx/rats-search/commit/911c650dd3f08844c82fbb82625078bfb04173c0)) by @DEgITx
+- **gui:** Loading progress when open top([268c7d3](https://github.com/DEgITx/rats-search/commit/268c7d30e4202d077b834ad37fc7600bb3a85195)) by @DEgITx
+- **scanner:** Always add id - replication fix([9c9e64e](https://github.com/DEgITx/rats-search/commit/9c9e64e9a1c45a4eb224bf859f3e1c761562b11b)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **manual:** About peers search([54c9fb1](https://github.com/DEgITx/rats-search/commit/54c9fb10b7b4ea45682bbb2f3b542c6399b1ef34)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **manual:** Usage manual (help) in menu([cbc6a49](https://github.com/DEgITx/rats-search/commit/cbc6a49aec3fe2ba35063fa4567c452a87d596c9)) by @DEgITx
+- **p2p:** P2p torrents replication([db8a8cb](https://github.com/DEgITx/rats-search/commit/db8a8cbd36cc95167f311982fe2ba92adbab7eb7)) by @DEgITx
+- **gui:** New header design (more compressed)([b03655e](https://github.com/DEgITx/rats-search/commit/b03655e57083a0245ddd12a4cddee27815e0a48e)) by @DEgITx
+- **gui:** Compact header design([ce4e364](https://github.com/DEgITx/rats-search/commit/ce4e364e72d8296ceba17e93d0a09fd5385c0818)) by @DEgITx
+- **gui:** Settings on header([eeb4a97](https://github.com/DEgITx/rats-search/commit/eeb4a97899bfd63086ac1c64e587243c68f07f63)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 11 commits
+
+
+## [0.12.0](https://github.com/DEgITx/rats-search/compare/v0.11.0...v0.12.0) (2018-03-10)
+
+
+### 🐛 Bug Fixes
+
+
+- **macos:** Mac os icon size fix #10([3c0930f](https://github.com/DEgITx/rats-search/commit/3c0930fcd63c7b58d1e73228e11f7617c10ff581)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **p2p:** Peers limitation to prevent connection spam([022a6da](https://github.com/DEgITx/rats-search/commit/022a6dae7937d19bcc23cc6ecd9c4d9764511d64)) by @DEgITx
+- **p2p:** Life peers exchange([c7a217e](https://github.com/DEgITx/rats-search/commit/c7a217ec37b4e486ca711051dad008f1d87a85ef)) by @DEgITx
+- **p2p:** Bootstrap peers([10d0a2f](https://github.com/DEgITx/rats-search/commit/10d0a2fbc072abba68aee603a9908dba1ab12a4a)) by @DEgITx
+- **portable:** Portable win64 version support #9([8ae812f](https://github.com/DEgITx/rats-search/commit/8ae812f18ed8ea0cba752c6780f5e181819de6ef)) by @DEgITx
+- **search:** Add 100 mb interval to search #12([2beabe0](https://github.com/DEgITx/rats-search/commit/2beabe084dc7a2155cc876510127572be936c550)) by @DEgITx
+- **config:** Peers number settings([6838b93](https://github.com/DEgITx/rats-search/commit/6838b938b7cfc97d5846af817cb2923d1966906f)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 7 commits
+
+
+## [0.11.0](https://github.com/DEgITx/rats-search/compare/v0.10.0...v0.11.0) (2018-03-07)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Situation when ignoring yourself address is very slow([5cd9b9f](https://github.com/DEgITx/rats-search/commit/5cd9b9f22922a53b6a141416244f294673340f7b)) by @DEgITx
+- **changelog:** Fix modal peers display([c407998](https://github.com/DEgITx/rats-search/commit/c40799816b3ad7c7ee9e9239ad06279e04604b7c)) by @DEgITx
+- **gui:** Typo in save settings([d5a9d8c](https://github.com/DEgITx/rats-search/commit/d5a9d8c0cd35acbed8651de86193afc8eeefdc5e)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **download:** Torrent downloads manager([1e86ba8](https://github.com/DEgITx/rats-search/commit/1e86ba84c12eca131f8ae064101abb7242dda393)) by @DEgITx
+- **gui:** Access to top from menu([32bf512](https://github.com/DEgITx/rats-search/commit/32bf512bf5eb254fd2aeebb0ff1e5d46f816c43b)) by @DEgITx
+- **donate:** Donate window([ae45555](https://github.com/DEgITx/rats-search/commit/ae455551169c851a1c4a73915568088323088dab)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
+## [0.10.0](https://github.com/DEgITx/rats-search/compare/v0.9.0...v0.10.0) (2018-03-03)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Some ignoring of local addresses([0209d3e](https://github.com/DEgITx/rats-search/commit/0209d3e498ee4e5b8ff4e59ed28a12d00c8279b8)) by @DEgITx
+- **p2p:** Fix back connection([e8bef06](https://github.com/DEgITx/rats-search/commit/e8bef06697f76777b0ad6797320538a3df24cebb)) by @DEgITx
+- **log:** Dont show any upnp messages in log([d26dc54](https://github.com/DEgITx/rats-search/commit/d26dc54a5e2353dc01d59db433335cd84db03870)) by @DEgITx
+- **search:** Merge files in search when same torrent twice in a row([a60beea](https://github.com/DEgITx/rats-search/commit/a60beeaee3baed1dcee5593c56e0d62dbd67c5e4)) by @DEgITx
+- **gui:** Cleanup footer([5832626](https://github.com/DEgITx/rats-search/commit/5832626fd230b5ce78c4812f2b68f32bc821de77)) by @DEgITx
+- **network:** Fix stun error on startup if no network available([3bed2b1](https://github.com/DEgITx/rats-search/commit/3bed2b13cb0f3bcd70f226bcb734213e1e36def2)) by @DEgITx
+- **gui:** Some incorrect information removed from top header([a8db927](https://github.com/DEgITx/rats-search/commit/a8db927c8d928970e711ad681a99fc1bc896b93c)) by @DEgITx
+- **vote:** Just disable for future improvements in p2p([bbea5c5](https://github.com/DEgITx/rats-search/commit/bbea5c5d8a03e5db34b641a4a468216e726c91c1)) by @DEgITx
+- **search:** Show torrent page from remote peer([1c626fa](https://github.com/DEgITx/rats-search/commit/1c626fa2bffb5ab1fa033bb5cc9df6cef3409515)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **p2p:** Protocol check and support responce p2p connection([2779bfe](https://github.com/DEgITx/rats-search/commit/2779bfe49dd2b1a32197a7487b89da0f9eaac12c)) by @DEgITx
+- **p2p:** Peers exchange([c2b030d](https://github.com/DEgITx/rats-search/commit/c2b030dddc13ab91dbc238464c5f1aa6213753e2)) by @DEgITx
+- **secure:** Responce only to rats messages([6535494](https://github.com/DEgITx/rats-search/commit/65354947ba74297d3ca5ab170a7e8b9614c0daa1)) by @DEgITx
+- **search:** Visual separate p2p torrents([b579106](https://github.com/DEgITx/rats-search/commit/b579106c66124024a4a9ccb0a76ba4a4fb626899)) by @DEgITx
+- **p2p:** Peers backup on exit([6de95a1](https://github.com/DEgITx/rats-search/commit/6de95a1addc0572eebc956d601a42267fc05e3e0)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 14 commits
+
+
+## [0.9.0](https://github.com/DEgITx/rats-search/compare/v0.8.0...v0.9.0) (2018-03-02)
+
+
+### 📚 Documentation
+
+
+- **usage:** English basic translation of usage manual([0b39227](https://github.com/DEgITx/rats-search/commit/0b39227a1f075f89d7ac4464f65ab69a4b8e9f57)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **network:** UPnP support([b876c71](https://github.com/DEgITx/rats-search/commit/b876c71f124ef47ada8e6f3f22bacb7cb8352b52)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
+## [0.8.0](https://github.com/DEgITx/rats-search/compare/v0.7.1...v0.8.0) (2018-03-01)
+
+
+### ⚡ Performance
+
+
+- **network:** Network usage optimization([590671e](https://github.com/DEgITx/rats-search/commit/590671e1f5bdb826a5978701209094eacd1d9f3a)) by @DEgITx
+- **network:** Limit package usage([bdaaa02](https://github.com/DEgITx/rats-search/commit/bdaaa020cc23bd38d5fc565c0712e0dd214a585f)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **docs:** Basic ru doc([30e2c53](https://github.com/DEgITx/rats-search/commit/30e2c53c676b8cc3fa9f68720a25106109da51b1)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **config:** Some network limitations([9a95903](https://github.com/DEgITx/rats-search/commit/9a95903cd5e298456e388e981333d084e75a778c)) by @DEgITx
+- **config:** New scanning options([df969bf](https://github.com/DEgITx/rats-search/commit/df969bf9b95819b895c99598bb4dd1910f3573a5)) by @DEgITx
+- **menu:** Report bug in application([3eda3f8](https://github.com/DEgITx/rats-search/commit/3eda3f84ca3fa41eec2c78368c2784aa19eaaa91)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
 ## [0.7.1](https://github.com/DEgITx/rats-search/compare/v0.7.0...v0.7.1) (2018-02-21)
 
 
-### Bug Fixes
-
-* **config:** settings port descriptions ([e7b30ab](https://github.com/DEgITx/rats-search/commit/e7b30ab))
-* **p2p:** errors on peers ignore ([4b21c38](https://github.com/DEgITx/rats-search/commit/4b21c38))
-
-<a name="0.7.0"></a>
-# [0.7.0](https://github.com/DEgITx/rats-search/compare/v0.6.1...v0.7.0) (2018-02-18)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **app:** messaging on closing ([f117b61](https://github.com/DEgITx/rats-search/commit/f117b61))
-* **config:** color of search indicator ([69c391b](https://github.com/DEgITx/rats-search/commit/69c391b))
-* **p2p:** closing on end ([a1c9adb](https://github.com/DEgITx/rats-search/commit/a1c9adb))
-* **p2p:** closing on end reverted (it was ok by default) ([ee3df81](https://github.com/DEgITx/rats-search/commit/ee3df81))
-* **p2p:** compact convert ip's ([b84c9da](https://github.com/DEgITx/rats-search/commit/b84c9da))
-* **p2p:** fix disconnects after each call ([12d66ff](https://github.com/DEgITx/rats-search/commit/12d66ff))
-* **p2p:** ignore errors on conn ([8e81bbc](https://github.com/DEgITx/rats-search/commit/8e81bbc))
+- **config:** Settings port descriptions([d560e5e](https://github.com/DEgITx/rats-search/commit/d560e5ec23027d8a21fc1d075c1d394f1956ae53)) by @DEgITx
+- **p2p:** Errors on peers ignore([c91ade5](https://github.com/DEgITx/rats-search/commit/c91ade59031949bab8db63aa4220c46c424a59d5)) by @DEgITx
 
 
-### Features
-
-* **app:** p2p peers indicator ([3d4dbd5](https://github.com/DEgITx/rats-search/commit/3d4dbd5))
-* **config:** p2p enable/disable ([5bd2e75](https://github.com/DEgITx/rats-search/commit/5bd2e75))
-* **p2p:** basic search retransfer ([da7ea2a](https://github.com/DEgITx/rats-search/commit/da7ea2a))
-* **p2p:** files search also ([8c79960](https://github.com/DEgITx/rats-search/commit/8c79960))
-* **p2p:** ignore your address ([f0f3692](https://github.com/DEgITx/rats-search/commit/f0f3692))
-* **p2p:** other rats peers detection ([24c50d3](https://github.com/DEgITx/rats-search/commit/24c50d3))
 
 
-### Performance Improvements
-
-* **p2p:** reduce traffic of p2p calls ([cd6d0a2](https://github.com/DEgITx/rats-search/commit/cd6d0a2))
-
-<a name="0.6.1"></a>
-## [0.6.1](https://github.com/DEgITx/rats-search/compare/v0.6.0...v0.6.1) (2018-02-12)
+### 👥 Contributors
 
 
-### Bug Fixes
 
-* **macos:** fix closing under some platforms ([c765145](https://github.com/DEgITx/rats-search/commit/c765145))
-
-<a name="0.6.0"></a>
-# [0.6.0](https://github.com/DEgITx/rats-search/compare/v0.5.0...v0.6.0) (2018-02-12)
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
 
 
-### Bug Fixes
-
-* **macos:** fix updates on Mac OS X ([91e4f93](https://github.com/DEgITx/rats-search/commit/91e4f93))
-* **macos:** normal icon ([d138c85](https://github.com/DEgITx/rats-search/commit/d138c85))
-* **windows:** start fix in some cases (possible win7 fix) ([45c408f](https://github.com/DEgITx/rats-search/commit/45c408f))
+## [0.7.0](https://github.com/DEgITx/rats-search/compare/v0.6.1...v0.7.0) (2018-02-18)
 
 
-### Features
-
-* **app:** allow run only single application at same time ([e942c03](https://github.com/DEgITx/rats-search/commit/e942c03))
-* **log:** log autoupdate info ([1e5392d](https://github.com/DEgITx/rats-search/commit/1e5392d))
-* **log:** system information ([023d33f](https://github.com/DEgITx/rats-search/commit/023d33f))
-
-<a name="0.5.0"></a>
-# [0.5.0](https://github.com/DEgITx/rats-search/compare/v0.4.0...v0.5.0) (2018-02-11)
+### ⚡ Performance
 
 
-### Bug Fixes
-
-* **autoupdate:** fix error on downloading updater ([023bb97](https://github.com/DEgITx/rats-search/commit/023bb97))
+- **p2p:** Reduce traffic of p2p calls([d011d6e](https://github.com/DEgITx/rats-search/commit/d011d6ed825e471eec1742d326ebf8435be4ae4c)) by @DEgITx
 
 
-### Features
-
-* **autoupdate:** autoupdate on statup ([b308bb5](https://github.com/DEgITx/rats-search/commit/b308bb5))
-
-<a name="0.4.0"></a>
-# [0.4.0](https://github.com/DEgITx/rats-search/compare/v0.3.1...v0.4.0) (2018-02-10)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **app:** fix removing events on render process ([f1bfd41](https://github.com/DEgITx/rats-search/commit/f1bfd41))
-* **app:** support additional arguments on messages ([f306c53](https://github.com/DEgITx/rats-search/commit/f306c53))
-* **download:** bug when cancel button not appear in main page ([d317c30](https://github.com/DEgITx/rats-search/commit/d317c30))
-* **download:** cancel controls on torrent element ([cd1f89c](https://github.com/DEgITx/rats-search/commit/cd1f89c))
-* **download:** problem on dht api after delete torrent ([ea8bc01](https://github.com/DEgITx/rats-search/commit/ea8bc01))
-* **image:** restored spinner on downloading metadata ([387945a](https://github.com/DEgITx/rats-search/commit/387945a))
-* **unix:** resolve problem with icon part at some systems ([0e5e045](https://github.com/DEgITx/rats-search/commit/0e5e045)), closes [#3](https://github.com/DEgITx/rats-search/issues/3)
+- **p2p:** Compact convert ip's([a57ff6e](https://github.com/DEgITx/rats-search/commit/a57ff6e43021aebf0fd1fec1090175b32a91d591)) by @DEgITx
+- **p2p:** Fix disconnects after each call([98f0404](https://github.com/DEgITx/rats-search/commit/98f040486963d4a10fee0613fd18849e6666c1e0)) by @DEgITx
+- **p2p:** Closing on end([196f046](https://github.com/DEgITx/rats-search/commit/196f04645cdd2e2d0a1f41a0d4fb93c9e806cbd2)) by @DEgITx
+- **app:** Messaging on closing([cbab330](https://github.com/DEgITx/rats-search/commit/cbab33039a201b9117625689901b899ee83085dc)) by @DEgITx
+- **p2p:** Closing on end reverted (it was ok by default)([f23d459](https://github.com/DEgITx/rats-search/commit/f23d45996beb0ded5d42fbf452a342cf029afbb4)) by @DEgITx
+- **config:** Color of search indicator([fd4f3b0](https://github.com/DEgITx/rats-search/commit/fd4f3b09e5a77a0d3901634b69cae8ee1ddb7205)) by @DEgITx
+- **p2p:** Ignore errors on conn([64ab971](https://github.com/DEgITx/rats-search/commit/64ab97127ad3de84786db7c7c88e6527d8ee64ea)) by @DEgITx
 
 
-### Features
+### 🚀 Features
 
-* **config:** download torrents directory in config ([9ac5539](https://github.com/DEgITx/rats-search/commit/9ac5539))
-* **download:** basic torrent download support ([0abd516](https://github.com/DEgITx/rats-search/commit/0abd516))
-* **download:** cancel downloading ([fd03491](https://github.com/DEgITx/rats-search/commit/fd03491))
-* **download:** more control over torrent download ([395a30e](https://github.com/DEgITx/rats-search/commit/395a30e))
-* **download:** torrent progress on torrent element ([70a7daa](https://github.com/DEgITx/rats-search/commit/70a7daa))
-* **menu:** new context menu with copy/paste ([2bf8970](https://github.com/DEgITx/rats-search/commit/2bf8970))
 
-<a name="0.3.1"></a>
+- **p2p:** Other rats peers detection([b1d2c4a](https://github.com/DEgITx/rats-search/commit/b1d2c4a3345f611b767e09daf412840849328a02)) by @DEgITx
+- **p2p:** Basic search retransfer([91f5a3f](https://github.com/DEgITx/rats-search/commit/91f5a3fabd6caef884f4f9bd4d74c9e86ed1df90)) by @DEgITx
+- **p2p:** Files search also([c33f927](https://github.com/DEgITx/rats-search/commit/c33f927a7d394e41b6b316784e34d9fe1bb5f88b)) by @DEgITx
+- **app:** P2p peers indicator([e5b9e47](https://github.com/DEgITx/rats-search/commit/e5b9e4793a4a0de588c94fa3effa2adc4ed14032)) by @DEgITx
+- **config:** P2p enable/disable([ca7afa6](https://github.com/DEgITx/rats-search/commit/ca7afa614ad7e37ac8818d91270603aef6dfdac6)) by @DEgITx
+- **p2p:** Ignore your address([08b73aa](https://github.com/DEgITx/rats-search/commit/08b73aa7a9b2dbc8bbe418ad965f2ea88a4e7903)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 14 commits
+
+
+## [0.6.0](https://github.com/DEgITx/rats-search/compare/v0.5.0...v0.6.0) (2018-02-12)
+
+
+### 🐛 Bug Fixes
+
+
+- **macos:** Fix updates on Mac OS X([fd64c70](https://github.com/DEgITx/rats-search/commit/fd64c708538e3d76c2112381201603393d2792d8)) by @DEgITx
+- **macos:** Normal icon([2125abc](https://github.com/DEgITx/rats-search/commit/2125abc9b4a4224ddf78ab32525dd1f4fc6a3418)) by @DEgITx
+- **windows:** Start fix in some cases (possible win7 fix)([464da34](https://github.com/DEgITx/rats-search/commit/464da346d1c882f465abc1d00145c57a13533247)) by @DEgITx
+- **macos:** Fix closing under some platforms([a5caf25](https://github.com/DEgITx/rats-search/commit/a5caf25269a0bcf87181c4f13f652c447aab1c93)) by @DEgITx
+
+
+### 🔧 Refactor
+
+
+- **path:** Search path module([4a85510](https://github.com/DEgITx/rats-search/commit/4a855104b1bd5476e2dfb62272023976135c8fae)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **log:** Log autoupdate info([cb28d1e](https://github.com/DEgITx/rats-search/commit/cb28d1edee6a793316e2b316b58c4e2ae9a5c0b2)) by @DEgITx
+- **log:** System information([b984565](https://github.com/DEgITx/rats-search/commit/b984565b0f9bb6c2bd4158f7f6d17f5c1fd5710d)) by @DEgITx
+- **app:** Allow run only single application at same time([ae8b35e](https://github.com/DEgITx/rats-search/commit/ae8b35e68561bac34a2066a049551a258a5bbc28)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
+## [0.5.0](https://github.com/DEgITx/rats-search/compare/v0.4.0...v0.5.0) (2018-02-11)
+
+
+### 🐛 Bug Fixes
+
+
+- **autoupdate:** Fix error on downloading updater([f7a3308](https://github.com/DEgITx/rats-search/commit/f7a3308fab6f5177640ca30342fe61f980354272)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Notification about torrent integration([78e4090](https://github.com/DEgITx/rats-search/commit/78e4090c22a0c925c74d10da65bf8ca4b3d95fb8)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **autoupdate:** Autoupdate on statup([ee1a601](https://github.com/DEgITx/rats-search/commit/ee1a6013d60f71fe3546e139c65fc990a390a87f)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
+
+## [0.4.0](https://github.com/DEgITx/rats-search/compare/v0.3.1...v0.4.0) (2018-02-10)
+
+
+### 🐛 Bug Fixes
+
+
+- **app:** Support additional arguments on messages([0e46df3](https://github.com/DEgITx/rats-search/commit/0e46df3dbc44accb4df28a40b2d52a8941de03df)) by @DEgITx
+- **app:** Fix removing events on render process([075bf7a](https://github.com/DEgITx/rats-search/commit/075bf7a9da0db907dbedddf4a7d4bb01284d78a2)) by @DEgITx
+- **image:** Restored spinner on downloading metadata([63e1af9](https://github.com/DEgITx/rats-search/commit/63e1af9b59f5bf12bc838a781ad8b1228b0a7355)) by @DEgITx
+- **download:** Problem on dht api after delete torrent([00d03ed](https://github.com/DEgITx/rats-search/commit/00d03ed81e9b9eb8e7b3a08ae0df9d25ce07ad49)) by @DEgITx
+- **download:** Cancel controls on torrent element([ef70521](https://github.com/DEgITx/rats-search/commit/ef705211ab7f3cdc81d0f89c65d48163fac4c360)) by @DEgITx
+- **download:** Bug when cancel button not appear in main page([73299fb](https://github.com/DEgITx/rats-search/commit/73299fbbc8d281342819c5a8e0e010edc84b0ea5)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Release version in readme([9741c92](https://github.com/DEgITx/rats-search/commit/9741c92019fefbe384daf61f7bb26ab371baaac0)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **download:** Basic torrent download support([765177d](https://github.com/DEgITx/rats-search/commit/765177d89d9dfcca3d4a0dc3252126b93fc30958)) by @DEgITx
+- **download:** More control over torrent download([6b28874](https://github.com/DEgITx/rats-search/commit/6b288741d19803cb8e99eec16bb993b4b88ace83)) by @DEgITx
+- **menu:** New context menu with copy/paste([c035e88](https://github.com/DEgITx/rats-search/commit/c035e880e960faf5886682e431d5170a89d0c3e9)) by @DEgITx
+- **download:** Torrent progress on torrent element([603798c](https://github.com/DEgITx/rats-search/commit/603798cbce2c1b5fb62a2b500d60b8ed9cc076c7)) by @DEgITx
+- **config:** Download torrents directory in config([d320448](https://github.com/DEgITx/rats-search/commit/d3204489034d60cf7eecc856a5489a8312d73714)) by @DEgITx
+- **download:** Cancel downloading([76651b6](https://github.com/DEgITx/rats-search/commit/76651b6e026670a141e371e58728d6525f4de775)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 13 commits
+
+
 ## [0.3.1](https://github.com/DEgITx/rats-search/compare/v0.3.0...v0.3.1) (2018-02-06)
 
 
-### Bug Fixes
-
-* **windows:** resolve some encoding problem with search daemon process ([91c99d1](https://github.com/DEgITx/rats-search/commit/91c99d1))
-
-<a name="0.3.0"></a>
-# [0.3.0](https://github.com/DEgITx/rats-search/compare/v0.2.0...v0.3.0) (2018-02-05)
+### 🐛 Bug Fixes
 
 
-### Bug Fixes
-
-* **config:** fixed saving configuration on develop builds ([b640bd4](https://github.com/DEgITx/rats-search/commit/b640bd4))
-* **feed:** disabled fake torrents for desktop ([101c1b6](https://github.com/DEgITx/rats-search/commit/101c1b6))
+- **unix:** Resolve problem with icon part at some systems([4cc1e8a](https://github.com/DEgITx/rats-search/commit/4cc1e8a62ba129c194ff2716afcf7c7c84565847)) by @DEgITx
 
 
-### Features
-
-* **changelog:** changelog inside application ([988d714](https://github.com/DEgITx/rats-search/commit/988d714))
-* **config:** database place path ([8d58a7f](https://github.com/DEgITx/rats-search/commit/8d58a7f))
-* **config:** message when settings saved ([6b793aa](https://github.com/DEgITx/rats-search/commit/6b793aa))
-* **config:** new settings for application (port, cpu usage eth.) ([6b5ee01](https://github.com/DEgITx/rats-search/commit/6b5ee01))
-
-<a name="0.2.0"></a>
-# [0.2.0](https://github.com/DEgITx/rats-search/compare/v0.1.0...v0.2.0) (2018-02-04)
 
 
-### Bug Fixes
-
-* **app:** fast and proper closing ([3123a82](https://github.com/DEgITx/rats-search/commit/3123a82))
-* **config:** saving config restored ([ddc309e](https://github.com/DEgITx/rats-search/commit/ddc309e))
-* **interface:** back button on save page ([342a64e](https://github.com/DEgITx/rats-search/commit/342a64e))
-* **linux:** options on start ([a069a0e](https://github.com/DEgITx/rats-search/commit/a069a0e))
-* **linux:** proper db use under linux ([0c60c0d](https://github.com/DEgITx/rats-search/commit/0c60c0d))
-* **macos:** network category of application ([34c8f33](https://github.com/DEgITx/rats-search/commit/34c8f33))
-* **macos:** proper work under MacOS X ([5a86c51](https://github.com/DEgITx/rats-search/commit/5a86c51))
-* **scanner:** scanner second enable call ([c77f056](https://github.com/DEgITx/rats-search/commit/c77f056))
-* **tests:** disable scanner tests ([7958a19](https://github.com/DEgITx/rats-search/commit/7958a19))
+### 👥 Contributors
 
 
-### Features
 
-* **build:** semantic release messages scan ([af591e8](https://github.com/DEgITx/rats-search/commit/af591e8))
-* **config:** saving configuration ([7247044](https://github.com/DEgITx/rats-search/commit/7247044))
-* **db:** new database ([2703f8a](https://github.com/DEgITx/rats-search/commit/2703f8a))
-* **readme:** readme ([adb0b49](https://github.com/DEgITx/rats-search/commit/adb0b49))
-* **readme:** semantic release in readme ([8319dce](https://github.com/DEgITx/rats-search/commit/8319dce))
-* **readme:** travis status build in readme ([f5b8b88](https://github.com/DEgITx/rats-search/commit/f5b8b88))
-* **tests:** db test ([fdf528e](https://github.com/DEgITx/rats-search/commit/fdf528e))
-* **tests:** new scanner test ([0c6544f](https://github.com/DEgITx/rats-search/commit/0c6544f))
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+## [0.3.0](https://github.com/DEgITx/rats-search/compare/v0.2.0...v0.3.0) (2018-02-05)
+
+
+### 🐛 Bug Fixes
+
+
+- **config:** Fixed saving configuration on develop builds([9a99803](https://github.com/DEgITx/rats-search/commit/9a99803c68b55141f5c4677598d2b714c5a30de6)) by @DEgITx
+- **feed:** Disabled fake torrents for desktop([74def9f](https://github.com/DEgITx/rats-search/commit/74def9f7638a7c5a2dfcdd00944c5fc973e9c6eb)) by @DEgITx
+- **windows:** Resolve some encoding problem with search daemon process([7b4f370](https://github.com/DEgITx/rats-search/commit/7b4f37081fd19b3826587ca8fe843444f32eb661)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- **readme:** Contribution section([ce6698d](https://github.com/DEgITx/rats-search/commit/ce6698da973b9efa20c2c25ac4b8db0ae44216f9)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **config:** Database place path([17aff1a](https://github.com/DEgITx/rats-search/commit/17aff1aca0acecc53c709f4a8ca8c3ef14671865)) by @DEgITx
+- **changelog:** Changelog inside application([9bac53f](https://github.com/DEgITx/rats-search/commit/9bac53f559f42551767ca7fce1f130660924d852)) by @DEgITx
+- **config:** Message when settings saved([8212748](https://github.com/DEgITx/rats-search/commit/8212748f475991e8df023b9f0755abde42781232)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 7 commits
+
+
+## [0.2.0](https://github.com/DEgITx/rats-search/compare/v0.1.0...v0.2.0) (2018-02-04)
+
+
+### 🐛 Bug Fixes
+
+
+- **config:** Saving config restored([fa1512d](https://github.com/DEgITx/rats-search/commit/fa1512dee56a6332c23a82b419360f956ff122b2)) by @DEgITx
+- **scanner:** Scanner second enable call([8bbe87e](https://github.com/DEgITx/rats-search/commit/8bbe87ec7417d0e07779953f87c300a1a80b2ba9)) by @DEgITx
+- **interface:** Back button on save page([513df76](https://github.com/DEgITx/rats-search/commit/513df76c576875794c9b18498c18ef2332dbad8f)) by @DEgITx
+- **app:** Fast and proper closing([837f595](https://github.com/DEgITx/rats-search/commit/837f59569f28e9866d3fd5c83397d8d6b97a2551)) by @DEgITx
+- **linux:** Proper db use under linux([23e4b60](https://github.com/DEgITx/rats-search/commit/23e4b603d5b7249e502fc19ec9e93ec399c8294f))
+- **linux:** Options on start([936612c](https://github.com/DEgITx/rats-search/commit/936612c91348b9493d2185939b6b9232c84766ea)) by @DEgITx
+- **tests:** Disable scanner tests([2830525](https://github.com/DEgITx/rats-search/commit/28305250aa4484a310156bbf6bde8b8abd2288c6)) by @DEgITx
+- **macos:** Proper work under MacOS X([d2bf25d](https://github.com/DEgITx/rats-search/commit/d2bf25de6bbad512d075396378365492097c3195)) by @DEgITx
+- **macos:** Network category of application([3eb22fa](https://github.com/DEgITx/rats-search/commit/3eb22facb88a34f25d6b9be324440e4a42350d9f)) by @DEgITx
+
+
+### 📦 Miscellaneous
+
+
+- **tests:** Tests simplified([d21e093](https://github.com/DEgITx/rats-search/commit/d21e093ac7e570b127d6b7f0ee3134d90a65daad)) by @DEgITx
+- **ci:** Restore travis build([40c8585](https://github.com/DEgITx/rats-search/commit/40c8585129beb4280811c0dee8f16d1c0a1ce2b4)) by @DEgITx
+- **mac:** Move brew packages to release([e8e7179](https://github.com/DEgITx/rats-search/commit/e8e717992b1c8215eaad99adf3770924e91a6f9b)) by @DEgITx
+- **ci:** Fix platform builds([547703f](https://github.com/DEgITx/rats-search/commit/547703faa34e8ba08a9cb69de86aec2bd225e396)) by @DEgITx
+- **ci:** Changelog publish fix([501238b](https://github.com/DEgITx/rats-search/commit/501238b71a7a4dd3db9d985153d338792b78cd52)) by @DEgITx
+- **ci:** Resolved problem with often builds([5a6c7f0](https://github.com/DEgITx/rats-search/commit/5a6c7f02bacf2641cbd5201d929b910e5daf71e3)) by @DEgITx
+
+
+### 🔧 Refactor
+
+
+- **db:** One basic function to all files push([5fc8ddd](https://github.com/DEgITx/rats-search/commit/5fc8ddde2bba306a76c4e2669ad273481fad2f30)) by @DEgITx
+- **tests:** Rename e2e tests([6646381](https://github.com/DEgITx/rats-search/commit/6646381a49577ba691131befd7746f272a161ae8)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **config:** Saving configuration([3160720](https://github.com/DEgITx/rats-search/commit/316072008acb9aff5cd7cd18300619230a908f52)) by @DEgITx
+- **db:** New database([98309ab](https://github.com/DEgITx/rats-search/commit/98309ab681587b3646d9665fc91fccb249ce6e49)) by @DEgITx
+- **tests:** New scanner test([b205245](https://github.com/DEgITx/rats-search/commit/b205245e4009352a438aa29509bb7d86509c55aa)) by @DEgITx
+- **tests:** Db test([ae6864b](https://github.com/DEgITx/rats-search/commit/ae6864ba558281ec40d5b0cf67b7021cc946ab52)) by @DEgITx
+- **readme:** Readme([c904f8b](https://github.com/DEgITx/rats-search/commit/c904f8b11416522fbb7a5f0bd781afa6a6c9f5c9)) by @DEgITx
+- **build:** Semantic release messages scan([354d68b](https://github.com/DEgITx/rats-search/commit/354d68bd5c39b508188850e4e6b89448ae747461)) by @DEgITx
+- **readme:** Travis status build in readme([864d24c](https://github.com/DEgITx/rats-search/commit/864d24c783b906012e247c6c1be9f4d711a9c493)) by @DEgITx
+- **readme:** Semantic release in readme([8f5ace0](https://github.com/DEgITx/rats-search/commit/8f5ace0a8001de1cfa93bdede8b4281fae2bc498)) by @DEgITx
+- **config:** New settings for application (port, cpu usage eth.)([a87a59a](https://github.com/DEgITx/rats-search/commit/a87a59a828e56c38e0482f73c1a1f94fb4d9faf2)) by @semantic-release-bot
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 24 commits
+
+
+- [@semantic-release-bot](https://github.com/semantic-release-bot) — 1 commit
+
+
+## [0.1.0](https://github.com/DEgITx/rats-search/compare/...v0.1.0) (2018-01-29)
+
+
+
+
