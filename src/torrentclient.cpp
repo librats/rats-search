@@ -196,54 +196,64 @@ bool TorrentClient::downloadTorrent(const QString& magnetLink, const QString& sa
     qInfo() << "TorrentClient: Adding torrent" << hash << "to" << path;
     
     // Add torrent by hash (uses DHT for peer discovery)
+    // Note: Returns nullptr when metadata needs to be downloaded via BEP 9
+    // This is NOT an error - metadata will be fetched asynchronously
     auto download = client->add_torrent_by_hash(hash.toStdString(), path.toStdString());
-    
-    if (!download) {
-        qWarning() << "TorrentClient: Failed to add torrent:" << hash;
-        return false;
-    }
     
     // Create ActiveTorrent entry
     ActiveTorrent torrent;
     torrent.hash = hash;
     torrent.savePath = path;
-    torrent.download = download;
+    torrent.download = download;  // May be nullptr while metadata is being fetched
     
-    // Get info if available
-    const auto& info = download->get_torrent_info();
-    if (info.is_valid() && !info.is_metadata_only()) {
-        torrent.name = QString::fromStdString(info.get_name());
-        torrent.totalSize = static_cast<qint64>(info.get_total_length());
-        torrent.ready = true;
-        
-        // Populate files
-        const auto& files = info.get_files();
-        for (size_t i = 0; i < files.size(); ++i) {
-            TorrentFileInfo fi;
-            fi.path = QString::fromStdString(files[i].path);
-            fi.size = static_cast<qint64>(files[i].length);
-            fi.index = static_cast<int>(i);
-            fi.selected = true;
-            torrent.files.append(fi);
+    if (download) {
+        // Get info if available
+        const auto& info = download->get_torrent_info();
+        if (info.is_valid() && !info.is_metadata_only()) {
+            torrent.name = QString::fromStdString(info.get_name());
+            torrent.totalSize = static_cast<qint64>(info.get_total_length());
+            torrent.ready = true;
+            
+            // Populate files
+            const auto& files = info.get_files();
+            for (size_t i = 0; i < files.size(); ++i) {
+                TorrentFileInfo fi;
+                fi.path = QString::fromStdString(files[i].path);
+                fi.size = static_cast<qint64>(files[i].length);
+                fi.index = static_cast<int>(i);
+                fi.selected = true;
+                torrent.files.append(fi);
+            }
+        } else {
+            torrent.name = hash;  // Use hash as placeholder name
+            torrent.ready = false;
         }
+        
+        // Setup callbacks
+        setupTorrentCallbacks(hash, download);
     } else {
+        // Metadata being fetched via BEP 9
         torrent.name = hash;  // Use hash as placeholder name
+        torrent.ready = false;
+        qInfo() << "TorrentClient: Waiting for metadata via BEP 9 for:" << hash;
     }
     
-    // Setup callbacks
-    setupTorrentCallbacks(hash, download);
-    
-    // Store and start
+    // Store torrent
     {
         QMutexLocker lock(&torrentsMutex_);
         torrents_[hash] = torrent;
     }
     
-    download->start();
+    // Start download if we have metadata
+    if (download) {
+        download->start();
+    }
     
-    // Emit signals
+    // Always emit downloadStarted - UI can show "Fetching metadata..." for ready=false
+    emit downloadStarted(hash);
+    
+    // Emit files only if metadata is available
     if (torrent.ready) {
-        emit downloadStarted(hash);
         emit filesReady(hash, torrent.files);
     }
     
@@ -579,27 +589,12 @@ bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, q
         }
     }
     
-    // Use downloadTorrent but first pre-populate the entry with known info
-    {
-        QMutexLocker lock(&torrentsMutex_);
-        ActiveTorrent torrent;
-        torrent.hash = normalizedHash;
-        torrent.name = torrentName.isEmpty() ? normalizedHash : torrentName;
-        torrent.totalSize = torrentSize;
-        torrent.savePath = savePath.isEmpty() ? defaultDownloadPath_ : savePath;
-        torrent.ready = false;
-        torrent.completed = false;
-        torrents_[normalizedHash] = torrent;
-    }
-    
     // Now do the actual download
     QString path = savePath.isEmpty() ? defaultDownloadPath_ : savePath;
     
 #ifdef RATS_SEARCH_FEATURES
     if (!isReady()) {
         qWarning() << "TorrentClient: Not ready";
-        QMutexLocker lock(&torrentsMutex_);
-        torrents_.remove(normalizedHash);
         return false;
     }
     
@@ -612,33 +607,46 @@ bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, q
     auto* client = p2pNetwork_->getRatsClient();
     qInfo() << "TorrentClient: Adding torrent with info" << normalizedHash << torrentName.left(50);
     
+    // add_torrent_by_hash returns nullptr when metadata needs to be downloaded via BEP 9
+    // This is NOT an error - metadata will be fetched asynchronously from DHT peers
     auto download = client->add_torrent_by_hash(normalizedHash.toStdString(), path.toStdString());
     
-    if (!download) {
-        qWarning() << "TorrentClient: Failed to add torrent:" << normalizedHash;
-        QMutexLocker lock(&torrentsMutex_);
-        torrents_.remove(normalizedHash);
-        return false;
-    }
-    
-    // Update with librats download handle
+    // Create ActiveTorrent entry (even if download is nullptr - metadata is being fetched)
     {
         QMutexLocker lock(&torrentsMutex_);
-        auto it = torrents_.find(normalizedHash);
-        if (it != torrents_.end()) {
-            it->download = download;
-            it->savePath = path;
-        }
+        ActiveTorrent torrent;
+        torrent.hash = normalizedHash;
+        torrent.name = torrentName.isEmpty() ? normalizedHash : torrentName;
+        torrent.totalSize = torrentSize;
+        torrent.savePath = path;
+        torrent.download = download;  // May be nullptr while metadata is being fetched
+        torrent.ready = (download != nullptr);  // Ready only if we already have metadata
+        torrent.completed = false;
+        torrents_[normalizedHash] = torrent;
     }
     
-    setupTorrentCallbacks(normalizedHash, download);
-    download->start();
+    if (download) {
+        // Metadata already available - setup callbacks and start
+        setupTorrentCallbacks(normalizedHash, download);
+        download->start();
+        
+        // Emit download started signal
+        emit downloadStarted(normalizedHash);
+    } else {
+        // Metadata being fetched via BEP 9 - torrent will be updated in onUpdateTimer
+        // when metadata becomes available
+        qInfo() << "TorrentClient: Waiting for metadata via BEP 9 for:" << normalizedHash;
+        
+        // Emit download started even though we're waiting for metadata
+        // UI can show "Fetching metadata..." state
+        emit downloadStarted(normalizedHash);
+    }
     
     return true;
 #else
     Q_UNUSED(path);
-    QMutexLocker lock(&torrentsMutex_);
-    torrents_.remove(normalizedHash);
+    Q_UNUSED(torrentName);
+    Q_UNUSED(torrentSize);
     return false;
 #endif
 }
@@ -867,15 +875,19 @@ int TorrentClient::loadSession(const QString& filePath)
 
 void TorrentClient::onUpdateTimer()
 {
+#ifdef RATS_SEARCH_FEATURES
     QMutexLocker lock(&torrentsMutex_);
     
     QStringList toRemove;
+    QStringList pendingMetadata;  // Torrents waiting for metadata
     
     for (auto it = torrents_.begin(); it != torrents_.end(); ++it) {
         const QString& hash = it.key();
         ActiveTorrent& torrent = it.value();
         
+        // Check if torrent is waiting for metadata (download == nullptr)
         if (!torrent.download) {
+            pendingMetadata.append(hash);
             continue;
         }
         
@@ -906,10 +918,70 @@ void TorrentClient::onUpdateTimer()
     
     lock.unlock();
     
+    // Check if metadata has been received for pending torrents
+    // (complete_metadata_download -> add_torrent creates the TorrentDownload)
+    if (!pendingMetadata.isEmpty() && p2pNetwork_) {
+        auto* client = p2pNetwork_->getRatsClient();
+        if (client) {
+            for (const QString& hash : pendingMetadata) {
+                librats::InfoHash infoHash = librats::hex_to_info_hash(hash.toStdString());
+                auto download = client->get_torrent(infoHash);
+                
+                if (download) {
+                    // Metadata received! Update the torrent entry
+                    QMutexLocker lock(&torrentsMutex_);
+                    auto it = torrents_.find(hash);
+                    if (it != torrents_.end()) {
+                        it->download = download;
+                        it->ready = true;
+                        
+                        // Update info from metadata
+                        const auto& info = download->get_torrent_info();
+                        if (info.is_valid() && !info.is_metadata_only()) {
+                            it->name = QString::fromStdString(info.get_name());
+                            it->totalSize = static_cast<qint64>(info.get_total_length());
+                            
+                            // Populate files
+                            it->files.clear();
+                            const auto& files = info.get_files();
+                            for (size_t i = 0; i < files.size(); ++i) {
+                                TorrentFileInfo fi;
+                                fi.path = QString::fromStdString(files[i].path);
+                                fi.size = static_cast<qint64>(files[i].length);
+                                fi.index = static_cast<int>(i);
+                                fi.selected = true;
+                                it->files.append(fi);
+                            }
+                            
+                            qInfo() << "TorrentClient: Metadata received for:" << it->name;
+                            
+                            // Setup callbacks and start download
+                            QString savePath = it->savePath;
+                            lock.unlock();
+                            
+                            setupTorrentCallbacks(hash, download);
+                            download->start();
+                            
+                            // Emit signals for UI update
+                            QMutexLocker lock2(&torrentsMutex_);
+                            auto it2 = torrents_.find(hash);
+                            if (it2 != torrents_.end()) {
+                                QVector<TorrentFileInfo> filesCopy = it2->files;
+                                lock2.unlock();
+                                emit filesReady(hash, filesCopy);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     // Remove completed torrents marked for removal
     for (const QString& hash : toRemove) {
         stopTorrent(hash);
     }
+#endif
 }
 
 // ============================================================================
