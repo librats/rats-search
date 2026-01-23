@@ -22,6 +22,11 @@ QMainWindow {
     color: #e0e0e0;
 }
 
+/* Central widget needs explicit background on Windows */
+QMainWindow > QWidget {
+    background-color: #1a1a1a;
+}
+
 QWidget {
     background-color: transparent;
     color: #e0e0e0;
