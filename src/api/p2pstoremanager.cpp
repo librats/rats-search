@@ -4,6 +4,9 @@
 #include <QDebug>
 #include <QDateTime>
 #include <QUuid>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 // Include librats headers
 #include "librats.h"
