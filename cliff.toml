@@ -23,8 +23,20 @@ body = """
             {{ commit.message | upper_first }}\
             {% if commit.github.pr_number %} ([#{{ commit.github.pr_number }}](https://github.com/DEgITx/rats-search/pull/{{ commit.github.pr_number }})){% endif %}\
             ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/DEgITx/rats-search/commit/{{ commit.id }}))\
+            {% if commit.github.username %} by @{{ commit.github.username }}{% endif %}\
     {% endfor %}
-{% endfor %}\n
+{% endfor %}
+{% set sorted_contributors = commits | group_by(attribute="github.username") %}
+{% if sorted_contributors | length > 0 %}
+
+    ### 👥 Contributors
+
+    {% for username, user_commits in sorted_contributors %}
+        {% if username %}
+            - [@{{ username }}](https://github.com/{{ username }}) — {{ user_commits | length }} commit{% if user_commits | length > 1 %}s{% endif %}\
+        {% endif %}
+    {% endfor %}
+{% endif %}\n
 """
 footer = ""
 trim = true
