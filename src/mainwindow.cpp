@@ -478,6 +478,18 @@ void MainWindow::startServices()
     } else {
         qInfo() << "P2P network start took:" << (timer.elapsed() - p2pStart) << "ms";
         logActivity("✅ P2P network started");
+        
+        // Initialize TorrentClient after P2P is running (requires RatsClient)
+        if (torrentClient && !torrentClient->isReady()) {
+            qint64 tcStart = timer.elapsed();
+            if (torrentClient->initialize(p2pNetwork.get(), torrentDatabase.get())) {
+                qInfo() << "TorrentClient initialize took:" << (timer.elapsed() - tcStart) << "ms";
+                logActivity("✅ TorrentClient initialized");
+            } else {
+                qWarning() << "Failed to initialize TorrentClient";
+                logActivity("⚠️ TorrentClient initialization failed - downloads disabled");
+            }
+        }
     }
     
     // Start torrent spider

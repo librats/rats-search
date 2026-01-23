@@ -121,10 +121,10 @@ bool TorrentClient::initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database
         return false;
     }
     
-    // Ensure BitTorrent is enabled
-    if (!client->is_bittorrent_enabled()) {
-        qInfo() << "TorrentClient: Enabling BitTorrent...";
-        if (!client->enable_bittorrent(6881)) {
+    // Ensure BitTorrent is enabled using P2PNetwork (uses configured DHT port)
+    if (!p2pNetwork_->isBitTorrentEnabled()) {
+        qInfo() << "TorrentClient: Enabling BitTorrent via P2PNetwork...";
+        if (!p2pNetwork_->enableBitTorrent()) {
             qWarning() << "TorrentClient: Failed to enable BitTorrent";
             return false;
         }
