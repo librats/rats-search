@@ -19,6 +19,8 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QMutex>
+#include <QMutexLocker>
 
 // ============================================================================
 // Helper functions (declared first for use throughout)
@@ -65,7 +67,8 @@ public:
     std::unique_ptr<P2PStoreManager> p2pStore;
     std::unique_ptr<TrackerWrapper> trackerWrapper;
     
-    // Top torrents cache
+    // Top torrents cache (protected by mutex for thread-safety)
+    mutable QMutex topCacheMutex;
     QHash<QString, QJsonArray> topCache;
     QDateTime topCacheExpiry;
     
@@ -879,13 +882,16 @@ void RatsAPI::getTopTorrents(const QString& type,
     int limit = options["limit"].toInt(20);
     QString time = options["time"].toString();
     
-    // Check cache
+    // Check cache (protected by mutex for thread-safety)
     QString cacheKey = QString("%1_%2_%3_%4").arg(type, time, QString::number(index), QString::number(limit));
-    if (d->topCacheExpiry.isValid() && d->topCacheExpiry > QDateTime::currentDateTime()) {
-        auto it = d->topCache.find(cacheKey);
-        if (it != d->topCache.end()) {
-            if (callback) callback(ApiResponse::ok(*it));
-            return;
+    {
+        QMutexLocker locker(&d->topCacheMutex);
+        if (d->topCacheExpiry.isValid() && d->topCacheExpiry > QDateTime::currentDateTime()) {
+            auto it = d->topCache.find(cacheKey);
+            if (it != d->topCache.end()) {
+                if (callback) callback(ApiResponse::ok(*it));
+                return;
+            }
         }
     }
     
@@ -897,9 +903,12 @@ void RatsAPI::getTopTorrents(const QString& type,
             torrents.append(torrentInfoToJson(t));
         }
         
-        // Update cache
-        d->topCache[cacheKey] = torrents;
-        d->topCacheExpiry = QDateTime::currentDateTime().addSecs(86400);  // 24h cache
+        // Update cache (protected by mutex for thread-safety)
+        {
+            QMutexLocker locker(&d->topCacheMutex);
+            d->topCache[cacheKey] = torrents;
+            d->topCacheExpiry = QDateTime::currentDateTime().addSecs(86400);  // 24h cache
+        }
         
         if (callback) {
             QMetaObject::invokeMethod(this, [callback, torrents]() {
