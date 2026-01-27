@@ -1095,21 +1095,29 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
     });
     
     // Peer connected callback
+    // Defer to main thread via QueuedConnection to avoid deadlock when callback
+    // is invoked while holding internal torrent mutex (e.g., during stop())
     download->set_peer_connected_callback([this, hash](const librats::Peer& /*peer*/) {
-        QMutexLocker lock(&torrentsMutex_);
-        auto it = torrents_.find(hash);
-        if (it != torrents_.end()) {
-            it->peersConnected = static_cast<int>(it->download->num_peers());
-        }
+        QMetaObject::invokeMethod(this, [this, hash]() {
+            QMutexLocker lock(&torrentsMutex_);
+            auto it = torrents_.find(hash);
+            if (it != torrents_.end() && it->download) {
+                it->peersConnected = static_cast<int>(it->download->num_peers());
+            }
+        }, Qt::QueuedConnection);
     });
     
-    // Peer disconnected callback  
+    // Peer disconnected callback
+    // Defer to main thread via QueuedConnection to avoid deadlock when callback
+    // is invoked while holding internal torrent mutex (e.g., during stop())
     download->set_peer_disconnected_callback([this, hash](const librats::Peer& /*peer*/) {
-        QMutexLocker lock(&torrentsMutex_);
-        auto it = torrents_.find(hash);
-        if (it != torrents_.end()) {
-            it->peersConnected = static_cast<int>(it->download->num_peers());
-        }
+        QMetaObject::invokeMethod(this, [this, hash]() {
+            QMutexLocker lock(&torrentsMutex_);
+            auto it = torrents_.find(hash);
+            if (it != torrents_.end() && it->download) {
+                it->peersConnected = static_cast<int>(it->download->num_peers());
+            }
+        }, Qt::QueuedConnection);
     });
 #else
     Q_UNUSED(hash);
