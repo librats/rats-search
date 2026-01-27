@@ -373,16 +373,16 @@ void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp
                 
                 // Extract file list
                 QVector<QPair<QString, qint64>> filesList;
-                for (const auto& file : torrentInfo.get_files()) {
-                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.length)));
+                for (const auto& file : torrentInfo.files().files()) {
+                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.size)));
                 }
                 
                 // Call handler on main thread
                 QMetaObject::invokeMethod(this, [this, infoHash, 
-                                                 name = QString::fromStdString(torrentInfo.get_name()),
-                                                 totalSize = static_cast<qint64>(torrentInfo.get_total_length()),
-                                                 files = static_cast<int>(torrentInfo.get_files().size()),
-                                                 pieceLength = static_cast<int>(torrentInfo.get_piece_length()),
+                                                 name = QString::fromStdString(torrentInfo.name()),
+                                                 totalSize = static_cast<qint64>(torrentInfo.total_size()),
+                                                 files = static_cast<int>(torrentInfo.files().files().size()),
+                                                 pieceLength = static_cast<int>(torrentInfo.piece_length()),
                                                  filesList]() {
                     onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
                 }, Qt::QueuedConnection);
@@ -402,16 +402,16 @@ void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp
                 
                 // Extract file list
                 QVector<QPair<QString, qint64>> filesList;
-                for (const auto& file : torrentInfo.get_files()) {
-                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.length)));
+                for (const auto& file : torrentInfo.files().files()) {
+                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.size)));
                 }
                 
                 // Call handler on main thread
                 QMetaObject::invokeMethod(this, [this, infoHash, 
-                                                 name = QString::fromStdString(torrentInfo.get_name()),
-                                                 totalSize = static_cast<qint64>(torrentInfo.get_total_length()),
-                                                 files = static_cast<int>(torrentInfo.get_files().size()),
-                                                 pieceLength = static_cast<int>(torrentInfo.get_piece_length()),
+                                                 name = QString::fromStdString(torrentInfo.name()),
+                                                 totalSize = static_cast<qint64>(torrentInfo.total_size()),
+                                                 files = static_cast<int>(torrentInfo.files().files().size()),
+                                                 pieceLength = static_cast<int>(torrentInfo.piece_length()),
                                                  filesList]() {
                     onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
                 }, Qt::QueuedConnection);

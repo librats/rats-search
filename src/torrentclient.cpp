@@ -209,17 +209,17 @@ bool TorrentClient::downloadTorrent(const QString& magnetLink, const QString& sa
     if (download) {
         // Get info if available
         const auto& info = download->get_torrent_info();
-        if (info.is_valid() && !info.is_metadata_only()) {
-            torrent.name = QString::fromStdString(info.get_name());
-            torrent.totalSize = static_cast<qint64>(info.get_total_length());
+        if (info.is_valid() && info.has_metadata()) {
+            torrent.name = QString::fromStdString(info.name());
+            torrent.totalSize = static_cast<qint64>(info.total_size());
             torrent.ready = true;
             
             // Populate files
-            const auto& files = info.get_files();
+            const auto& files = info.files().files();
             for (size_t i = 0; i < files.size(); ++i) {
                 TorrentFileInfo fi;
                 fi.path = QString::fromStdString(files[i].path);
-                fi.size = static_cast<qint64>(files[i].length);
+                fi.size = static_cast<qint64>(files[i].size);
                 fi.index = static_cast<int>(i);
                 fi.selected = true;
                 torrent.files.append(fi);
@@ -294,7 +294,7 @@ bool TorrentClient::downloadTorrentFile(const QString& torrentFile, const QStrin
     }
     
     const auto& info = download->get_torrent_info();
-    QString hash = QString::fromStdString(librats::info_hash_to_hex(info.get_info_hash()));
+    QString hash = QString::fromStdString(librats::info_hash_to_hex(info.info_hash()));
     hash = hash.toLower();
     
     // Check if already downloading
@@ -302,7 +302,7 @@ bool TorrentClient::downloadTorrentFile(const QString& torrentFile, const QStrin
         QMutexLocker lock(&torrentsMutex_);
         if (torrents_.contains(hash)) {
             qInfo() << "TorrentClient: Already downloading:" << hash;
-            client->remove_torrent(info.get_info_hash());
+            client->remove_torrent(info.info_hash());
             return false;
         }
     }
@@ -310,18 +310,18 @@ bool TorrentClient::downloadTorrentFile(const QString& torrentFile, const QStrin
     // Create ActiveTorrent entry
     ActiveTorrent torrent;
     torrent.hash = hash;
-    torrent.name = QString::fromStdString(info.get_name());
+    torrent.name = QString::fromStdString(info.name());
     torrent.savePath = path;
-    torrent.totalSize = static_cast<qint64>(info.get_total_length());
+    torrent.totalSize = static_cast<qint64>(info.total_size());
     torrent.download = download;
     torrent.ready = true;
     
     // Populate files
-    const auto& files = info.get_files();
+    const auto& files = info.files().files();
     for (size_t i = 0; i < files.size(); ++i) {
         TorrentFileInfo fi;
         fi.path = QString::fromStdString(files[i].path);
-        fi.size = static_cast<qint64>(files[i].length);
+        fi.size = static_cast<qint64>(files[i].size);
         fi.index = static_cast<int>(i);
         fi.selected = true;
         torrent.files.append(fi);
@@ -580,7 +580,9 @@ bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, q
     qint64 torrentSize = size;
     
     if (database_ && (torrentName.isEmpty() || torrentName == hash)) {
-        TorrentInfo dbInfo = database_->getTorrent(normalizedHash);
+        // Use ::TorrentInfo to reference the Qt app's TorrentInfo struct
+        // (not librats::TorrentInfo which is in scope due to bittorrent.h include)
+        ::TorrentInfo dbInfo = database_->getTorrent(normalizedHash);
         if (dbInfo.isValid()) {
             torrentName = dbInfo.name;
             if (torrentSize == 0) {
@@ -937,17 +939,17 @@ void TorrentClient::onUpdateTimer()
                         
                         // Update info from metadata
                         const auto& info = download->get_torrent_info();
-                        if (info.is_valid() && !info.is_metadata_only()) {
-                            it->name = QString::fromStdString(info.get_name());
-                            it->totalSize = static_cast<qint64>(info.get_total_length());
+                        if (info.is_valid() && info.has_metadata()) {
+                            it->name = QString::fromStdString(info.name());
+                            it->totalSize = static_cast<qint64>(info.total_size());
                             
                             // Populate files
                             it->files.clear();
-                            const auto& files = info.get_files();
+                            const auto& files = info.files().files();
                             for (size_t i = 0; i < files.size(); ++i) {
                                 TorrentFileInfo fi;
                                 fi.path = QString::fromStdString(files[i].path);
-                                fi.size = static_cast<qint64>(files[i].length);
+                                fi.size = static_cast<qint64>(files[i].size);
                                 fi.index = static_cast<int>(i);
                                 fi.selected = true;
                                 it->files.append(fi);
@@ -1017,7 +1019,7 @@ QString TorrentClient::parseInfoHash(const QString& magnetLink) const
     return QString();
 }
 
-void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<librats::TorrentDownload> download)
+void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<librats::Torrent> download)
 {
 #ifdef RATS_SEARCH_FEATURES
     // Progress callback
@@ -1057,17 +1059,17 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
         QMutexLocker lock(&torrentsMutex_);
         auto it = torrents_.find(hash);
         if (it != torrents_.end() && !it->ready) {
-            it->name = QString::fromStdString(info.get_name());
-            it->totalSize = static_cast<qint64>(info.get_total_length());
+            it->name = QString::fromStdString(info.name());
+            it->totalSize = static_cast<qint64>(info.total_size());
             it->ready = true;
             
             // Populate files
             it->files.clear();
-            const auto& files = info.get_files();
+            const auto& files = info.files().files();
             for (size_t i = 0; i < files.size(); ++i) {
                 TorrentFileInfo fi;
                 fi.path = QString::fromStdString(files[i].path);
-                fi.size = static_cast<qint64>(files[i].length);
+                fi.size = static_cast<qint64>(files[i].size);
                 fi.index = static_cast<int>(i);
                 fi.selected = true;
                 it->files.append(fi);
@@ -1097,7 +1099,7 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
         QMutexLocker lock(&torrentsMutex_);
         auto it = torrents_.find(hash);
         if (it != torrents_.end()) {
-            it->peersConnected = static_cast<int>(it->download->get_peer_count());
+            it->peersConnected = static_cast<int>(it->download->num_peers());
         }
     });
     
@@ -1106,7 +1108,7 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
         QMutexLocker lock(&torrentsMutex_);
         auto it = torrents_.find(hash);
         if (it != torrents_.end()) {
-            it->peersConnected = static_cast<int>(it->download->get_peer_count());
+            it->peersConnected = static_cast<int>(it->download->num_peers());
         }
     });
 #else
@@ -1126,16 +1128,16 @@ void TorrentClient::updateTorrentStatus(const QString& hash)
     
     ActiveTorrent& torrent = *it;
     
-    torrent.downloadedBytes = static_cast<qint64>(torrent.download->get_downloaded_bytes());
-    torrent.progress = torrent.download->get_progress_percentage() / 100.0;
-    torrent.downloadSpeed = torrent.download->get_download_speed();
-    torrent.peersConnected = static_cast<int>(torrent.download->get_peer_count());
+    torrent.downloadedBytes = static_cast<qint64>(torrent.download->downloaded_bytes());
+    torrent.progress = torrent.download->progress_percentage() / 100.0;
+    torrent.downloadSpeed = torrent.download->download_speed();
+    torrent.peersConnected = static_cast<int>(torrent.download->num_peers());
     
     // Get total size if not set yet
     if (torrent.totalSize == 0) {
         const auto& info = torrent.download->get_torrent_info();
         if (info.is_valid()) {
-            torrent.totalSize = static_cast<qint64>(info.get_total_length());
+            torrent.totalSize = static_cast<qint64>(info.total_size());
         }
     }
 #else

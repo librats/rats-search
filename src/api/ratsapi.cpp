@@ -559,18 +559,18 @@ void RatsAPI::searchTorrents(const QString& text,
                                 // Create TorrentInfo
                                 TorrentInfo torrent;
                                 torrent.hash = hash;
-                                torrent.name = QString::fromStdString(libratsTorrent.get_name());
-                                torrent.size = static_cast<qint64>(libratsTorrent.get_total_length());
-                                torrent.files = static_cast<int>(libratsTorrent.get_files().size());
-                                torrent.piecelength = static_cast<int>(libratsTorrent.get_piece_length());
+                                torrent.name = QString::fromStdString(libratsTorrent.name());
+                                torrent.size = static_cast<qint64>(libratsTorrent.total_size());
+                                torrent.files = static_cast<int>(libratsTorrent.files().files().size());
+                                torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
                                 torrent.added = QDateTime::currentDateTime();
                                 
                                 // Build file list
-                                const auto& files = libratsTorrent.get_files();
+                                const auto& files = libratsTorrent.files().files();
                                 for (const auto& f : files) {
                                     TorrentFile tf;
                                     tf.path = QString::fromStdString(f.path);
-                                    tf.size = static_cast<qint64>(f.length);
+                                    tf.size = static_cast<qint64>(f.size);
                                     torrent.filesList.append(tf);
                                 }
                                 
@@ -753,18 +753,18 @@ void RatsAPI::getTorrent(const QString& hash,
                                 // Create TorrentInfo for database
                                 TorrentInfo torrent;
                                 torrent.hash = hash;
-                                torrent.name = QString::fromStdString(libratsTorrent.get_name());
-                                torrent.size = static_cast<qint64>(libratsTorrent.get_total_length());
-                                torrent.files = static_cast<int>(libratsTorrent.get_files().size());
-                                torrent.piecelength = static_cast<int>(libratsTorrent.get_piece_length());
+                                torrent.name = QString::fromStdString(libratsTorrent.name());
+                                torrent.size = static_cast<qint64>(libratsTorrent.total_size());
+                                torrent.files = static_cast<int>(libratsTorrent.files().files().size());
+                                torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
                                 torrent.added = QDateTime::currentDateTime();
                                 
                                 // Build file list
-                                const auto& files = libratsTorrent.get_files();
+                                const auto& files = libratsTorrent.files().files();
                                 for (const auto& f : files) {
                                     TorrentFile tf;
                                     tf.path = QString::fromStdString(f.path);
-                                    tf.size = static_cast<qint64>(f.length);
+                                    tf.size = static_cast<qint64>(f.size);
                                     torrent.filesList.append(tf);
                                 }
                                 
@@ -1433,7 +1433,7 @@ void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)
     
     // Convert info hash to hex string
     QString hash = QString::fromStdString(
-        librats::info_hash_to_hex(libratsTorrent.get_info_hash()));
+        librats::info_hash_to_hex(libratsTorrent.info_hash()));
     
     // Check if torrent already exists
     TorrentInfo existing = d->database->getTorrent(hash);
@@ -1448,18 +1448,18 @@ void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)
     // Create TorrentInfo for database
     TorrentInfo torrent;
     torrent.hash = hash;
-    torrent.name = QString::fromStdString(libratsTorrent.get_name());
-    torrent.size = static_cast<qint64>(libratsTorrent.get_total_length());
-    torrent.files = static_cast<int>(libratsTorrent.get_files().size());
-    torrent.piecelength = static_cast<int>(libratsTorrent.get_piece_length());
+    torrent.name = QString::fromStdString(libratsTorrent.name());
+    torrent.size = static_cast<qint64>(libratsTorrent.total_size());
+    torrent.files = static_cast<int>(libratsTorrent.files().files().size());
+    torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
     torrent.added = QDateTime::currentDateTime();
     
     // Build file list
-    const auto& files = libratsTorrent.get_files();
+    const auto& files = libratsTorrent.files().files();
     for (const auto& f : files) {
         TorrentFile tf;
         tf.path = QString::fromStdString(f.path);
-        tf.size = static_cast<qint64>(f.length);
+        tf.size = static_cast<qint64>(f.size);
         torrent.filesList.append(tf);
     }
     

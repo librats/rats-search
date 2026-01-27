@@ -17,8 +17,11 @@ class TorrentDatabase;
 
 namespace librats {
     class RatsClient;
-    class TorrentDownload;
+    class Torrent; // Forward declare Torrent (TorrentDownload is an alias for this)
 }
+
+// TorrentDownload is an alias for Torrent, defined in bittorrent.h
+// For the header, we use Torrent directly; the alias is available in the .cpp
 
 /**
  * @brief TorrentFileInfo - Information about a file in a torrent
@@ -52,7 +55,7 @@ struct ActiveTorrent {
     QVector<TorrentFileInfo> files;
     
     // librats torrent reference
-    std::shared_ptr<librats::TorrentDownload> download;
+    std::shared_ptr<librats::Torrent> download;
     
     QJsonObject toJson() const;
     QJsonObject toProgressJson() const;
@@ -307,7 +310,7 @@ private slots:
 
 private:
     QString parseInfoHash(const QString& magnetLink) const;
-    void setupTorrentCallbacks(const QString& hash, std::shared_ptr<librats::TorrentDownload> download);
+    void setupTorrentCallbacks(const QString& hash, std::shared_ptr<librats::Torrent> download);
     void updateTorrentStatus(const QString& hash);
     void emitProgressJson(const QString& hash, const ActiveTorrent& torrent);
 
