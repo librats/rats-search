@@ -1063,25 +1063,25 @@ void MainWindow::showAbout()
     // Logo
     QLabel* logoLabel = new QLabel("🐀");
     logoLabel->setAlignment(Qt::AlignCenter);
-    logoLabel->setStyleSheet("font-size: 48px;");
+    logoLabel->setObjectName("aboutLogoLabel");
     layout->addWidget(logoLabel);
     
     // Title
     QLabel* titleLabel = new QLabel(QString("Rats Search %1").arg(RATSSEARCH_VERSION_STRING));
     titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #4a9eff;");
+    titleLabel->setObjectName("aboutTitleLabel");
     layout->addWidget(titleLabel);
     
     // Subtitle
     QLabel* subtitleLabel = new QLabel(tr("BitTorrent P2P Search Engine"));
     subtitleLabel->setAlignment(Qt::AlignCenter);
-    subtitleLabel->setStyleSheet("font-size: 14px;");
+    subtitleLabel->setObjectName("subtitleLabel");
     layout->addWidget(subtitleLabel);
     
     // Git version
     QLabel* gitLabel = new QLabel(QString("Git: %1").arg(RATSSEARCH_GIT_DESCRIBE));
     gitLabel->setAlignment(Qt::AlignCenter);
-    gitLabel->setStyleSheet("font-size: 11px; color: #888;");
+    gitLabel->setObjectName("hintLabel");
     layout->addWidget(gitLabel);
     
     layout->addSpacing(8);
@@ -1099,12 +1099,13 @@ void MainWindow::showAbout()
     // Copyright
     QLabel* copyrightLabel = new QLabel(tr("Copyright © 2026"));
     copyrightLabel->setAlignment(Qt::AlignCenter);
-    copyrightLabel->setStyleSheet("color: #888;");
+    copyrightLabel->setObjectName("hintLabel");
     layout->addWidget(copyrightLabel);
     
     // GitHub link
-    QLabel* linkLabel = new QLabel("<a href='https://github.com/DEgITx/rats-search' style='color: #4a9eff;'>GitHub Repository</a>");
+    QLabel* linkLabel = new QLabel("<a href='https://github.com/DEgITx/rats-search'>GitHub Repository</a>");
     linkLabel->setAlignment(Qt::AlignCenter);
+    linkLabel->setObjectName("linkLabel");
     linkLabel->setOpenExternalLinks(true);
     layout->addWidget(linkLabel);
     

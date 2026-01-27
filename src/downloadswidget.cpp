@@ -4,6 +4,7 @@
 #include <QScrollArea>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QStyle>
 
 // DownloadItemWidget implementation
 
@@ -23,17 +24,7 @@ DownloadItemWidget::DownloadItemWidget(const QString& hash, const QString& name,
 
 void DownloadItemWidget::setupUi(const QString& name, qint64 size)
 {
-    setStyleSheet(R"(
-        DownloadItemWidget {
-            background-color: #2d2d2d;
-            border: 1px solid #3c3f41;
-            border-radius: 8px;
-            margin: 4px;
-        }
-        DownloadItemWidget:hover {
-            border-color: #4a9eff;
-        }
-    )");
+    setObjectName("downloadItemWidget");
     setMinimumHeight(100);
     
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -44,12 +35,12 @@ void DownloadItemWidget::setupUi(const QString& name, qint64 size)
     QHBoxLayout* topRow = new QHBoxLayout();
     
     nameLabel_ = new QLabel(name, this);
-    nameLabel_->setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff;");
+    nameLabel_->setObjectName("downloadItemName");
     nameLabel_->setWordWrap(true);
     topRow->addWidget(nameLabel_, 1);
     
     QLabel* sizeLabel = new QLabel(formatBytes(size), this);
-    sizeLabel->setStyleSheet("font-size: 12px; color: #888888;");
+    sizeLabel->setObjectName("downloadItemSize");
     topRow->addWidget(sizeLabel);
     
     mainLayout->addLayout(topRow);
@@ -60,72 +51,31 @@ void DownloadItemWidget::setupUi(const QString& name, qint64 size)
     progressBar_->setMaximum(100);
     progressBar_->setValue(0);
     progressBar_->setTextVisible(true);
-    progressBar_->setStyleSheet(R"(
-        QProgressBar {
-            border: none;
-            border-radius: 4px;
-            background-color: #1e1e1e;
-            height: 16px;
-            text-align: center;
-            font-size: 11px;
-            color: #ffffff;
-        }
-        QProgressBar::chunk {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                stop:0 #4a9eff, stop:1 #66b2ff);
-            border-radius: 4px;
-        }
-    )");
+    progressBar_->setObjectName("downloadProgress");
     mainLayout->addWidget(progressBar_);
     
     // Bottom row: status, speed, and buttons
     QHBoxLayout* bottomRow = new QHBoxLayout();
     
     statusLabel_ = new QLabel(tr("Waiting..."), this);
-    statusLabel_->setStyleSheet("font-size: 12px; color: #888888;");
+    statusLabel_->setObjectName("downloadItemStatus");
     bottomRow->addWidget(statusLabel_);
     
     speedLabel_ = new QLabel(this);
-    speedLabel_->setStyleSheet("font-size: 12px; color: #4a9eff; font-weight: bold;");
+    speedLabel_->setObjectName("downloadItemSpeed");
     bottomRow->addWidget(speedLabel_);
     
     bottomRow->addStretch();
     
     pauseButton_ = new QPushButton(tr("Pause"), this);
-    pauseButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #3c3f41;
-            color: #ffffff;
-            border: 1px solid #555555;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-size: 11px;
-        }
-        QPushButton:hover {
-            background-color: #4c4f51;
-            border-color: #4a9eff;
-        }
-    )");
+    pauseButton_->setObjectName("secondaryButton");
     connect(pauseButton_, &QPushButton::clicked, this, [this]() {
         emit pauseToggled(hash_);
     });
     bottomRow->addWidget(pauseButton_);
     
     cancelButton_ = new QPushButton(tr("Cancel"), this);
-    cancelButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #8b3a3a;
-            color: #ffffff;
-            border: 1px solid #aa5555;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-size: 11px;
-        }
-        QPushButton:hover {
-            background-color: #a04040;
-            border-color: #cc6666;
-        }
-    )");
+    cancelButton_->setObjectName("dangerButton");
     connect(cancelButton_, &QPushButton::clicked, this, [this]() {
         emit cancelRequested(hash_);
     });
@@ -159,20 +109,9 @@ void DownloadItemWidget::setCompleted()
     statusLabel_->setText(tr("Completed"));
     speedLabel_->clear();
     pauseButton_->setText(tr("Open"));
-    pauseButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #3a8b4a;
-            color: #ffffff;
-            border: 1px solid #55aa55;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-size: 11px;
-        }
-        QPushButton:hover {
-            background-color: #40a050;
-            border-color: #66cc66;
-        }
-    )");
+    pauseButton_->setObjectName("successButton");
+    pauseButton_->style()->unpolish(pauseButton_);
+    pauseButton_->style()->polish(pauseButton_);
     disconnect(pauseButton_, &QPushButton::clicked, nullptr, nullptr);
     connect(pauseButton_, &QPushButton::clicked, this, [this]() {
         emit openRequested(hash_);
@@ -186,41 +125,13 @@ void DownloadItemWidget::setPaused(bool paused)
     if (paused) {
         pauseButton_->setText(tr("Resume"));
         statusLabel_->setText(tr("Paused"));
-        progressBar_->setStyleSheet(R"(
-            QProgressBar {
-                border: none;
-                border-radius: 4px;
-                background-color: #1e1e1e;
-                height: 16px;
-                text-align: center;
-                font-size: 11px;
-                color: #ffffff;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #888888, stop:1 #aaaaaa);
-                border-radius: 4px;
-            }
-        )");
+        progressBar_->setObjectName("downloadProgressPaused");
     } else {
         pauseButton_->setText(tr("Pause"));
-        progressBar_->setStyleSheet(R"(
-            QProgressBar {
-                border: none;
-                border-radius: 4px;
-                background-color: #1e1e1e;
-                height: 16px;
-                text-align: center;
-                font-size: 11px;
-                color: #ffffff;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4a9eff, stop:1 #66b2ff);
-                border-radius: 4px;
-            }
-        )");
+        progressBar_->setObjectName("downloadProgress");
     }
+    progressBar_->style()->unpolish(progressBar_);
+    progressBar_->style()->polish(progressBar_);
 }
 
 QString DownloadItemWidget::formatBytes(qint64 bytes) const
@@ -271,18 +182,18 @@ void DownloadsWidget::setupUi()
     
     // Header
     QWidget* headerRow = new QWidget(this);
-    headerRow->setStyleSheet("background-color: #252526;");
+    headerRow->setObjectName("headerRow");
     QHBoxLayout* headerLayout = new QHBoxLayout(headerRow);
     headerLayout->setContentsMargins(16, 12, 16, 12);
     
     QLabel* titleLabel = new QLabel(tr("📥 Downloads"), this);
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #4a9eff;");
+    titleLabel->setObjectName("headerLabel");
     headerLayout->addWidget(titleLabel);
     
     headerLayout->addStretch();
     
     statusLabel_ = new QLabel(this);
-    statusLabel_->setStyleSheet("color: #666666; font-size: 11px;");
+    statusLabel_->setObjectName("statusLabel");
     headerLayout->addWidget(statusLabel_);
     
     mainLayout->addWidget(headerRow);
@@ -290,17 +201,17 @@ void DownloadsWidget::setupUi()
     // Empty state
     emptyLabel_ = new QLabel(tr("No active downloads.\nStart downloading torrents from the search results!"), this);
     emptyLabel_->setAlignment(Qt::AlignCenter);
-    emptyLabel_->setStyleSheet("font-size: 14px; color: #666666; padding: 40px;");
+    emptyLabel_->setObjectName("emptyStateLabel");
     mainLayout->addWidget(emptyLabel_);
     
     // Scroll area for downloads list
     QScrollArea* scrollArea = new QScrollArea(this);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scrollArea->setStyleSheet("QScrollArea { border: none; background-color: #1e1e1e; }");
+    scrollArea->setObjectName("downloadsScrollArea");
     
     listContainer_ = new QWidget(this);
-    listContainer_->setStyleSheet("background-color: #1e1e1e;");
+    listContainer_->setObjectName("downloadsListContainer");
     listLayout_ = new QVBoxLayout(listContainer_);
     listLayout_->setContentsMargins(12, 12, 12, 12);
     listLayout_->setSpacing(8);

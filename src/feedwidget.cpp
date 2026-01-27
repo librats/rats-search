@@ -30,18 +30,18 @@ void FeedWidget::setupUi()
     
     // Header
     QWidget* headerRow = new QWidget(this);
-    headerRow->setStyleSheet("background-color: #252526;");
+    headerRow->setObjectName("headerRow");
     QHBoxLayout* headerLayout = new QHBoxLayout(headerRow);
     headerLayout->setContentsMargins(16, 12, 16, 12);
     
     QLabel* titleLabel = new QLabel(tr("📰 Feed - Popular & Voted Torrents"), this);
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #4a9eff;");
+    titleLabel->setObjectName("headerLabel");
     headerLayout->addWidget(titleLabel);
     
     headerLayout->addStretch();
     
     statusLabel_ = new QLabel(this);
-    statusLabel_->setStyleSheet("color: #666666; font-size: 11px;");
+    statusLabel_->setObjectName("statusLabel");
     headerLayout->addWidget(statusLabel_);
     
     mainLayout->addWidget(headerRow);
@@ -49,7 +49,7 @@ void FeedWidget::setupUi()
     // Empty state label
     emptyLabel_ = new QLabel(tr("No feed items yet. Vote on torrents to populate the feed!"), this);
     emptyLabel_->setAlignment(Qt::AlignCenter);
-    emptyLabel_->setStyleSheet("font-size: 14px; color: #666666; padding: 40px;");
+    emptyLabel_->setObjectName("emptyStateLabel");
     emptyLabel_->hide();
     mainLayout->addWidget(emptyLabel_);
     

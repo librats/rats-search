@@ -55,26 +55,7 @@ void TopTorrentsWidget::setupUi()
     // Category tabs
     categoryTabs_ = new QTabBar(this);
     categoryTabs_->setExpanding(false);
-    categoryTabs_->setStyleSheet(R"(
-        QTabBar::tab {
-            background-color: #2d2d2d;
-            color: #888888;
-            padding: 10px 20px;
-            margin-right: 2px;
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
-            font-weight: bold;
-        }
-        QTabBar::tab:selected {
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                stop:0 #4a9eff, stop:1 #3d8ce8);
-            color: #ffffff;
-        }
-        QTabBar::tab:hover:!selected {
-            background-color: #3c3f41;
-            color: #ffffff;
-        }
-    )");
+    categoryTabs_->setObjectName("categoryTabBar");
     
     for (const QString& cat : categories_) {
         categoryTabs_->addTab(categoryLabels_.value(cat, cat));
@@ -84,12 +65,12 @@ void TopTorrentsWidget::setupUi()
     
     // Time filter row
     QWidget* filterRow = new QWidget(this);
-    filterRow->setStyleSheet("background-color: #252526;");
+    filterRow->setObjectName("filterRow");
     QHBoxLayout* filterLayout = new QHBoxLayout(filterRow);
     filterLayout->setContentsMargins(12, 8, 12, 8);
     
     QLabel* filterLabel = new QLabel(tr("Time Period:"), this);
-    filterLabel->setStyleSheet("color: #888888; font-size: 12px;");
+    filterLabel->setObjectName("filterLabel");
     filterLayout->addWidget(filterLabel);
     
     timeFilter_ = new QComboBox(this);
@@ -104,7 +85,7 @@ void TopTorrentsWidget::setupUi()
     filterLayout->addStretch();
     
     statusLabel_ = new QLabel(this);
-    statusLabel_->setStyleSheet("color: #666666; font-size: 11px;");
+    statusLabel_->setObjectName("statusLabel");
     filterLayout->addWidget(statusLabel_);
     
     mainLayout->addWidget(filterRow);
@@ -143,27 +124,14 @@ void TopTorrentsWidget::setupUi()
     
     // More button
     QWidget* bottomRow = new QWidget(this);
-    bottomRow->setStyleSheet("background-color: #252526;");
+    bottomRow->setObjectName("bottomRow");
     QHBoxLayout* bottomLayout = new QHBoxLayout(bottomRow);
     bottomLayout->setContentsMargins(12, 8, 12, 8);
     
     bottomLayout->addStretch();
     
     moreButton_ = new QPushButton(tr("Load More Torrents"), this);
-    moreButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #3c3f41;
-            color: #ffffff;
-            border: 1px solid #555555;
-            border-radius: 6px;
-            padding: 8px 24px;
-            font-size: 12px;
-        }
-        QPushButton:hover {
-            background-color: #4c4f51;
-            border-color: #4a9eff;
-        }
-    )");
+    moreButton_->setObjectName("secondaryButton");
     connect(moreButton_, &QPushButton::clicked, this, &TopTorrentsWidget::onMoreTorrentsClicked);
     bottomLayout->addWidget(moreButton_);
     

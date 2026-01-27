@@ -50,10 +50,10 @@ void SettingsDialog::setupUi()
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; }");
+    scrollArea->setObjectName("settingsScrollArea");
 
     QWidget *scrollContent = new QWidget();
-    scrollContent->setStyleSheet("background: transparent;");
+    scrollContent->setObjectName("settingsScrollContent");
     QVBoxLayout *mainLayout = new QVBoxLayout(scrollContent);
     mainLayout->setSpacing(16);
     mainLayout->setContentsMargins(8, 8, 8, 8);

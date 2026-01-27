@@ -14,6 +14,7 @@
 #include <QJsonArray>
 #include <QHeaderView>
 #include <QSet>
+#include <QStyle>
 #include <algorithm>
 
 TorrentDetailsPanel::TorrentDetailsPanel(QWidget *parent)
@@ -29,87 +30,7 @@ TorrentDetailsPanel::~TorrentDetailsPanel()
 
 void TorrentDetailsPanel::setupUi()
 {
-    setObjectName("TorrentDetailsPanel");
-    setStyleSheet(R"(
-        #TorrentDetailsPanel {
-            background-color: #252526;
-            border-left: 1px solid #3c3f41;
-        }
-        QLabel {
-            color: #ffffff;
-        }
-        QLabel#sectionTitle {
-            color: #4a9eff;
-            font-weight: bold;
-            font-size: 11px;
-            padding: 8px 0 4px 0;
-            border-bottom: 1px solid #3c3f41;
-        }
-        QLabel#infoLabel {
-            color: #888888;
-            font-size: 10px;
-        }
-        QLabel#infoValue {
-            color: #ffffff;
-            font-size: 11px;
-        }
-        QPushButton#actionButton {
-            border: none;
-            border-radius: 6px;
-            padding: 10px 20px;
-            font-weight: bold;
-            font-size: 12px;
-            color: white;
-        }
-        QPushButton#actionButton:hover {
-            opacity: 0.9;
-        }
-        QPushButton#magnetButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #e91e63, stop:1 #9c27b0);
-        }
-        QPushButton#magnetButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #f06292, stop:1 #ba68c8);
-        }
-        QPushButton#downloadButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #00c853, stop:1 #00e676);
-        }
-        QPushButton#downloadButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #00e676, stop:1 #69f0ae);
-        }
-        QPushButton#secondaryButton {
-            background-color: #3c3f41;
-            border: 1px solid #555555;
-        }
-        QPushButton#secondaryButton:hover {
-            background-color: #4c4f51;
-        }
-        QPushButton#closeButton {
-            background-color: transparent;
-            border: none;
-            color: #888888;
-            font-size: 18px;
-            padding: 4px 8px;
-        }
-        QPushButton#closeButton:hover {
-            color: #ffffff;
-            background-color: #3c3f41;
-            border-radius: 4px;
-        }
-        QProgressBar {
-            border: none;
-            border-radius: 3px;
-            background-color: #444444;
-            height: 6px;
-            text-align: center;
-        }
-        QProgressBar::chunk {
-            border-radius: 3px;
-        }
-    )");
+    setObjectName("detailsPanel");
     
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(16, 12, 16, 16);
@@ -122,13 +43,13 @@ void TorrentDetailsPanel::setupUi()
     // Content type icon
     contentTypeIcon_ = new QWidget();
     contentTypeIcon_->setFixedSize(32, 32);
-    contentTypeIcon_->setStyleSheet("background-color: #888888; border-radius: 6px;");
+    contentTypeIcon_->setObjectName("contentTypeIcon");
     headerLayout->addWidget(contentTypeIcon_);
     
     // Title
     titleLabel_ = new QLabel(tr("Select a torrent"));
     titleLabel_->setWordWrap(true);
-    titleLabel_->setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff;");
+    titleLabel_->setObjectName("detailsTitleLabel");
     headerLayout->addWidget(titleLabel_, 1);
     
     // Close button
@@ -143,13 +64,13 @@ void TorrentDetailsPanel::setupUi()
     
     // Content type label
     contentTypeLabel_ = new QLabel();
-    contentTypeLabel_->setStyleSheet("font-size: 10px; color: #888888; padding-left: 40px;");
+    contentTypeLabel_->setObjectName("contentTypeLabel");
     mainLayout->addWidget(contentTypeLabel_);
     
     // Separator
     QFrame *sep1 = new QFrame();
     sep1->setFrameShape(QFrame::HLine);
-    sep1->setStyleSheet("background-color: #3c3f41;");
+    sep1->setObjectName("detailsSeparator");
     sep1->setFixedHeight(1);
     mainLayout->addWidget(sep1);
     
@@ -164,10 +85,10 @@ void TorrentDetailsPanel::setupUi()
     // Seeders
     QVBoxLayout *seedersLayout = new QVBoxLayout();
     seedersLabel_ = new QLabel("0");
-    seedersLabel_->setStyleSheet("font-size: 20px; font-weight: bold; color: #00C853;");
+    seedersLabel_->setObjectName("seedersLabel");
     seedersLabel_->setAlignment(Qt::AlignCenter);
     QLabel *seedersText = new QLabel(tr("Seeders"));
-    seedersText->setStyleSheet("font-size: 10px; color: #888888;");
+    seedersText->setObjectName("statsSubLabel");
     seedersText->setAlignment(Qt::AlignCenter);
     seedersLayout->addWidget(seedersLabel_);
     seedersLayout->addWidget(seedersText);
@@ -176,10 +97,10 @@ void TorrentDetailsPanel::setupUi()
     // Leechers
     QVBoxLayout *leechersLayout = new QVBoxLayout();
     leechersLabel_ = new QLabel("0");
-    leechersLabel_->setStyleSheet("font-size: 20px; font-weight: bold; color: #AA00FF;");
+    leechersLabel_->setObjectName("leechersLabel");
     leechersLabel_->setAlignment(Qt::AlignCenter);
     QLabel *leechersText = new QLabel(tr("Leechers"));
-    leechersText->setStyleSheet("font-size: 10px; color: #888888;");
+    leechersText->setObjectName("statsSubLabel");
     leechersText->setAlignment(Qt::AlignCenter);
     leechersLayout->addWidget(leechersLabel_);
     leechersLayout->addWidget(leechersText);
@@ -188,10 +109,10 @@ void TorrentDetailsPanel::setupUi()
     // Completed
     QVBoxLayout *completedLayout = new QVBoxLayout();
     completedLabel_ = new QLabel("0");
-    completedLabel_->setStyleSheet("font-size: 20px; font-weight: bold; color: #FF6D00;");
+    completedLabel_->setObjectName("completedLabel");
     completedLabel_->setAlignment(Qt::AlignCenter);
     QLabel *completedText = new QLabel(tr("Completed"));
-    completedText->setStyleSheet("font-size: 10px; color: #888888;");
+    completedText->setObjectName("statsSubLabel");
     completedText->setAlignment(Qt::AlignCenter);
     completedLayout->addWidget(completedLabel_);
     completedLayout->addWidget(completedText);
@@ -202,13 +123,14 @@ void TorrentDetailsPanel::setupUi()
     // Rating bar
     QHBoxLayout *ratingLayout = new QHBoxLayout();
     ratingBar_ = new QProgressBar();
+    ratingBar_->setObjectName("ratingBar");
     ratingBar_->setRange(0, 100);
     ratingBar_->setValue(0);
     ratingBar_->setTextVisible(false);
     ratingBar_->setFixedHeight(6);
     ratingLayout->addWidget(ratingBar_, 1);
     ratingLabel_ = new QLabel("N/A");
-    ratingLabel_->setStyleSheet("font-size: 10px; color: #888888; margin-left: 8px;");
+    ratingLabel_->setObjectName("ratingLabel");
     ratingLayout->addWidget(ratingLabel_);
     mainLayout->addLayout(ratingLayout);
     
@@ -217,53 +139,13 @@ void TorrentDetailsPanel::setupUi()
     votingLayout->setSpacing(8);
     
     goodVoteButton_ = new QPushButton(tr("👍 Good"));
-    goodVoteButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #2e7d32;
-            color: #ffffff;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        QPushButton:hover {
-            background-color: #388e3c;
-        }
-        QPushButton:pressed {
-            background-color: #1b5e20;
-        }
-        QPushButton:disabled {
-            background-color: #3c3f41;
-            color: #666666;
-        }
-    )");
+    goodVoteButton_->setObjectName("goodVoteButton");
     goodVoteButton_->setCursor(Qt::PointingHandCursor);
     connect(goodVoteButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onGoodVoteClicked);
     votingLayout->addWidget(goodVoteButton_);
     
     badVoteButton_ = new QPushButton(tr("👎 Bad"));
-    badVoteButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #c62828;
-            color: #ffffff;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        QPushButton:hover {
-            background-color: #d32f2f;
-        }
-        QPushButton:pressed {
-            background-color: #b71c1c;
-        }
-        QPushButton:disabled {
-            background-color: #3c3f41;
-            color: #666666;
-        }
-    )");
+    badVoteButton_->setObjectName("badVoteButton");
     badVoteButton_->setCursor(Qt::PointingHandCursor);
     connect(badVoteButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onBadVoteClicked);
     votingLayout->addWidget(badVoteButton_);
@@ -271,69 +153,43 @@ void TorrentDetailsPanel::setupUi()
     votingLayout->addStretch();
     
     votesLabel_ = new QLabel();
-    votesLabel_->setStyleSheet("font-size: 10px; color: #888888;");
+    votesLabel_->setObjectName("votesLabel");
     votingLayout->addWidget(votesLabel_);
     
     mainLayout->addLayout(votingLayout);
     
     // Download progress section (hidden by default)
     downloadProgressWidget_ = new QWidget();
-    downloadProgressWidget_->setStyleSheet("background-color: #2d2d2d; border-radius: 6px; padding: 8px;");
+    downloadProgressWidget_->setObjectName("downloadProgressWidget");
     QVBoxLayout *downloadLayout = new QVBoxLayout(downloadProgressWidget_);
     downloadLayout->setContentsMargins(12, 8, 12, 8);
     downloadLayout->setSpacing(6);
     
     QHBoxLayout *downloadHeaderLayout = new QHBoxLayout();
     QLabel *downloadTitle = new QLabel(tr("📥 Downloading..."));
-    downloadTitle->setStyleSheet("font-size: 12px; font-weight: bold; color: #4a9eff;");
+    downloadTitle->setObjectName("downloadTitleLabel");
     downloadHeaderLayout->addWidget(downloadTitle);
     downloadHeaderLayout->addStretch();
     downloadSpeedLabel_ = new QLabel();
-    downloadSpeedLabel_->setStyleSheet("font-size: 11px; color: #00c853; font-weight: bold;");
+    downloadSpeedLabel_->setObjectName("downloadSpeedLabel");
     downloadHeaderLayout->addWidget(downloadSpeedLabel_);
     downloadLayout->addLayout(downloadHeaderLayout);
     
     downloadProgressBar_ = new QProgressBar();
+    downloadProgressBar_->setObjectName("downloadProgressBarDetails");
     downloadProgressBar_->setRange(0, 100);
     downloadProgressBar_->setValue(0);
     downloadProgressBar_->setTextVisible(true);
     downloadProgressBar_->setFixedHeight(20);
-    downloadProgressBar_->setStyleSheet(R"(
-        QProgressBar {
-            border: none;
-            border-radius: 4px;
-            background-color: #1e1e1e;
-            text-align: center;
-            font-size: 10px;
-            color: #ffffff;
-        }
-        QProgressBar::chunk {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                stop:0 #4a9eff, stop:1 #66b2ff);
-            border-radius: 4px;
-        }
-    )");
     downloadLayout->addWidget(downloadProgressBar_);
     
     QHBoxLayout *downloadStatusLayout = new QHBoxLayout();
     downloadStatusLabel_ = new QLabel();
-    downloadStatusLabel_->setStyleSheet("font-size: 10px; color: #888888;");
+    downloadStatusLabel_->setObjectName("downloadStatusLabel");
     downloadStatusLayout->addWidget(downloadStatusLabel_);
     downloadStatusLayout->addStretch();
     cancelDownloadButton_ = new QPushButton(tr("Cancel"));
-    cancelDownloadButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #8b3a3a;
-            color: #ffffff;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 12px;
-            font-size: 10px;
-        }
-        QPushButton:hover {
-            background-color: #a04040;
-        }
-    )");
+    cancelDownloadButton_->setObjectName("cancelDownloadButton");
     cancelDownloadButton_->setCursor(Qt::PointingHandCursor);
     connect(cancelDownloadButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onCancelDownloadClicked);
     downloadStatusLayout->addWidget(cancelDownloadButton_);
@@ -397,7 +253,7 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addWidget(hashTitle);
     
     hashLabel_ = new QLabel("-");
-    hashLabel_->setStyleSheet("font-size: 9px; color: #666666; font-family: monospace;");
+    hashLabel_->setObjectName("hashLabel");
     hashLabel_->setWordWrap(true);
     hashLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
     mainLayout->addWidget(hashLabel_);
@@ -409,6 +265,7 @@ void TorrentDetailsPanel::setupUi()
     mainLayout->addWidget(filesTreeTitle_);
     
     filesTree_ = new QTreeWidget();
+    filesTree_->setObjectName("filesTree");
     filesTree_->setHeaderLabels({tr("Name"), tr("Size"), tr("Download")});
     filesTree_->setColumnCount(3);
     filesTree_->header()->setStretchLastSection(false);
@@ -418,31 +275,6 @@ void TorrentDetailsPanel::setupUi()
     filesTree_->setColumnWidth(1, 80);
     filesTree_->setColumnWidth(2, 60);
     filesTree_->setMaximumHeight(200);
-    filesTree_->setStyleSheet(R"(
-        QTreeWidget {
-            background-color: #1e1e1e;
-            border: 1px solid #3c3f41;
-            border-radius: 4px;
-            font-size: 11px;
-        }
-        QTreeWidget::item {
-            padding: 4px;
-        }
-        QTreeWidget::item:selected {
-            background-color: #3d6a99;
-        }
-        QTreeWidget::item:hover {
-            background-color: #2d3748;
-        }
-        QHeaderView::section {
-            background-color: #2d2d2d;
-            color: #888888;
-            padding: 6px;
-            border: none;
-            border-bottom: 1px solid #3c3f41;
-            font-size: 10px;
-        }
-    )");
     filesTree_->hide();  // Hidden until files are loaded
     connect(filesTree_, &QTreeWidget::itemChanged, this, &TorrentDetailsPanel::onFileItemChanged);
     mainLayout->addWidget(filesTree_);
@@ -459,45 +291,13 @@ void TorrentDetailsPanel::setupUi()
     magnetButton_ = new QPushButton(tr("Open Magnet Link"));
     magnetButton_->setObjectName("magnetButton");
     magnetButton_->setCursor(Qt::PointingHandCursor);
-    magnetButton_->setStyleSheet(R"(
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #e91e63, stop:1 #9c27b0);
-            border: none;
-            border-radius: 6px;
-            padding: 12px 20px;
-            font-weight: bold;
-            font-size: 12px;
-            color: white;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #f06292, stop:1 #ba68c8);
-        }
-    )");
     connect(magnetButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onMagnetClicked);
     mainLayout->addWidget(magnetButton_);
     
     // Download button
     downloadButton_ = new QPushButton(tr("Download"));
-    downloadButton_->setObjectName("downloadButton");
+    downloadButton_->setObjectName("successButton");
     downloadButton_->setCursor(Qt::PointingHandCursor);
-    downloadButton_->setStyleSheet(R"(
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #00c853, stop:1 #00e676);
-            border: none;
-            border-radius: 6px;
-            padding: 12px 20px;
-            font-weight: bold;
-            font-size: 12px;
-            color: white;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #00e676, stop:1 #69f0ae);
-        }
-    )");
     connect(downloadButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onDownloadClicked);
     mainLayout->addWidget(downloadButton_);
     
@@ -505,20 +305,6 @@ void TorrentDetailsPanel::setupUi()
     copyHashButton_ = new QPushButton(tr("Copy Info Hash"));
     copyHashButton_->setObjectName("secondaryButton");
     copyHashButton_->setCursor(Qt::PointingHandCursor);
-    copyHashButton_->setStyleSheet(R"(
-        QPushButton {
-            background-color: #3c3f41;
-            border: 1px solid #555555;
-            border-radius: 6px;
-            padding: 10px 20px;
-            font-size: 11px;
-            color: #cccccc;
-        }
-        QPushButton:hover {
-            background-color: #4c4f51;
-            color: #ffffff;
-        }
-    )");
     connect(copyHashButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onCopyHashClicked);
     mainLayout->addWidget(copyHashButton_);
 }
@@ -534,7 +320,9 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     // Content type
     QString contentType = torrent.contentType.isEmpty() ? "unknown" : torrent.contentType;
     QColor typeColor = TorrentItemDelegate::getContentTypeColor(contentType);
-    contentTypeIcon_->setStyleSheet(QString("background-color: %1; border-radius: 6px;").arg(typeColor.name()));
+    contentTypeIcon_->setProperty("typeColor", typeColor.name());
+    contentTypeIcon_->style()->unpolish(contentTypeIcon_);
+    contentTypeIcon_->style()->polish(contentTypeIcon_);
     contentTypeLabel_->setText(TorrentItemDelegate::getContentTypeName(contentType));
     
     // Stats
@@ -563,7 +351,9 @@ void TorrentDetailsPanel::clear()
     currentTorrent_ = TorrentInfo();
     
     titleLabel_->setText(tr("Select a torrent"));
-    contentTypeIcon_->setStyleSheet("background-color: #888888; border-radius: 6px;");
+    contentTypeIcon_->setProperty("typeColor", "#888888");
+    contentTypeIcon_->style()->unpolish(contentTypeIcon_);
+    contentTypeIcon_->style()->polish(contentTypeIcon_);
     contentTypeLabel_->clear();
     
     seedersLabel_->setText("0");
@@ -587,18 +377,23 @@ void TorrentDetailsPanel::updateRatingDisplay()
     
     if (good == 0 && bad == 0) {
         ratingBar_->setValue(0);
-        ratingBar_->setStyleSheet("QProgressBar::chunk { background-color: #444444; }");
+        ratingBar_->setProperty("ratingType", "neutral");
         ratingLabel_->setText(tr("No ratings"));
-        return;
+        ratingLabel_->setProperty("ratingType", "neutral");
+    } else {
+        int rating = static_cast<int>((static_cast<double>(good) / (good + bad)) * 100);
+        ratingBar_->setValue(rating);
+        
+        QString ratingType = rating >= 50 ? "good" : "bad";
+        ratingBar_->setProperty("ratingType", ratingType);
+        ratingLabel_->setText(QString("%1%").arg(rating));
+        ratingLabel_->setProperty("ratingType", ratingType);
     }
     
-    int rating = static_cast<int>((static_cast<double>(good) / (good + bad)) * 100);
-    ratingBar_->setValue(rating);
-    
-    QColor ratingColor = rating >= 50 ? QColor("#00E676") : QColor("#FF3D00");
-    ratingBar_->setStyleSheet(QString("QProgressBar::chunk { background-color: %1; border-radius: 3px; }").arg(ratingColor.name()));
-    ratingLabel_->setText(QString("%1%").arg(rating));
-    ratingLabel_->setStyleSheet(QString("font-size: 10px; color: %1; margin-left: 8px; font-weight: bold;").arg(ratingColor.name()));
+    ratingBar_->style()->unpolish(ratingBar_);
+    ratingBar_->style()->polish(ratingBar_);
+    ratingLabel_->style()->unpolish(ratingLabel_);
+    ratingLabel_->style()->polish(ratingLabel_);
 }
 
 QString TorrentDetailsPanel::formatBytes(qint64 bytes) const
@@ -958,18 +753,9 @@ void TorrentDetailsPanel::setDownloadCompleted()
     downloadButton_->show();
     downloadButton_->setText(tr("✓ Completed"));
     downloadButton_->setEnabled(false);
-    downloadButton_->setStyleSheet(R"(
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #388e3c, stop:1 #4caf50);
-            border: none;
-            border-radius: 6px;
-            padding: 12px 20px;
-            font-weight: bold;
-            font-size: 12px;
-            color: white;
-        }
-    )");
+    downloadButton_->setObjectName("completedButton");
+    downloadButton_->style()->unpolish(downloadButton_);
+    downloadButton_->style()->polish(downloadButton_);
 }
 
 void TorrentDetailsPanel::resetDownloadState()
@@ -979,22 +765,9 @@ void TorrentDetailsPanel::resetDownloadState()
     downloadButton_->show();
     downloadButton_->setText(tr("Download"));
     downloadButton_->setEnabled(true);
-    downloadButton_->setStyleSheet(R"(
-        QPushButton {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #00c853, stop:1 #00e676);
-            border: none;
-            border-radius: 6px;
-            padding: 12px 20px;
-            font-weight: bold;
-            font-size: 12px;
-            color: white;
-        }
-        QPushButton:hover {
-            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
-                stop:0 #00e676, stop:1 #69f0ae);
-        }
-    )");
+    downloadButton_->setObjectName("successButton");
+    downloadButton_->style()->unpolish(downloadButton_);
+    downloadButton_->style()->polish(downloadButton_);
 }
 
 void TorrentDetailsPanel::onCancelDownloadClicked()

@@ -1066,3 +1066,420 @@ QMenu#trayMenu {
     background-color: #ffffff;
     border-radius: 10px;
 }
+
+/* ============================================
+   Widget Rows (headers, filters, bottoms)
+   ============================================ */
+
+QWidget#headerRow,
+QWidget#filterRow,
+QWidget#bottomRow {
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+QLabel#filterLabel {
+    color: #666666;
+    font-size: 12px;
+}
+
+QLabel#statusLabel {
+    color: #888888;
+    font-size: 11px;
+}
+
+/* ============================================
+   Category Tab Bar (Top Torrents)
+   ============================================ */
+
+QTabBar#categoryTabBar {
+    background-color: transparent;
+}
+
+QTabBar#categoryTabBar::tab {
+    background-color: #e8e8e8;
+    color: #666666;
+    padding: 10px 20px;
+    margin-right: 2px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    font-weight: bold;
+}
+
+QTabBar#categoryTabBar::tab:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #4a9eff, stop:1 #3d8ce8);
+    color: #ffffff;
+}
+
+QTabBar#categoryTabBar::tab:hover:!selected {
+    background-color: #d8d8d8;
+    color: #2c2c2c;
+}
+
+/* ============================================
+   Downloads Widget
+   ============================================ */
+
+QScrollArea#downloadsScrollArea {
+    border: none;
+    background-color: #fafafa;
+}
+
+QWidget#downloadsListContainer {
+    background-color: #fafafa;
+}
+
+/* Download Item Widget */
+QWidget#downloadItemWidget {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin: 4px;
+}
+
+QWidget#downloadItemWidget:hover {
+    border-color: #4a9eff;
+}
+
+QLabel#downloadItemName {
+    font-size: 14px;
+    font-weight: bold;
+    color: #2c2c2c;
+}
+
+QLabel#downloadItemSize {
+    font-size: 12px;
+    color: #888888;
+}
+
+QLabel#downloadItemStatus {
+    font-size: 12px;
+    color: #888888;
+}
+
+QLabel#downloadItemSpeed {
+    font-size: 12px;
+    color: #4a9eff;
+    font-weight: bold;
+}
+
+/* Download Progress Bars */
+QProgressBar#downloadProgress {
+    border: none;
+    border-radius: 4px;
+    background-color: #e0e0e0;
+    height: 16px;
+    text-align: center;
+    font-size: 11px;
+    color: #2c2c2c;
+}
+
+QProgressBar#downloadProgress::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4a9eff, stop:1 #66b2ff);
+    border-radius: 4px;
+}
+
+QProgressBar#downloadProgressPaused {
+    border: none;
+    border-radius: 4px;
+    background-color: #e0e0e0;
+    height: 16px;
+    text-align: center;
+    font-size: 11px;
+    color: #2c2c2c;
+}
+
+QProgressBar#downloadProgressPaused::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #999999, stop:1 #bbbbbb);
+    border-radius: 4px;
+}
+
+/* ============================================
+   Torrent Details Panel
+   ============================================ */
+
+QWidget#detailsPanel {
+    background-color: #f5f5f5;
+    border-left: 1px solid #e0e0e0;
+}
+
+QLabel#detailsTitleLabel {
+    font-size: 14px;
+    font-weight: bold;
+    color: #2c2c2c;
+}
+
+QLabel#contentTypeLabel {
+    font-size: 10px;
+    color: #888888;
+    padding-left: 40px;
+}
+
+QWidget#contentTypeIcon {
+    background-color: #888888;
+    border-radius: 6px;
+}
+
+QFrame#detailsSeparator {
+    background-color: #e0e0e0;
+}
+
+QLabel#sectionTitle {
+    color: #4a9eff;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 8px 0 4px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+QLabel#infoLabel {
+    color: #888888;
+    font-size: 10px;
+}
+
+QLabel#infoValue {
+    color: #2c2c2c;
+    font-size: 11px;
+}
+
+QLabel#statsSubLabel {
+    font-size: 10px;
+    color: #888888;
+}
+
+QLabel#hashLabel {
+    font-size: 9px;
+    color: #666666;
+    font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+}
+
+QLabel#votesLabel,
+QLabel#ratingLabel {
+    font-size: 10px;
+    color: #888888;
+}
+
+QLabel#ratingLabel[ratingType="good"] {
+    color: #00C853;
+    font-weight: bold;
+}
+
+QLabel#ratingLabel[ratingType="bad"] {
+    color: #FF3D00;
+    font-weight: bold;
+}
+
+QProgressBar#ratingBar {
+    border: none;
+    border-radius: 3px;
+    background-color: #e0e0e0;
+    height: 6px;
+}
+
+QProgressBar#ratingBar::chunk {
+    border-radius: 3px;
+    background-color: #888888;
+}
+
+QProgressBar#ratingBar[ratingType="good"]::chunk {
+    background-color: #00E676;
+}
+
+QProgressBar#ratingBar[ratingType="bad"]::chunk {
+    background-color: #FF3D00;
+}
+
+/* Voting buttons */
+QPushButton#goodVoteButton {
+    background-color: #2e7d32;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+QPushButton#goodVoteButton:hover {
+    background-color: #388e3c;
+}
+
+QPushButton#goodVoteButton:pressed {
+    background-color: #1b5e20;
+}
+
+QPushButton#goodVoteButton:disabled {
+    background-color: #e0e0e0;
+    color: #999999;
+}
+
+QPushButton#badVoteButton {
+    background-color: #c62828;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+QPushButton#badVoteButton:hover {
+    background-color: #d32f2f;
+}
+
+QPushButton#badVoteButton:pressed {
+    background-color: #b71c1c;
+}
+
+QPushButton#badVoteButton:disabled {
+    background-color: #e0e0e0;
+    color: #999999;
+}
+
+/* Download progress widget */
+QWidget#downloadProgressWidget {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+QLabel#downloadTitleLabel {
+    font-size: 12px;
+    font-weight: bold;
+    color: #4a9eff;
+}
+
+QLabel#downloadSpeedLabel {
+    font-size: 11px;
+    color: #00c853;
+    font-weight: bold;
+}
+
+QLabel#downloadStatusLabel {
+    font-size: 10px;
+    color: #888888;
+}
+
+QProgressBar#downloadProgressBarDetails {
+    border: none;
+    border-radius: 4px;
+    background-color: #e0e0e0;
+    text-align: center;
+    font-size: 10px;
+    color: #2c2c2c;
+}
+
+QProgressBar#downloadProgressBarDetails::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #4a9eff, stop:1 #66b2ff);
+    border-radius: 4px;
+}
+
+QPushButton#cancelDownloadButton {
+    background-color: #c62828;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 10px;
+}
+
+QPushButton#cancelDownloadButton:hover {
+    background-color: #d32f2f;
+}
+
+/* Close button */
+QPushButton#closeButton {
+    background-color: transparent;
+    border: none;
+    color: #888888;
+    font-size: 18px;
+    padding: 4px 8px;
+}
+
+QPushButton#closeButton:hover {
+    color: #2c2c2c;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+}
+
+/* Completed button state */
+QPushButton#completedButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+        stop:0 #388e3c, stop:1 #4caf50);
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    font-weight: bold;
+    font-size: 12px;
+    color: white;
+}
+
+/* Files tree */
+QTreeWidget#filesTree {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+QTreeWidget#filesTree::item {
+    padding: 4px;
+}
+
+QTreeWidget#filesTree::item:selected {
+    background-color: #4a9eff;
+    color: #ffffff;
+}
+
+QTreeWidget#filesTree::item:hover {
+    background-color: #f0f7ff;
+}
+
+QTreeWidget#filesTree QHeaderView::section {
+    background-color: #f0f0f0;
+    color: #666666;
+    padding: 6px;
+    border: none;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 10px;
+}
+
+/* ============================================
+   About Dialog
+   ============================================ */
+
+QLabel#aboutLogoLabel {
+    font-size: 48px;
+}
+
+QLabel#aboutTitleLabel {
+    font-size: 20px;
+    font-weight: bold;
+    color: #4a9eff;
+}
+
+QLabel#linkLabel {
+    color: #4a9eff;
+}
+
+QLabel#linkLabel a {
+    color: #4a9eff;
+}
+
+/* ============================================
+   Settings Dialog
+   ============================================ */
+
+QScrollArea#settingsScrollArea {
+    background: transparent;
+    border: none;
+}
+
+QWidget#settingsScrollContent {
+    background: transparent;
+}
