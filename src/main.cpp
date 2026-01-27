@@ -454,7 +454,11 @@ int main(int argc, char *argv[])
         logger.set_log_file_path(logFilePath.toStdString());
         logger.set_log_rotation_size(0);  // No rotation
         logger.set_file_logging_enabled(true);
-        logger.set_log_level(librats::LogLevel::DEBUG);  // Log everything to file
+#ifdef NDEBUG
+        logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
+#else
+        logger.set_log_level(librats::LogLevel::DEBUG);  // Debug: all messages
+#endif
         
         qInfo() << "Log file:" << logFilePath;
         
@@ -524,7 +528,11 @@ int main(int argc, char *argv[])
         logger.set_log_file_path(logFilePath.toStdString());
         logger.set_log_rotation_size(0);  // No rotation
         logger.set_file_logging_enabled(true);
-        logger.set_log_level(librats::LogLevel::DEBUG);  // Log everything to file
+#ifdef NDEBUG
+        logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
+#else
+        logger.set_log_level(librats::LogLevel::DEBUG);  // Debug: all messages
+#endif
         
         qInfo() << "Rats Search starting...";
         qInfo() << "Data directory:" << dataDir;
