@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2](https://github.com/DEgITx/rats-search/compare/v2.0.1...v2.0.2) (2026-01-27)
+
+
+### 🐛 Bug Fixes
+
+
+- **linux:** Trying to fix Linux AppImage build([f337c6c](https://github.com/DEgITx/rats-search/commit/f337c6c4f77eb9fadbfd35a752a261224fbc67ad)) by @DEgITx
+- **linux:** Fix build on some linux systems([16e1313](https://github.com/DEgITx/rats-search/commit/16e1313a1d046e5e37cec3726aa4ffd1c009a66b)) by @DEgITx
+- **download:** Fix metadata download handling([436c6d4](https://github.com/DEgITx/rats-search/commit/436c6d4a094638df9f832e33b5e996c644915a0a)) by @DEgITx
+- **log:** Logs limited for release version to reduce disk usage and space #234([a002218](https://github.com/DEgITx/rats-search/commit/a0022184df33108c6192e158e750b84ee2247f43)) by @DEgITx
+- **ui:** Fix crash on startup with top torrent tab([4413287](https://github.com/DEgITx/rats-search/commit/44132873d09287be15b893d29667b2c5dfe7cfab)) by @DEgITx
+- **ui:** Fix some styles components in light theme([14770a9](https://github.com/DEgITx/rats-search/commit/14770a952c6811e63f133936ae55e1c5fa1ae57b)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.1([d71eec5](https://github.com/DEgITx/rats-search/commit/d71eec512bf46195b3f667e308a6a1f81fddcc27)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.1](https://github.com/DEgITx/rats-search/compare/v2.0.0...v2.0.1) (2026-01-23)
 
 
