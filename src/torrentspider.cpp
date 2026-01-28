@@ -367,7 +367,7 @@ void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp
                 activeFetches_--;
                 
                 if (!success) {
-                    qDebug() << "Failed to get metadata (direct) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
+                    qInfo() << "Failed to get metadata (direct) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
                     return;
                 }
                 
@@ -396,7 +396,7 @@ void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp
                 activeFetches_--;
                 
                 if (!success) {
-                    qDebug() << "Failed to get metadata (DHT) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
+                    qInfo() << "Failed to get metadata (DHT) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
                     return;
                 }
                 

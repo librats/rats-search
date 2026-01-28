@@ -130,7 +130,7 @@ void UpdateManager::checkForUpdates()
 {
     if (state_ == UpdateState::CheckingForUpdates || 
         state_ == UpdateState::Downloading) {
-        qDebug() << "Update check already in progress";
+        qInfo() << "Update check already in progress";
         return;
     }
     
@@ -221,7 +221,7 @@ void UpdateManager::onCheckReplyFinished()
         QJsonObject asset = assetVal.toObject();
         QString name = asset["name"].toString();
         
-        qDebug() << "Found asset:" << name;
+        qInfo() << "Found asset:" << name;
         
         // Check if asset starts with our platform prefix and has correct extension
         // Handles both old format (RatsSearch-Windows-x64.zip) and

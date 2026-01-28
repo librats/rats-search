@@ -1110,8 +1110,8 @@ void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
             if (response.success) {
                 QJsonObject data = response.data.toObject();
                 if (data["status"].toString() == "success") {
-                    qDebug() << "Tracker check for" << infoHash.left(8) 
-                             << "- seeders:" << data["seeders"].toInt()
+                    qInfo() << "Tracker check for" << infoHash.left(8) 
+                            << "- seeders:" << data["seeders"].toInt()
                              << "leechers:" << data["leechers"].toInt();
                 }
             }

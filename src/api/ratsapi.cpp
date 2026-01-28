@@ -1395,8 +1395,8 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
                 QString rejectionReason = getTorrentRejectionReason(torrent);
                 if (!rejectionReason.isEmpty()) {
                     toRemove.append(torrent.hash);
-                    qDebug() << "Cleanup: Marking torrent for removal:" << torrent.hash.left(8) 
-                             << torrent.name.left(40) << "-" << rejectionReason;
+                    qInfo() << "Cleanup: Marking torrent for removal:" << torrent.hash.left(8) 
+                            << torrent.name.left(40) << "-" << rejectionReason;
                     
                     // Emit progress periodically
                     if (toRemove.size() % 100 == 0) {
@@ -1679,7 +1679,7 @@ void RatsAPI::handleP2PSearchRequest(const QString& peerId, const QJsonObject& d
     }
     
     if (query.length() <= 2) {
-        qDebug() << "P2P search query too short, ignoring";
+        qInfo() << "P2P search query too short, ignoring";
         return;
     }
     
@@ -1968,14 +1968,14 @@ void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
     // Check filters before inserting
     QString rejectionReason = getTorrentRejectionReason(torrent);
     if (!rejectionReason.isEmpty()) {
-        qDebug() << "Rejected torrent from feed:" << torrent.name.left(30) << "-" << rejectionReason;
+        qInfo() << "Rejected torrent from feed:" << torrent.name.left(30) << "-" << rejectionReason;
         return;
     }
     
     // Insert into database
     d->database->insertTorrent(torrent);
     
-    qDebug() << "Inserted torrent from feed:" << torrent.name.left(30);
+    qInfo() << "Inserted torrent from feed:" << torrent.name.left(30);
 }
 
 void RatsAPI::handleP2PSearchResult(const QString& peerId, const QJsonObject& data)
@@ -2054,7 +2054,7 @@ void RatsAPI::handleP2PRandomTorrentsRequest(const QString& peerId, const QJsonO
     
     // Check if replication server is enabled
     if (!d->config || !d->config->p2pReplicationServer()) {
-        qDebug() << "P2P replication server disabled, ignoring randomTorrents request";
+        qInfo() << "P2P replication server disabled, ignoring randomTorrents request";
         return;
     }
     
@@ -2104,7 +2104,7 @@ void RatsAPI::startReplication()
     }
     
     if (d->replicationTimer->isActive()) {
-        qDebug() << "Replication timer already running";
+        qInfo() << "Replication timer already running";
         return;
     }
     
@@ -2153,11 +2153,11 @@ void RatsAPI::performReplicationCycle()
     
     int peerCount = d->p2p->getPeerCount();
     if (peerCount == 0) {
-        qDebug() << "Replication: No peers connected, skipping cycle";
+        qInfo() << "Replication: No peers connected, skipping cycle";
         return;
     }
     
-    qDebug() << "Replication cycle: requesting random torrents from" << peerCount << "peers";
+    qInfo() << "Replication cycle: requesting random torrents from" << peerCount << "peers";
     
     // Reset counter for this cycle
     d->replicationTorrentsReceived = 0;

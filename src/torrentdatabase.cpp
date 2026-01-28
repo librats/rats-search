@@ -86,7 +86,7 @@ bool TorrentDatabase::addTorrent(const TorrentInfo& torrent)
     // Check if already exists
     auto results = sphinxQL_->query("SELECT id FROM torrents WHERE hash = ?", {torrent.hash});
     if (!results.isEmpty()) {
-        qDebug() << "Torrent already exists:" << torrent.hash;
+        qInfo() << "Torrent already exists:" << torrent.hash;
         return true;
     }
     

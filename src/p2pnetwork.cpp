@@ -296,7 +296,7 @@ void P2PNetwork::registerMessageHandler(const QString& messageType, MessageHandl
             }
         });
     
-    qDebug() << "Registered P2P message handler for:" << messageType;
+    qInfo() << "Registered P2P message handler for:" << messageType;
 }
 
 void P2PNetwork::unregisterMessageHandler(const QString& messageType)
@@ -543,7 +543,7 @@ bool P2PNetwork::connectToPeer(const QString& address)
     // Use librats connect_to_peer method
     std::string hostStr = host.toStdString();
     if (ratsClient_->connect_to_peer(hostStr, port)) {
-        qDebug() << "Connected to bootstrap peer:" << address.left(30);
+        qInfo() << "Connected to bootstrap peer:" << address.left(30);
         return true;
     }
     

@@ -276,7 +276,7 @@ bool P2PStoreManager::storeVote(const QString& hash, bool isGood, const QJsonObj
     
     // Check if already voted
     if (hasVoted(hash)) {
-        qDebug() << "P2PStoreManager: Already voted on" << hash.left(8);
+        qInfo() << "P2PStoreManager: Already voted on" << hash.left(8);
         return false;
     }
     

@@ -609,7 +609,7 @@ QString ManticoreManager::findSearchdPath()
     searchPaths << "/usr/bin/searchd"
                 << "/usr/local/bin/searchd";
     
-    qDebug() << "Searching for searchd in:" << searchPaths;
+    qInfo() << "Searching for searchd in:" << searchPaths;
     
     for (const QString& path : searchPaths) {
         if (QFile::exists(path)) {
