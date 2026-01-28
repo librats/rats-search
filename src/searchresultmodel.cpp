@@ -70,23 +70,23 @@ QVariant SearchResultModel::data(const QModelIndex &index, int role) const
             .arg(torrent.files);
     }
     // Custom roles for delegate
-    else if (role == Qt::UserRole + 1) {
+    else if (role == ContentTypeRole) {
         // Content type string for icon coloring
         return torrent.contentType;
     }
-    else if (role == Qt::UserRole + 2) {
+    else if (role == ContentCategoryRole) {
         // Content category string
         return torrent.contentCategory;
     }
-    else if (role == Qt::UserRole + 3) {
+    else if (role == GoodVotesRole) {
         // Good votes
         return torrent.good;
     }
-    else if (role == Qt::UserRole + 4) {
+    else if (role == BadVotesRole) {
         // Bad votes
         return torrent.bad;
     }
-    else if (role == Qt::UserRole + 5 || role == InfoHashRole) {
+    else if (role == InfoHashRole) {
         // Info hash
         return torrent.hash;
     }
