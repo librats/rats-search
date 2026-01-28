@@ -85,7 +85,6 @@ private slots:
 private:
     void setupUi();
     void setupMenuBar();
-    void setupToolBar();
     void setupStatusBar();
     void connectSignals();
     void startServices();

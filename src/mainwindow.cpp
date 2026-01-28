@@ -24,7 +24,6 @@
 #include "settingsdialog.h"
 
 #include <QMenuBar>
-#include <QToolBar>
 #include <QStatusBar>
 #include <QLineEdit>
 #include <QPushButton>
@@ -91,7 +90,6 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     applyTheme(config->darkMode());
     setupUi();
     setupMenuBar();
-    setupToolBar();
     setupStatusBar();
     setupSystemTray();
     qInfo() << "UI setup took:" << (startupTimer.elapsed() - uiStart) << "ms";
@@ -364,30 +362,6 @@ void MainWindow::setupMenuBar()
     connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 }
 
-void MainWindow::setupToolBar()
-{
-    QToolBar *toolBar = addToolBar(tr("Main Toolbar"));
-    toolBar->setObjectName("MainToolBar");
-    toolBar->setMovable(false);
-    toolBar->setIconSize(QSize(20, 20));
-    
-    // Add actions to toolbar
-    QAction *refreshAction = toolBar->addAction(tr("Refresh"));
-    connect(refreshAction, &QAction::triggered, [this]() {
-        if (!currentSearchQuery_.isEmpty()) {
-            performSearch(currentSearchQuery_);
-        }
-    });
-    
-    toolBar->addSeparator();
-    
-    QAction *clearAction = toolBar->addAction(tr("Clear"));
-    connect(clearAction, &QAction::triggered, [this]() {
-        searchResultModel->clearResults();
-        detailsPanel->clear();
-        detailsPanel->hide();
-    });
-}
 
 void MainWindow::setupStatusBar()
 {
