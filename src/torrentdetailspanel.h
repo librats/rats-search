@@ -7,11 +7,9 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QProgressBar>
-#include <QTreeWidget>
 #include <QScrollArea>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QMap>
 #include "torrentdatabase.h"
 
 // Forward declarations
@@ -23,8 +21,9 @@ class RatsAPI;
  * 
  * Features migrated from legacy:
  * - Voting (Good/Bad buttons)
- * - Files tree with selection
  * - Download progress display
+ * 
+ * Note: Files tree has been moved to TorrentFilesWidget (bottom panel)
  */
 class TorrentDetailsPanel : public QWidget
 {
@@ -39,10 +38,7 @@ public:
     void clear();
     bool isEmpty() const { return currentHash_.isEmpty(); }
     QString currentHash() const { return currentHash_; }
-    
-    // File tree methods
-    void setFiles(const QJsonArray& files);
-    QList<int> getSelectedFileIndices() const;
+    TorrentInfo currentTorrent() const { return currentTorrent_; }
     
     // Download progress
     void setDownloadProgress(double progress, qint64 downloaded, qint64 total, int speed);
@@ -53,7 +49,6 @@ signals:
     void magnetLinkRequested(const QString &hash, const QString &name);
     void downloadRequested(const QString &hash);
     void downloadCancelRequested(const QString &hash);
-    void fileSelectionChanged(const QString &hash, const QList<int> &selectedIndices);
     void voteRequested(const QString &hash, bool isGood);
     void closeRequested();
 
@@ -67,7 +62,6 @@ private slots:
     void onGoodVoteClicked();
     void onBadVoteClicked();
     void onCancelDownloadClicked();
-    void onFileItemChanged(QTreeWidgetItem* item, int column);
 
 private:
     void setupUi();
@@ -76,24 +70,6 @@ private:
     QString formatBytes(qint64 bytes) const;
     QString formatDate(qint64 timestamp) const;
     QString formatSpeed(int bytesPerSec) const;
-    QWidget* createInfoRow(const QString &label, const QString &value, 
-                           const QColor &valueColor = QColor());
-    QWidget* createActionButton(const QString &text, const QString &iconPath,
-                                const QColor &bgColor);
-    
-    // File tree helpers (migrated from legacy/app/torrent-page.js buildFilesTree)
-    struct FileTreeNode {
-        QString name;
-        qint64 size = 0;
-        bool isFile = false;
-        int fileIndex = -1;
-        QMap<QString, FileTreeNode*> children;
-        ~FileTreeNode() { qDeleteAll(children); }
-    };
-    FileTreeNode* buildFileTree(const QJsonArray& files);
-    void addTreeNodeToWidget(FileTreeNode* node, QTreeWidgetItem* parent);
-    QString getFileTypeIcon(const QString& filename) const;
-    void collectSelectedFiles(QTreeWidgetItem* item, QList<int>& indices) const;
     
     RatsAPI* api_ = nullptr;
     
@@ -121,10 +97,6 @@ private:
     QPushButton *badVoteButton_;
     QLabel *votesLabel_;
     
-    // Files tree
-    QTreeWidget *filesTree_;
-    QLabel *filesTreeTitle_;
-    
     // Download progress section
     QWidget *downloadProgressWidget_;
     QProgressBar *downloadProgressBar_;
@@ -146,4 +118,3 @@ private:
 };
 
 #endif // TORRENTDETAILSPANEL_H
-

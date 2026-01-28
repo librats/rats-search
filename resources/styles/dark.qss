@@ -1514,3 +1514,57 @@ QScrollArea#settingsScrollArea {
 QWidget#settingsScrollContent {
     background: transparent;
 }
+
+/* ============================================
+   Torrent Files Widget (Bottom Panel)
+   ============================================ */
+
+QWidget#torrentFilesWidget {
+    background-color: #252526;
+    border-top: 1px solid #3c3f41;
+}
+
+QLabel#filesWidgetTitle {
+    font-size: 13px;
+    font-weight: bold;
+    color: #4a9eff;
+}
+
+QLabel#filesWidgetInfo {
+    font-size: 11px;
+    color: #888888;
+}
+
+QTreeWidget#filesTreeBottom {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3f41;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+QTreeWidget#filesTreeBottom::item {
+    padding: 4px 6px;
+}
+
+QTreeWidget#filesTreeBottom::item:selected {
+    background-color: #3d6a99;
+}
+
+QTreeWidget#filesTreeBottom::item:hover {
+    background-color: #2d3748;
+}
+
+QTreeWidget#filesTreeBottom QHeaderView::section {
+    background-color: #2d2d2d;
+    color: #888888;
+    padding: 8px 6px;
+    border: none;
+    border-bottom: 1px solid #3c3f41;
+    border-right: 1px solid #3c3f41;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+QTreeWidget#filesTreeBottom QHeaderView::section:last {
+    border-right: none;
+}

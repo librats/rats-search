@@ -12,6 +12,7 @@
 #include "toptorrentswidget.h"
 #include "feedwidget.h"
 #include "downloadswidget.h"
+#include "torrentfileswidget.h"
 
 // New API layer
 #include "api/ratsapi.h"
@@ -191,7 +192,11 @@ void MainWindow::setupUi()
     
     mainLayout->addWidget(searchSection);
     
-    // Main content with splitter
+    // Main vertical splitter: content area on top, files panel at bottom
+    verticalSplitter = new QSplitter(Qt::Vertical, this);
+    verticalSplitter->setHandleWidth(3);
+    
+    // Horizontal splitter for tabs + details panel
     mainSplitter = new QSplitter(Qt::Horizontal, this);
     mainSplitter->setHandleWidth(2);
     
@@ -284,6 +289,20 @@ void MainWindow::setupUi()
             this, [this](const TorrentInfo& torrent) {
                 detailsPanel->setTorrent(torrent);
                 detailsPanel->show();
+                // Fetch files for bottom panel
+                if (api) {
+                    api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+                        if (response.success) {
+                            QJsonObject data = response.data.toObject();
+                            QJsonArray files = data["filesList"].toArray();
+                            if (!files.isEmpty()) {
+                                filesWidget->setFiles(torrent.hash, torrent.name, files);
+                                filesWidget->show();
+                                verticalSplitter->setSizes({600, 200});
+                            }
+                        }
+                    });
+                }
             });
     connect(topTorrentsWidget, &TopTorrentsWidget::torrentDoubleClicked,
             this, [this](const TorrentInfo& torrent) {
@@ -301,6 +320,20 @@ void MainWindow::setupUi()
             this, [this](const TorrentInfo& torrent) {
                 detailsPanel->setTorrent(torrent);
                 detailsPanel->show();
+                // Fetch files for bottom panel
+                if (api) {
+                    api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+                        if (response.success) {
+                            QJsonObject data = response.data.toObject();
+                            QJsonArray files = data["filesList"].toArray();
+                            if (!files.isEmpty()) {
+                                filesWidget->setFiles(torrent.hash, torrent.name, files);
+                                filesWidget->show();
+                                verticalSplitter->setSizes({600, 200});
+                            }
+                        }
+                    });
+                }
             });
     connect(feedWidget, &FeedWidget::torrentDoubleClicked,
             this, [this](const TorrentInfo& torrent) {
@@ -320,14 +353,24 @@ void MainWindow::setupUi()
     
     // Right side - Details panel
     detailsPanel = new TorrentDetailsPanel(this);
-    detailsPanel->setMinimumWidth(320);
-    detailsPanel->setMaximumWidth(400);
+    detailsPanel->setMinimumWidth(280);
+    detailsPanel->setMaximumWidth(380);
     detailsPanel->hide();  // Hidden by default
     
     mainSplitter->addWidget(detailsPanel);
     mainSplitter->setSizes({900, 350});
     
-    mainLayout->addWidget(mainSplitter, 1);
+    // Add horizontal splitter to vertical splitter
+    verticalSplitter->addWidget(mainSplitter);
+    
+    // Bottom panel - Files widget (like qBittorrent)
+    filesWidget = new TorrentFilesWidget(this);
+    filesWidget->setMinimumHeight(120);
+    filesWidget->setMaximumHeight(350);
+    filesWidget->hide();  // Hidden by default until a torrent is selected
+    verticalSplitter->addWidget(filesWidget);
+    
+    mainLayout->addWidget(verticalSplitter, 1);
 }
 
 void MainWindow::setupMenuBar()
@@ -802,14 +845,21 @@ void MainWindow::onTorrentSelected(const QModelIndex &index)
         detailsPanel->setTorrent(torrent);
         detailsPanel->show();
         
+        // Clear files widget while loading
+        filesWidget->clear();
+        
         // Fetch full details with files from database/DHT
         if (api) {
-            api->getTorrent(torrent.hash, true, QString(), [this](const ApiResponse& response) {
+            api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
                 if (response.success) {
                     QJsonObject data = response.data.toObject();
                     QJsonArray files = data["filesList"].toArray();
                     if (!files.isEmpty()) {
-                        detailsPanel->setFiles(files);
+                        // Update files in bottom panel and show it
+                        filesWidget->setFiles(torrent.hash, torrent.name, files);
+                        filesWidget->show();
+                        // Set splitter sizes after showing
+                        verticalSplitter->setSizes({600, 200});
                     }
                 }
             });
@@ -845,6 +895,8 @@ void MainWindow::onSortOrderChanged(int index)
 void MainWindow::onDetailsPanelCloseRequested()
 {
     detailsPanel->hide();
+    filesWidget->clear();
+    filesWidget->hide();
     resultsTableView->clearSelection();
 }
 

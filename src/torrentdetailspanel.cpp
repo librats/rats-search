@@ -7,15 +7,10 @@
 #include <QUrl>
 #include <QDateTime>
 #include <QFont>
-#include <QGraphicsDropShadowEffect>
 #include <QScrollArea>
 #include <QFrame>
 #include <QTimer>
-#include <QJsonArray>
-#include <QHeaderView>
-#include <QSet>
 #include <QStyle>
-#include <algorithm>
 
 TorrentDetailsPanel::TorrentDetailsPanel(QWidget *parent)
     : QWidget(parent)
@@ -258,27 +253,6 @@ void TorrentDetailsPanel::setupUi()
     hashLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
     mainLayout->addWidget(hashLabel_);
     
-    // Files tree section (migrated from legacy/app/torrent-page.js)
-    filesTreeTitle_ = new QLabel(tr("Files"));
-    filesTreeTitle_->setObjectName("sectionTitle");
-    filesTreeTitle_->hide();  // Hidden until files are loaded
-    mainLayout->addWidget(filesTreeTitle_);
-    
-    filesTree_ = new QTreeWidget();
-    filesTree_->setObjectName("filesTree");
-    filesTree_->setHeaderLabels({tr("Name"), tr("Size"), tr("Download")});
-    filesTree_->setColumnCount(3);
-    filesTree_->header()->setStretchLastSection(false);
-    filesTree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    filesTree_->header()->setSectionResizeMode(1, QHeaderView::Fixed);
-    filesTree_->header()->setSectionResizeMode(2, QHeaderView::Fixed);
-    filesTree_->setColumnWidth(1, 80);
-    filesTree_->setColumnWidth(2, 60);
-    filesTree_->setMaximumHeight(200);
-    filesTree_->hide();  // Hidden until files are loaded
-    connect(filesTree_, &QTreeWidget::itemChanged, this, &TorrentDetailsPanel::onFileItemChanged);
-    mainLayout->addWidget(filesTree_);
-    
     // Spacer
     mainLayout->addStretch();
     
@@ -313,6 +287,7 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
 {
     currentTorrent_ = torrent;
     currentHash_ = torrent.hash;
+    hasVoted_ = false;
     
     // Update UI
     titleLabel_->setText(torrent.name);
@@ -341,6 +316,7 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     
     // Rating
     updateRatingDisplay();
+    updateVotingButtons();
     
     setVisible(true);
 }
@@ -349,6 +325,7 @@ void TorrentDetailsPanel::clear()
 {
     currentHash_.clear();
     currentTorrent_ = TorrentInfo();
+    hasVoted_ = false;
     
     titleLabel_->setText(tr("Select a torrent"));
     contentTypeIcon_->setProperty("typeColor", "#888888");
@@ -368,6 +345,7 @@ void TorrentDetailsPanel::clear()
     
     ratingBar_->setValue(0);
     ratingLabel_->setText("N/A");
+    votesLabel_->setText(tr("No votes yet"));
 }
 
 void TorrentDetailsPanel::updateRatingDisplay()
@@ -517,219 +495,6 @@ void TorrentDetailsPanel::updateVotingButtons()
     } else {
         goodVoteButton_->setText(tr("👍 Good"));
         badVoteButton_->setText(tr("👎 Bad"));
-    }
-}
-
-void TorrentDetailsPanel::setFiles(const QJsonArray& files)
-{
-    filesTree_->clear();
-    
-    if (files.isEmpty()) {
-        filesTreeTitle_->hide();
-        filesTree_->hide();
-        return;
-    }
-    
-    filesTreeTitle_->show();
-    filesTree_->show();
-    
-    // Block signals while populating
-    filesTree_->blockSignals(true);
-    
-    // Build hierarchical tree structure (like legacy buildFilesTree)
-    FileTreeNode* root = buildFileTree(files);
-    
-    // Add nodes to widget
-    for (auto it = root->children.begin(); it != root->children.end(); ++it) {
-        addTreeNodeToWidget(it.value(), nullptr);
-    }
-    
-    delete root;
-    
-    // Expand first level for better UX
-    for (int i = 0; i < filesTree_->topLevelItemCount(); ++i) {
-        QTreeWidgetItem* item = filesTree_->topLevelItem(i);
-        item->setExpanded(true);
-    }
-    
-    filesTree_->blockSignals(false);
-}
-
-TorrentDetailsPanel::FileTreeNode* TorrentDetailsPanel::buildFileTree(const QJsonArray& files)
-{
-    FileTreeNode* root = new FileTreeNode();
-    root->name = "";
-    root->size = 0;
-    
-    for (int i = 0; i < files.size(); ++i) {
-        QJsonObject fileObj = files.at(i).toObject();
-        QString path = fileObj["path"].toString();
-        qint64 size = fileObj["size"].toVariant().toLongLong();
-        
-        // Split path into parts (e.g., "folder1/folder2/file.txt" -> ["folder1", "folder2", "file.txt"])
-        QStringList pathParts = path.split('/', Qt::SkipEmptyParts);
-        
-        FileTreeNode* current = root;
-        for (int j = 0; j < pathParts.size(); ++j) {
-            const QString& part = pathParts[j];
-            bool isLastPart = (j == pathParts.size() - 1);
-            
-            if (!current->children.contains(part)) {
-                FileTreeNode* newNode = new FileTreeNode();
-                newNode->name = part;
-                newNode->size = 0;
-                newNode->isFile = isLastPart;
-                newNode->fileIndex = isLastPart ? i : -1;
-                current->children[part] = newNode;
-            }
-            
-            current = current->children[part];
-            current->size += size;  // Accumulate size for folders
-        }
-        
-        root->size += size;
-    }
-    
-    return root;
-}
-
-void TorrentDetailsPanel::addTreeNodeToWidget(FileTreeNode* node, QTreeWidgetItem* parent)
-{
-    QTreeWidgetItem* item = new QTreeWidgetItem();
-    
-    // Set name with icon
-    QString icon = node->isFile ? getFileTypeIcon(node->name) : "📁";
-    item->setText(0, icon + " " + node->name);
-    
-    // Set size
-    item->setText(1, formatBytes(node->size));
-    
-    // Set checkbox for files
-    if (node->isFile) {
-        item->setCheckState(2, Qt::Checked);
-        item->setData(0, Qt::UserRole, node->fileIndex);
-    } else {
-        // For folders, use partially checked state if needed
-        item->setFlags(item->flags() & ~Qt::ItemIsUserCheckable);
-    }
-    
-    // Add to tree
-    if (parent) {
-        parent->addChild(item);
-    } else {
-        filesTree_->addTopLevelItem(item);
-    }
-    
-    // Recursively add children (sorted alphabetically, folders first)
-    QList<FileTreeNode*> folders;
-    QList<FileTreeNode*> fileNodes;
-    
-    for (auto it = node->children.begin(); it != node->children.end(); ++it) {
-        if (it.value()->isFile) {
-            fileNodes.append(it.value());
-        } else {
-            folders.append(it.value());
-        }
-    }
-    
-    // Sort by name
-    std::sort(folders.begin(), folders.end(), [](FileTreeNode* a, FileTreeNode* b) {
-        return a->name.toLower() < b->name.toLower();
-    });
-    std::sort(fileNodes.begin(), fileNodes.end(), [](FileTreeNode* a, FileTreeNode* b) {
-        return a->name.toLower() < b->name.toLower();
-    });
-    
-    // Add folders first, then files
-    for (FileTreeNode* folder : folders) {
-        addTreeNodeToWidget(folder, item);
-    }
-    for (FileTreeNode* file : fileNodes) {
-        addTreeNodeToWidget(file, item);
-    }
-}
-
-QString TorrentDetailsPanel::getFileTypeIcon(const QString& filename) const
-{
-    QString ext = filename.section('.', -1).toLower();
-    
-    // Video extensions
-    static const QSet<QString> videoExts = {
-        "mkv", "mp4", "avi", "mov", "wmv", "flv", "webm", "m4v", "mpg", "mpeg",
-        "3gp", "ts", "m2ts", "vob", "divx", "rmvb", "asf"
-    };
-    
-    // Audio extensions
-    static const QSet<QString> audioExts = {
-        "mp3", "flac", "wav", "aac", "ogg", "wma", "m4a", "opus", "ape", "ac3"
-    };
-    
-    // Image extensions
-    static const QSet<QString> imageExts = {
-        "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "svg", "ico", "psd"
-    };
-    
-    // Book/document extensions
-    static const QSet<QString> bookExts = {
-        "pdf", "epub", "mobi", "djvu", "fb2", "doc", "docx", "txt", "rtf", "chm"
-    };
-    
-    // Archive extensions
-    static const QSet<QString> archiveExts = {
-        "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso"
-    };
-    
-    // Application extensions
-    static const QSet<QString> appExts = {
-        "exe", "msi", "dmg", "apk", "deb", "rpm", "app"
-    };
-    
-    if (videoExts.contains(ext)) return "🎬";
-    if (audioExts.contains(ext)) return "🎵";
-    if (imageExts.contains(ext)) return "🖼️";
-    if (bookExts.contains(ext)) return "📚";
-    if (archiveExts.contains(ext)) return "📦";
-    if (appExts.contains(ext)) return "💿";
-    
-    return "📄";  // Default file icon
-}
-
-QList<int> TorrentDetailsPanel::getSelectedFileIndices() const
-{
-    QList<int> indices;
-    
-    // Recursively collect from hierarchical tree
-    for (int i = 0; i < filesTree_->topLevelItemCount(); ++i) {
-        collectSelectedFiles(filesTree_->topLevelItem(i), indices);
-    }
-    
-    return indices;
-}
-
-void TorrentDetailsPanel::collectSelectedFiles(QTreeWidgetItem* item, QList<int>& indices) const
-{
-    if (!item) return;
-    
-    // Check if this is a file (has valid file index)
-    int fileIndex = item->data(0, Qt::UserRole).toInt();
-    if (fileIndex >= 0 && item->checkState(2) == Qt::Checked) {
-        indices.append(fileIndex);
-    }
-    
-    // Recursively check children
-    for (int i = 0; i < item->childCount(); ++i) {
-        collectSelectedFiles(item->child(i), indices);
-    }
-}
-
-void TorrentDetailsPanel::onFileItemChanged(QTreeWidgetItem* item, int column)
-{
-    if (column != 2) return;  // Only care about checkbox column
-    
-    Q_UNUSED(item);
-    
-    if (!currentHash_.isEmpty()) {
-        emit fileSelectionChanged(currentHash_, getSelectedFileIndices());
     }
 }
 

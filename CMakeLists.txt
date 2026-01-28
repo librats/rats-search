@@ -166,6 +166,7 @@ set(SOURCES
     src/sphinxql.cpp
     src/torrentitemdelegate.cpp
     src/torrentdetailspanel.cpp
+    src/torrentfileswidget.cpp
     # New tab widgets (migrated from legacy)
     src/toptorrentswidget.cpp
     src/feedwidget.cpp
@@ -194,6 +195,7 @@ set(HEADERS
     src/sphinxql.h
     src/torrentitemdelegate.h
     src/torrentdetailspanel.h
+    src/torrentfileswidget.h
     # New tab widgets (migrated from legacy)
     src/toptorrentswidget.h
     src/feedwidget.h

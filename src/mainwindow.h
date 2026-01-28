@@ -34,6 +34,7 @@ class QMenu;
 class TopTorrentsWidget;
 class FeedWidget;
 class DownloadsWidget;
+class TorrentFilesWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -104,8 +105,10 @@ private:
     QComboBox *sortComboBox;
     QTableView *resultsTableView;
     QTabWidget *tabWidget;
-    QSplitter *mainSplitter;
+    QSplitter *mainSplitter;      // Horizontal: tabs + details
+    QSplitter *verticalSplitter;  // Vertical: main content + files panel
     TorrentDetailsPanel *detailsPanel;
+    TorrentFilesWidget *filesWidget;  // Bottom panel for file list
     QTextEdit *activityLog;
     
     // New tab widgets (migrated from legacy)
