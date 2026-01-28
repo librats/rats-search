@@ -75,7 +75,7 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
     }
     
     qint64 totalTime = timer.elapsed();
-    qInfo() << "SphinxQL:" << sql.left(100) << (sql.length() > 100 ? "..." : "")
+    qInfo() << "SphinxQL:" << sql
             << (params.isEmpty() ? "" : QString("| params: %1").arg(params.size()))
             << "| exec:" << execTime << "ms | fetch:" << (totalTime - execTime) << "ms | rows:" << results.size();
     
@@ -298,7 +298,7 @@ bool SphinxQL::exec(const QString& sql)
         return false;
     }
     
-    qInfo() << "SphinxQL exec:" << sql.left(100) << (sql.length() > 100 ? "..." : "") 
+    qInfo() << "SphinxQL exec:" << sql
             << "| time:" << timer.elapsed() << "ms | affected:" << q.numRowsAffected();
     
     emit queryCompleted(q.numRowsAffected());
