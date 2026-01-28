@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.3](https://github.com/DEgITx/rats-search/compare/v2.0.2...v2.0.3) (2026-01-28)
+
+
+### 🐛 Bug Fixes
+
+
+- **ui:** Removed useless buttons with refresh([c150322](https://github.com/DEgITx/rats-search/commit/c150322cec4c9646597d4636ace8c5288e1457dd)) by @DEgITx
+- **windows:** Disable debug window for desktop in Windows([c68422e](https://github.com/DEgITx/rats-search/commit/c68422e8727f69a1891fdcd7be16b8a2cb9d6b39)) by @DEgITx
+- **top:** Fix overall torrents on screen([2db217d](https://github.com/DEgITx/rats-search/commit/2db217d74fa80e039e8457cd574d1dc1269e6cf3)) by @DEgITx
+- **ui:** Fix styling of search element based on dark/light theme([520ed6a](https://github.com/DEgITx/rats-search/commit/520ed6a0c6dfb64a69809a461b6b0985ab7d19a0)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.2([ff070ed](https://github.com/DEgITx/rats-search/commit/ff070ed725bcbb18824daac600098037fa35b5fe)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **ui:** Files panel separation to the bottom([5db9806](https://github.com/DEgITx/rats-search/commit/5db9806811769b2ddcbe2a9ec9bd8b336fdb5e42)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 5 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.2](https://github.com/DEgITx/rats-search/compare/v2.0.1...v2.0.2) (2026-01-27)
 
 
