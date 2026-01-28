@@ -152,8 +152,17 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     
     qInfo() << "Rats Search Console Mode";
     qInfo() << "Data directory:" << dataDir;
-    qInfo() << "P2P port:" << p2pPort;
-    qInfo() << "DHT port:" << dhtPort;
+    
+    // Create configuration manager first to get default ports
+    ConfigManager config(dataDir + "/rats.json");
+    config.load();
+    
+    // Apply CLI overrides or use config defaults
+    int actualP2pPort = (p2pPort > 0) ? p2pPort : config.p2pPort();
+    int actualDhtPort = (dhtPort > 0) ? dhtPort : config.dhtPort();
+    
+    qInfo() << "P2P port:" << actualP2pPort << (p2pPort > 0 ? "(CLI)" : "(config)");
+    qInfo() << "DHT port:" << actualDhtPort << (dhtPort > 0 ? "(CLI)" : "(config)");
     
     // Initialize database
     TorrentDatabase database(dataDir);
@@ -165,7 +174,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     }
     
     // Initialize P2P network (single owner of RatsClient)
-    P2PNetwork p2p(p2pPort, dhtPort, dataDir);
+    P2PNetwork p2p(actualP2pPort, actualDhtPort, dataDir);
     g_p2p = &p2p;
     
     if (!p2p.start()) {
@@ -181,10 +190,6 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
             qWarning() << "Failed to start spider";
         }
     }
-    
-    // Create configuration manager
-    ConfigManager config(dataDir + "/rats.json");
-    config.load();
     
     // Create RatsAPI
     RatsAPI api;
@@ -405,11 +410,11 @@ int main(int argc, char *argv[])
         parser.addOption(consoleOption);
         
         QCommandLineOption portOption(QStringList() << "p" << "port",
-            "P2P listen port (default: 8080)", "port", "8080");
+            "P2P listen port (overrides config setting)", "port");
         parser.addOption(portOption);
         
         QCommandLineOption dhtPortOption(QStringList() << "d" << "dht-port",
-            "DHT port (default: 6881)", "dht-port", "6881");
+            "DHT port (overrides config setting)", "dht-port");
         parser.addOption(dhtPortOption);
         
         QCommandLineOption dataDirectoryOption(QStringList() << "data-dir",
@@ -422,9 +427,9 @@ int main(int argc, char *argv[])
         
         parser.process(app);
         
-        // Get command line options
-        int p2pPort = parser.value(portOption).toInt();
-        int dhtPort = parser.value(dhtPortOption).toInt();
+        // Get command line options (0 means not specified - use config default)
+        int p2pPort = parser.isSet(portOption) ? parser.value(portOption).toInt() : 0;
+        int dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
         bool enableSpider = parser.isSet(spiderOption);
         
         QString dataDir;
@@ -484,11 +489,11 @@ int main(int argc, char *argv[])
         parser.addVersionOption();
         
         QCommandLineOption portOption(QStringList() << "p" << "port",
-            "P2P listen port (default: 8080)", "port", "8080");
+            "P2P listen port (overrides config setting)", "port");
         parser.addOption(portOption);
         
         QCommandLineOption dhtPortOption(QStringList() << "d" << "dht-port",
-            "DHT port (default: 6881)", "dht-port", "6881");
+            "DHT port (overrides config setting)", "dht-port");
         parser.addOption(dhtPortOption);
         
         QCommandLineOption dataDirectoryOption(QStringList() << "data-dir",
@@ -497,9 +502,9 @@ int main(int argc, char *argv[])
         
         parser.process(app);
         
-        // Get command line options
-        int p2pPort = parser.value(portOption).toInt();
-        int dhtPort = parser.value(dhtPortOption).toInt();
+        // Get command line options (0 means not specified - use config default)
+        int p2pPort = parser.isSet(portOption) ? parser.value(portOption).toInt() : 0;
+        int dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
         
         QString dataDir;
         if (parser.isSet(dataDirectoryOption)) {
@@ -537,8 +542,8 @@ int main(int argc, char *argv[])
         qInfo() << "Rats Search starting...";
         qInfo() << "Data directory:" << dataDir;
         qInfo() << "Log file:" << logFilePath;
-        qInfo() << "P2P port:" << p2pPort;
-        qInfo() << "DHT port:" << dhtPort;
+        if (p2pPort > 0) qInfo() << "P2P port (CLI override):" << p2pPort;
+        if (dhtPort > 0) qInfo() << "DHT port (CLI override):" << dhtPort;
         
         // Initialize translation system
         qint64 translationStart = startupTimer.elapsed();
