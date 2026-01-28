@@ -395,9 +395,15 @@ signals:
     // =========================================================================
     
     /**
-     * @brief Emitted when remote search results arrive
+     * @brief Emitted when remote search results arrive (torrent name search)
      */
     void remoteSearchResults(const QString& searchId, const QJsonArray& torrents);
+    
+    /**
+     * @brief Emitted when remote file search results arrive
+     * These are results from searchFiles, containing highlighted matching paths
+     */
+    void remoteFileSearchResults(const QString& searchId, const QJsonArray& torrents);
     
     /**
      * @brief Emitted when remote top torrents arrive

@@ -457,6 +457,46 @@ void MainWindow::connectSignals()
     // RatsAPI signals - for torrents indexed via DHT metadata, P2P, .torrent import
     if (api) {
         connect(api.get(), &RatsAPI::torrentIndexed, this, &MainWindow::onTorrentIndexed);
+        
+        // Handle remote file search results from P2P peers
+        connect(api.get(), &RatsAPI::remoteFileSearchResults, this, 
+            [this](const QString& searchId, const QJsonArray& torrents) {
+                // Only process if this matches our current search
+                if (searchId.isEmpty() || currentSearchQuery_.isEmpty()) {
+                    return;
+                }
+                
+                // Convert and add to model
+                for (const QJsonValue& val : torrents) {
+                    QJsonObject obj = val.toObject();
+                    TorrentInfo info;
+                    info.hash = obj["hash"].toString();
+                    info.name = obj["name"].toString();
+                    info.size = obj["size"].toVariant().toLongLong();
+                    info.files = obj["files"].toInt();
+                    info.seeders = obj["seeders"].toInt();
+                    info.leechers = obj["leechers"].toInt();
+                    info.completed = obj["completed"].toInt();
+                    info.added = QDateTime::fromMSecsSinceEpoch(obj["added"].toVariant().toLongLong());
+                    info.contentType = obj["contentType"].toString();
+                    info.contentCategory = obj["contentCategory"].toString();
+                    info.good = obj["good"].toInt();
+                    info.bad = obj["bad"].toInt();
+                    info.isFileMatch = obj["isFileMatch"].toBool(true);
+                    
+                    // Get matching paths
+                    if (obj.contains("matchingPaths")) {
+                        QJsonArray paths = obj["matchingPaths"].toArray();
+                        for (const QJsonValue& pathVal : paths) {
+                            info.matchingPaths.append(pathVal.toString());
+                        }
+                    }
+                    
+                    searchResultModel->addFileResult(info);
+                }
+                
+                logActivity(QString("📡 Received %1 remote file results").arg(torrents.size()));
+            });
     }
     
     // ConfigManager signals - for immediate settings application
@@ -683,17 +723,48 @@ void MainWindow::performSearch(const QString &query)
     
     orderDesc = sortData.contains("desc");
     
-    // Use RatsAPI for searching
+    // Use RatsAPI for searching - search both torrents and files
     QJsonObject options;
-    options["limit"] = 100;
+    options["limit"] = 50;  // Lower limit since we search both
     options["safeSearch"] = false;
     options["orderBy"] = orderBy;
     options["orderDesc"] = orderDesc;
     
-    api->searchTorrents(query, options, [this, query](const ApiResponse& response) {
+    // Clear previous results
+    searchResultModel->clearResults();
+    
+    // Helper to convert JSON to TorrentInfo
+    auto jsonToTorrentInfo = [](const QJsonObject& obj, bool isFileMatch = false) -> TorrentInfo {
+        TorrentInfo info;
+        info.hash = obj["hash"].toString();
+        info.name = obj["name"].toString();
+        info.size = obj["size"].toVariant().toLongLong();
+        info.files = obj["files"].toInt();
+        info.seeders = obj["seeders"].toInt();
+        info.leechers = obj["leechers"].toInt();
+        info.completed = obj["completed"].toInt();
+        info.added = QDateTime::fromMSecsSinceEpoch(obj["added"].toVariant().toLongLong());
+        info.contentType = obj["contentType"].toString();
+        info.contentCategory = obj["contentCategory"].toString();
+        info.good = obj["good"].toInt();
+        info.bad = obj["bad"].toInt();
+        info.isFileMatch = isFileMatch || obj["isFileMatch"].toBool(false);
+        
+        // Get matching paths for file search results
+        if (obj.contains("matchingPaths")) {
+            QJsonArray paths = obj["matchingPaths"].toArray();
+            for (const QJsonValue& pathVal : paths) {
+                info.matchingPaths.append(pathVal.toString());
+            }
+        }
+        
+        return info;
+    };
+    
+    // Search torrents by name
+    api->searchTorrents(query, options, [this, query, jsonToTorrentInfo](const ApiResponse& response) {
         if (!response.success) {
-            statusBar()->showMessage(QString("❌ Search failed: %1").arg(response.error), 3000);
-            logActivity(QString("❌ Search failed: %1").arg(response.error));
+            statusBar()->showMessage(QString("❌ Torrent search failed: %1").arg(response.error), 3000);
             return;
         }
         
@@ -701,26 +772,35 @@ void MainWindow::performSearch(const QString &query)
         QJsonArray torrents = response.data.toArray();
         QVector<TorrentInfo> results;
         for (const QJsonValue& val : torrents) {
-            QJsonObject obj = val.toObject();
-            TorrentInfo info;
-            info.hash = obj["hash"].toString();
-            info.name = obj["name"].toString();
-            info.size = obj["size"].toVariant().toLongLong();
-            info.files = obj["files"].toInt();
-            info.seeders = obj["seeders"].toInt();
-            info.leechers = obj["leechers"].toInt();
-            info.completed = obj["completed"].toInt();
-            info.added = QDateTime::fromMSecsSinceEpoch(obj["added"].toVariant().toLongLong());
-            info.contentType = obj["contentType"].toString();
-            info.contentCategory = obj["contentCategory"].toString();
-            info.good = obj["good"].toInt();
-            info.bad = obj["bad"].toInt();
-            results.append(info);
+            results.append(jsonToTorrentInfo(val.toObject(), false));
         }
         
-        searchResultModel->setResults(results);
-        statusBar()->showMessage(QString("✅ Found %1 results for '%2'").arg(results.size()).arg(query), 3000);
-        logActivity(QString("✅ Found %1 results").arg(results.size()));
+        searchResultModel->addResults(results);
+        statusBar()->showMessage(QString("✅ Found %1 torrents").arg(results.size()), 3000);
+        logActivity(QString("✅ Found %1 torrent results").arg(results.size()));
+    });
+    
+    // Also search files within torrents
+    api->searchFiles(query, options, [this, query, jsonToTorrentInfo](const ApiResponse& response) {
+        if (!response.success) {
+            // File search may fail for short queries, that's OK
+            return;
+        }
+        
+        // Convert JSON to TorrentInfo for model
+        QJsonArray torrents = response.data.toArray();
+        QVector<TorrentInfo> results;
+        for (const QJsonValue& val : torrents) {
+            results.append(jsonToTorrentInfo(val.toObject(), true));
+        }
+        
+        if (!results.isEmpty()) {
+            // Add file results - will be merged with existing if same hash
+            searchResultModel->addFileResults(results);
+            int total = searchResultModel->resultCount();
+            statusBar()->showMessage(QString("✅ Found %1 total results (incl. file matches)").arg(total), 3000);
+            logActivity(QString("✅ Found %1 file match results").arg(results.size()));
+        }
     });
 }
 

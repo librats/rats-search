@@ -3,6 +3,7 @@
 #include <QPainter>
 #include <QApplication>
 #include <QPainterPath>
+#include <QRegularExpression>
 
 TorrentItemDelegate::TorrentItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
@@ -98,15 +99,26 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
     
     switch (column) {
         case SearchResultModel::NameColumn: {
+            // Get matching file paths if this is a file search result
+            QStringList matchingPaths = index.data(SearchResultModel::MatchingPathsRole).toStringList();
+            bool hasFilePaths = !matchingPaths.isEmpty();
+            
+            // Calculate name area (top portion for torrents with file paths)
+            QRect nameRect = rect;
+            if (hasFilePaths) {
+                nameRect.setHeight(BaseRowHeight - 4);
+            }
+            
             // Draw content type icon (small colored square)
             QString contentType = index.data(Qt::UserRole + 1).toString();
+            int iconLeft = nameRect.left();
             if (!contentType.isEmpty()) {
                 QColor typeColor = getContentTypeColor(contentType);
-                QRect iconRect(rect.left(), rect.top() + (rect.height() - 12) / 2, 12, 12);
+                QRect iconRect(iconLeft, nameRect.top() + (qMin(nameRect.height(), BaseRowHeight - 4) - 12) / 2, 12, 12);
                 painter->setBrush(typeColor);
                 painter->setPen(Qt::NoPen);
                 painter->drawRoundedRect(iconRect, 2, 2);
-                rect.setLeft(rect.left() + 18);
+                nameRect.setLeft(iconLeft + 18);
             }
             
             // Draw name - use selected text color if selected
@@ -119,8 +131,43 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
             font.setPointSize(10);
             painter->setFont(font);
             QString name = index.data(Qt::DisplayRole).toString();
-            painter->drawText(rect, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextSingleLine, 
-                             option.fontMetrics.elidedText(name, Qt::ElideRight, rect.width()));
+            
+            QRect textRect = nameRect;
+            if (hasFilePaths) {
+                textRect.setTop(nameRect.top() + 2);
+                painter->drawText(textRect, Qt::AlignTop | Qt::AlignLeft | Qt::TextSingleLine, 
+                                 option.fontMetrics.elidedText(name, Qt::ElideRight, textRect.width()));
+            } else {
+                painter->drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextSingleLine, 
+                                 option.fontMetrics.elidedText(name, Qt::ElideRight, textRect.width()));
+            }
+            
+            // Draw matching file paths below the name
+            if (hasFilePaths) {
+                QFont pathFont = option.font;
+                pathFont.setPointSize(8);
+                painter->setFont(pathFont);
+                
+                QColor pathColor = isDarkMode ? QColor("#9e9e9e") : QColor("#757575");
+                QColor highlightColor = isDarkMode ? QColor("#ffab40") : QColor("#e65100");
+                
+                int pathTop = rect.top() + BaseRowHeight - 6;
+                int pathsToShow = qMin(matchingPaths.size(), MaxVisiblePaths);
+                
+                for (int i = 0; i < pathsToShow; ++i) {
+                    QRect pathRect(iconLeft + 20, pathTop + (i * FilePathRowHeight), 
+                                  rect.width() - 24, FilePathRowHeight);
+                    
+                    // Draw tree connector
+                    painter->setPen(pathColor);
+                    painter->drawText(QRect(iconLeft + 4, pathRect.top(), 16, FilePathRowHeight),
+                                     Qt::AlignVCenter | Qt::AlignLeft, "└");
+                    
+                    // Draw highlighted path
+                    drawHighlightedPath(painter, pathRect, matchingPaths[i], 
+                                       pathColor, highlightColor, pathFont);
+                }
+            }
             break;
         }
         
@@ -184,8 +231,19 @@ QSize TorrentItemDelegate::sizeHint(const QStyleOptionViewItem &option,
                                      const QModelIndex &index) const
 {
     Q_UNUSED(option);
-    Q_UNUSED(index);
-    return QSize(-1, 36);  // Fixed row height for better readability
+    
+    // Check if this result has matching file paths
+    QStringList matchingPaths = index.data(SearchResultModel::MatchingPathsRole).toStringList();
+    
+    if (matchingPaths.isEmpty()) {
+        return QSize(-1, BaseRowHeight);
+    }
+    
+    // Calculate height based on number of file paths to show
+    int pathsToShow = qMin(matchingPaths.size(), MaxVisiblePaths);
+    int totalHeight = BaseRowHeight + (pathsToShow * FilePathRowHeight);
+    
+    return QSize(-1, totalHeight);
 }
 
 void TorrentItemDelegate::drawRatingBar(QPainter *painter, const QRect &rect, 
@@ -211,3 +269,64 @@ void TorrentItemDelegate::drawRatingBar(QPainter *painter, const QRect &rect,
     painter->drawRoundedRect(barRect, 2, 2);
 }
 
+void TorrentItemDelegate::drawHighlightedPath(QPainter *painter, const QRect &rect,
+                                               const QString &path, const QColor &textColor,
+                                               const QColor &highlightColor, const QFont &font) const
+{
+    // Parse path with <b>highlighted</b> sections and render
+    // Format: "some/path/<b>match</b>/file.txt"
+    
+    QFont normalFont = font;
+    QFont boldFont = font;
+    boldFont.setBold(true);
+    
+    QFontMetrics fm(normalFont);
+    QFontMetrics fmBold(boldFont);
+    
+    int x = rect.left();
+    int y = rect.top();
+    int maxWidth = rect.width();
+    int height = rect.height();
+    
+    // Parse <b> tags
+    QString remaining = path;
+    static QRegularExpression boldRegex("<b>([^<]*)</b>");
+    
+    while (!remaining.isEmpty() && x < rect.right()) {
+        QRegularExpressionMatch match = boldRegex.match(remaining);
+        
+        if (match.hasMatch()) {
+            // Draw text before the bold part
+            QString beforeBold = remaining.left(match.capturedStart());
+            if (!beforeBold.isEmpty()) {
+                painter->setFont(normalFont);
+                painter->setPen(textColor);
+                QString elidedBefore = fm.elidedText(beforeBold, Qt::ElideRight, maxWidth - (x - rect.left()));
+                painter->drawText(x, y, maxWidth - (x - rect.left()), height, 
+                                 Qt::AlignVCenter | Qt::AlignLeft, elidedBefore);
+                x += fm.horizontalAdvance(elidedBefore);
+            }
+            
+            // Draw the bold (highlighted) part
+            QString boldText = match.captured(1);
+            if (!boldText.isEmpty() && x < rect.right()) {
+                painter->setFont(boldFont);
+                painter->setPen(highlightColor);
+                QString elidedBold = fmBold.elidedText(boldText, Qt::ElideRight, maxWidth - (x - rect.left()));
+                painter->drawText(x, y, maxWidth - (x - rect.left()), height,
+                                 Qt::AlignVCenter | Qt::AlignLeft, elidedBold);
+                x += fmBold.horizontalAdvance(elidedBold);
+            }
+            
+            remaining = remaining.mid(match.capturedEnd());
+        } else {
+            // No more bold tags, draw remaining text
+            painter->setFont(normalFont);
+            painter->setPen(textColor);
+            QString elidedRemaining = fm.elidedText(remaining, Qt::ElideRight, maxWidth - (x - rect.left()));
+            painter->drawText(x, y, maxWidth - (x - rect.left()), height,
+                             Qt::AlignVCenter | Qt::AlignLeft, elidedRemaining);
+            break;
+        }
+    }
+}

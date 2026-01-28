@@ -383,8 +383,12 @@ QVector<TorrentInfo> TorrentDatabase::searchFiles(const SearchOptions& options)
             continue;
         }
         
-        // Add matched file paths
-        for (const QString& path : hashSnippets[info.hash]) {
+        // Mark as file search result and add matched file paths
+        info.isFileMatch = true;
+        info.matchingPaths = hashSnippets[info.hash];
+        
+        // Also populate filesList for compatibility
+        for (const QString& path : info.matchingPaths) {
             TorrentFile file;
             file.path = path;
             file.size = 0;

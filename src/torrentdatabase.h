@@ -48,6 +48,10 @@ struct TorrentInfo {
     
     QVector<TorrentFile> filesList;
     
+    // File search results (highlighted snippets from searchFiles)
+    QStringList matchingPaths;   // Highlighted file path snippets with <b> tags
+    bool isFileMatch = false;    // True if this result came from file search
+    
     // Helper methods
     bool isValid() const { return !hash.isEmpty() && hash.length() == 40; }
     QString contentTypeString() const;

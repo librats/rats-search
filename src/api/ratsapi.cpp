@@ -283,6 +283,27 @@ void RatsAPI::setupP2PHandlers()
             handleP2PSearchResult(peerId, data);
         });
     
+    // Handler for file search results from other peers
+    d->p2p->registerMessageHandler("searchFiles_result",
+        [this](const QString& peerId, const QJsonObject& data) {
+            // Convert incoming file search result to array and emit signal
+            QString searchQuery = data["text"].toString();
+            QJsonArray torrents;
+            
+            QJsonObject torrentData = data;
+            torrentData["isFileMatch"] = true;
+            
+            // Convert 'path' array to 'matchingPaths' for consistency
+            if (data.contains("path")) {
+                torrentData["matchingPaths"] = data["path"];
+            }
+            
+            torrents.append(torrentData);
+            emit remoteFileSearchResults(searchQuery, torrents);
+            
+            qInfo() << "Received file search result from" << peerId.left(8) << "for query:" << searchQuery;
+        });
+    
     // Handler for torrent announcements
     d->p2p->registerMessageHandler("torrent_announce",
         [this](const QString& peerId, const QJsonObject& data) {
@@ -652,7 +673,19 @@ void RatsAPI::searchFiles(const QString& text,
         for (const TorrentInfo& t : results) {
             QJsonObject obj = torrentInfoToJson(t);
             
-            // Add file paths
+            // Mark as file match result
+            obj["isFileMatch"] = t.isFileMatch;
+            
+            // Add matching paths (highlighted snippets)
+            if (!t.matchingPaths.isEmpty()) {
+                QJsonArray paths;
+                for (const QString& path : t.matchingPaths) {
+                    paths.append(path);
+                }
+                obj["matchingPaths"] = paths;
+            }
+            
+            // Also add file paths for legacy compatibility
             if (!t.filesList.isEmpty()) {
                 QJsonArray paths;
                 for (const TorrentFile& f : t.filesList) {

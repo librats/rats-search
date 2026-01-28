@@ -86,9 +86,21 @@ QVariant SearchResultModel::data(const QModelIndex &index, int role) const
         // Bad votes
         return torrent.bad;
     }
-    else if (role == Qt::UserRole + 5) {
+    else if (role == Qt::UserRole + 5 || role == InfoHashRole) {
         // Info hash
         return torrent.hash;
+    }
+    else if (role == MatchingPathsRole) {
+        // Highlighted file path snippets
+        return torrent.matchingPaths;
+    }
+    else if (role == IsFileMatchRole) {
+        // Is this result from file search?
+        return torrent.isFileMatch;
+    }
+    else if (role == FilesCountRole) {
+        // Number of files in torrent
+        return torrent.files;
     }
     
     return QVariant();
@@ -227,3 +239,99 @@ QString SearchResultModel::formatDate(const QDateTime &dateTime) const
     }
 }
 
+// =========================================================================
+// File Search Results Methods
+// =========================================================================
+
+void SearchResultModel::setFileResults(const QVector<TorrentInfo> &results)
+{
+    // File results are merged with existing torrent results
+    // If a torrent already exists, merge the matching paths
+    for (const TorrentInfo& fileResult : results) {
+        mergeFileResultIntoExisting(fileResult);
+    }
+}
+
+void SearchResultModel::addFileResult(const TorrentInfo &result)
+{
+    mergeFileResultIntoExisting(result);
+}
+
+void SearchResultModel::addFileResults(const QVector<TorrentInfo> &results)
+{
+    for (const TorrentInfo& result : results) {
+        mergeFileResultIntoExisting(result);
+    }
+}
+
+void SearchResultModel::clearFileResults()
+{
+    // Remove file-only results and clear matchingPaths from torrent results
+    beginResetModel();
+    
+    QVector<TorrentInfo> torrentOnlyResults;
+    for (TorrentInfo& torrent : results_) {
+        if (!torrent.isFileMatch) {
+            // Keep torrent search results, but clear any merged file paths
+            torrent.matchingPaths.clear();
+            torrentOnlyResults.append(torrent);
+        }
+        // File-only results are discarded
+    }
+    
+    results_ = torrentOnlyResults;
+    endResetModel();
+}
+
+void SearchResultModel::mergeFileResultIntoExisting(const TorrentInfo &fileResult)
+{
+    // Check if this torrent already exists in results
+    for (int i = 0; i < results_.size(); ++i) {
+        if (results_[i].hash == fileResult.hash) {
+            // Merge the matching paths into existing result
+            for (const QString& path : fileResult.matchingPaths) {
+                if (!results_[i].matchingPaths.contains(path)) {
+                    results_[i].matchingPaths.append(path);
+                }
+            }
+            // Keep isFileMatch if either is a file match
+            if (fileResult.isFileMatch) {
+                results_[i].isFileMatch = true;
+            }
+            // Emit dataChanged for this row
+            QModelIndex idx = index(i, NameColumn);
+            emit dataChanged(idx, idx, {MatchingPathsRole, IsFileMatchRole});
+            return;
+        }
+    }
+    
+    // Torrent doesn't exist, add as new result
+    beginInsertRows(QModelIndex(), results_.size(), results_.size());
+    results_.append(fileResult);
+    endInsertRows();
+}
+
+int SearchResultModel::torrentResultCount() const
+{
+    int count = 0;
+    for (const TorrentInfo& result : results_) {
+        if (!result.isFileMatch || !result.matchingPaths.isEmpty()) {
+            // Count if it's a torrent match or has matching files
+            if (!result.isFileMatch) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+int SearchResultModel::fileResultCount() const
+{
+    int count = 0;
+    for (const TorrentInfo& result : results_) {
+        if (result.isFileMatch || !result.matchingPaths.isEmpty()) {
+            count++;
+        }
+    }
+    return count;
+}
