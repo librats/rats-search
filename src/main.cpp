@@ -367,8 +367,8 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
 
 int main(int argc, char *argv[])
 {
-#ifdef _WIN32
-    // Attach console on Windows to see stdout/stderr
+#if defined(_WIN32) && !defined(NDEBUG)
+    // Attach console on Windows to see stdout/stderr (Debug builds only)
     attachConsoleOnWindows();
 #endif
     
