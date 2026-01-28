@@ -29,16 +29,11 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
     QElapsedTimer timer;
     timer.start();
     
-    qDebug() << "SphinxQL query:" << sql;
-    if (!params.isEmpty()) {
-        qDebug() << "SphinxQL params:" << params;
-    }
-    
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
         lastError_ = db.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL: Database not open:" << lastError_ << "(took" << timer.elapsed() << "ms)";
+        qWarning() << "SphinxQL: Database not open:" << lastError_ << "| SQL:" << sql << "| params:" << params;
         return results;
     }
     
@@ -54,14 +49,14 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
         if (!q.exec()) {
             lastError_ = q.lastError().text();
             emit queryError(lastError_);
-            qWarning() << "SphinxQL query error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
+            qWarning() << "SphinxQL error:" << lastError_ << "| SQL:" << sql << "| params:" << params;
             return results;
         }
     } else {
         if (!q.exec(sql)) {
             lastError_ = q.lastError().text();
             emit queryError(lastError_);
-            qWarning() << "SphinxQL query error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
+            qWarning() << "SphinxQL error:" << lastError_ << "| SQL:" << sql;
             return results;
         }
     }
@@ -80,8 +75,9 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
     }
     
     qint64 totalTime = timer.elapsed();
-    qInfo() << "SphinxQL:" << sql.left(100) << (sql.length() > 100 ? "..." : "") 
-            << "| exec:" << execTime << "ms | fetch:" << (totalTime - execTime) << "ms | total:" << totalTime << "ms | rows:" << results.size();
+    qInfo() << "SphinxQL:" << sql.left(100) << (sql.length() > 100 ? "..." : "")
+            << (params.isEmpty() ? "" : QString("| params: %1").arg(params.size()))
+            << "| exec:" << execTime << "ms | fetch:" << (totalTime - execTime) << "ms | rows:" << results.size();
     
     emit queryCompleted(q.numRowsAffected());
     return results;
