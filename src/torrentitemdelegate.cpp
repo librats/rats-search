@@ -66,18 +66,31 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setRenderHint(QPainter::TextAntialiasing, true);
     
-    // Background
+    // Get colors from palette for theme support
+    const QPalette& palette = option.palette;
+    
+    // Detect if dark mode based on background color luminance
+    QColor baseColor = palette.color(QPalette::Base);
+    bool isDarkMode = (baseColor.red() + baseColor.green() + baseColor.blue()) / 3 < 128;
+    
+    // Background colors (theme-aware)
     QColor bgColor;
     if (option.state & QStyle::State_Selected) {
-        bgColor = QColor("#3d6a99");
+        bgColor = palette.color(QPalette::Highlight);
     } else if (option.state & QStyle::State_MouseOver) {
-        bgColor = QColor("#3c4048");
+        bgColor = isDarkMode ? QColor("#3c4048") : QColor("#f0f7ff");
     } else if (index.row() % 2 == 0) {
-        bgColor = QColor("#2b2b2b");
+        bgColor = palette.color(QPalette::Base);
     } else {
-        bgColor = QColor("#323232");
+        bgColor = palette.color(QPalette::AlternateBase);
     }
     painter->fillRect(option.rect, bgColor);
+    
+    // Text colors (theme-aware)
+    QColor textColor = palette.color(QPalette::Text);
+    QColor mutedTextColor = isDarkMode ? QColor("#aaaaaa") : QColor("#666666");
+    QColor dimTextColor = isDarkMode ? QColor("#888888") : QColor("#999999");
+    QColor borderColor = isDarkMode ? QColor("#3c3f41") : QColor("#e0e0e0");
     
     // Get column
     int column = index.column();
@@ -96,8 +109,12 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
                 rect.setLeft(rect.left() + 18);
             }
             
-            // Draw name
-            painter->setPen(QColor("#ffffff"));
+            // Draw name - use selected text color if selected
+            if (option.state & QStyle::State_Selected) {
+                painter->setPen(palette.color(QPalette::HighlightedText));
+            } else {
+                painter->setPen(textColor);
+            }
             QFont font = option.font;
             font.setPointSize(10);
             painter->setFont(font);
@@ -108,7 +125,11 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
         }
         
         case SearchResultModel::SizeColumn: {
-            painter->setPen(QColor("#aaaaaa"));
+            if (option.state & QStyle::State_Selected) {
+                painter->setPen(palette.color(QPalette::HighlightedText));
+            } else {
+                painter->setPen(mutedTextColor);
+            }
             QString size = index.data(Qt::DisplayRole).toString();
             painter->drawText(rect, Qt::AlignVCenter | Qt::AlignRight, size);
             break;
@@ -116,6 +137,7 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
         
         case SearchResultModel::SeedersColumn: {
             int seeders = index.data(Qt::DisplayRole).toInt();
+            // Seeders color stays the same (green tones) - visible on both themes
             painter->setPen(getSeedersColor(seeders));
             QFont font = option.font;
             font.setBold(seeders > 0);
@@ -126,6 +148,7 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
         
         case SearchResultModel::LeechersColumn: {
             int leechers = index.data(Qt::DisplayRole).toInt();
+            // Leechers color stays the same (purple tones) - visible on both themes
             painter->setPen(getLeechersColor(leechers));
             QFont font = option.font;
             font.setBold(leechers > 0);
@@ -135,7 +158,11 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
         }
         
         case SearchResultModel::DateColumn: {
-            painter->setPen(QColor("#888888"));
+            if (option.state & QStyle::State_Selected) {
+                painter->setPen(palette.color(QPalette::HighlightedText));
+            } else {
+                painter->setPen(dimTextColor);
+            }
             QString date = index.data(Qt::DisplayRole).toString();
             painter->drawText(rect, Qt::AlignVCenter | Qt::AlignLeft, date);
             break;
@@ -146,8 +173,8 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
             break;
     }
     
-    // Draw bottom border
-    painter->setPen(QColor("#3c3f41"));
+    // Draw bottom border (theme-aware)
+    painter->setPen(borderColor);
     painter->drawLine(option.rect.bottomLeft(), option.rect.bottomRight());
     
     painter->restore();
