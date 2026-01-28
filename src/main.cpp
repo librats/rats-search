@@ -531,7 +531,7 @@ int main(int argc, char *argv[])
 #ifdef NDEBUG
         logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
 #else
-        logger.set_log_level(librats::LogLevel::INFO);  // Debug: all messages
+        logger.set_log_level(librats::LogLevel::DEBUG);  // Debug: all messages
 #endif
         
         qInfo() << "Rats Search starting...";
