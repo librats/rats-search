@@ -542,14 +542,6 @@ void MainWindow::initializeServicesDeferred()
         }
     });
     
-    // Initialize new tab widgets with API
-    if (topTorrentsWidget) {
-        topTorrentsWidget->setApi(api.get());
-        // Connect remote top torrents signal
-        connect(api.get(), &RatsAPI::remoteTopTorrents,
-                topTorrentsWidget, &TopTorrentsWidget::handleRemoteTopTorrents);
-    }
-    
     if (feedWidget) {
         feedWidget->setApi(api.get());
     }
@@ -571,6 +563,14 @@ void MainWindow::initializeServicesDeferred()
     qint64 servicesStart = timer.elapsed();
     startServices();
     qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
+
+    // Initialize new tab widgets with API
+    if (topTorrentsWidget) {
+        topTorrentsWidget->setApi(api.get());
+        // Connect remote top torrents signal
+        connect(api.get(), &RatsAPI::remoteTopTorrents,
+                topTorrentsWidget, &TopTorrentsWidget::handleRemoteTopTorrents);
+    }
     
     qInfo() << "Total deferred initialization:" << timer.elapsed() << "ms";
     logActivity("🚀 Rats Search started");
