@@ -865,6 +865,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // Hide to tray instead of closing if enabled
     bool closeToTray = config ? config->trayOnClose() : false;
     if (closeToTray && trayIcon && trayIcon->isVisible()) {
+        qInfo() << "Closing to tray";
         hide();
         trayIcon->showMessage("Rats Search", 
             "Application is still running in the system tray.",
@@ -891,9 +892,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
         apiServer->stop();
     }
     
+    qInfo() << "Closing: Saving settings";
     saveSettings();
     stopServices();
     event->accept();
+    qInfo() << "Closing: Done (accepted)";
 }
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
