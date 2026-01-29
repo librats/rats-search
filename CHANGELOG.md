@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.5](https://github.com/DEgITx/rats-search/compare/v2.0.4...v2.0.5) (2026-01-29)
+
+
+### 🐛 Bug Fixes
+
+
+- **replication:** Fix missing files struct in replication procedure([98014b8](https://github.com/DEgITx/rats-search/commit/98014b8bb6b7b0d7cd5ac5959d17127348a77a5e)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.4([0648018](https://github.com/DEgITx/rats-search/commit/0648018dfbebcf1d7a48074a51958d6b950dad73)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.4](https://github.com/DEgITx/rats-search/compare/v2.0.3...v2.0.4) (2026-01-29)
 
 
