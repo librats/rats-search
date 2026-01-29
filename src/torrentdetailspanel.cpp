@@ -1,5 +1,6 @@
 #include "torrentdetailspanel.h"
 #include "torrentitemdelegate.h"
+#include "torrentclient.h"
 #include "api/ratsapi.h"
 #include <QClipboard>
 #include <QApplication>
@@ -190,6 +191,13 @@ void TorrentDetailsPanel::setupUi()
     downloadStatusLayout->addWidget(cancelDownloadButton_);
     downloadLayout->addLayout(downloadStatusLayout);
     
+    // Go to Downloads button
+    goToDownloadsButton_ = new QPushButton(tr("📥 Go to Downloads"));
+    goToDownloadsButton_->setObjectName("goToDownloadsButton");
+    goToDownloadsButton_->setCursor(Qt::PointingHandCursor);
+    connect(goToDownloadsButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::goToDownloadsRequested);
+    downloadLayout->addWidget(goToDownloadsButton_);
+    
     downloadProgressWidget_->hide();
     mainLayout->addWidget(downloadProgressWidget_);
     
@@ -318,6 +326,20 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     updateRatingDisplay();
     updateVotingButtons();
     
+    // Check if this torrent is currently downloading
+    if (torrentClient_ && torrentClient_->isDownloading(torrent.hash)) {
+        ActiveTorrent activeTorrent = torrentClient_->getTorrent(torrent.hash);
+        if (activeTorrent.completed) {
+            setDownloadCompleted();
+        } else {
+            setDownloadProgress(activeTorrent.progress, activeTorrent.downloadedBytes, 
+                                activeTorrent.totalSize, static_cast<int>(activeTorrent.downloadSpeed));
+        }
+    } else {
+        // Reset to normal download button state
+        resetDownloadState();
+    }
+    
     setVisible(true);
 }
 
@@ -439,6 +461,11 @@ void TorrentDetailsPanel::setApi(RatsAPI* api)
     if (api_) {
         connect(api_, &RatsAPI::votesUpdated, this, &TorrentDetailsPanel::onVotesUpdated);
     }
+}
+
+void TorrentDetailsPanel::setTorrentClient(TorrentClient* client)
+{
+    torrentClient_ = client;
 }
 
 void TorrentDetailsPanel::onGoodVoteClicked()

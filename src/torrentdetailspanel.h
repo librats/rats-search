@@ -14,6 +14,7 @@
 
 // Forward declarations
 class RatsAPI;
+class TorrentClient;
 
 /**
  * @brief Panel for displaying detailed torrent information
@@ -35,6 +36,7 @@ public:
     
     void setTorrent(const TorrentInfo &torrent);
     void setApi(RatsAPI* api);
+    void setTorrentClient(TorrentClient* client);
     void clear();
     bool isEmpty() const { return currentHash_.isEmpty(); }
     QString currentHash() const { return currentHash_; }
@@ -51,6 +53,7 @@ signals:
     void downloadCancelRequested(const QString &hash);
     void voteRequested(const QString &hash, bool isGood);
     void closeRequested();
+    void goToDownloadsRequested();
 
 public slots:
     void onVotesUpdated(const QString& hash, int good, int bad);
@@ -72,6 +75,7 @@ private:
     QString formatSpeed(int bytesPerSec) const;
     
     RatsAPI* api_ = nullptr;
+    TorrentClient* torrentClient_ = nullptr;
     
     // Header section
     QLabel *titleLabel_;
@@ -103,6 +107,7 @@ private:
     QLabel *downloadStatusLabel_;
     QLabel *downloadSpeedLabel_;
     QPushButton *cancelDownloadButton_;
+    QPushButton *goToDownloadsButton_;
     
     // Actions
     QPushButton *magnetButton_;

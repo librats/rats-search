@@ -445,6 +445,20 @@ void MainWindow::connectSignals()
             this, &MainWindow::onMagnetLinkRequested);
     connect(detailsPanel, &TorrentDetailsPanel::downloadRequested,
             this, &MainWindow::onDownloadRequested);
+    connect(detailsPanel, &TorrentDetailsPanel::goToDownloadsRequested,
+            this, [this]() {
+                // Switch to Downloads tab (index 5)
+                tabWidget->setCurrentWidget(downloadsWidget);
+            });
+    connect(detailsPanel, &TorrentDetailsPanel::downloadCancelRequested,
+            this, [this](const QString& hash) {
+                // Cancel the download via TorrentClient
+                if (torrentClient) {
+                    torrentClient->stopTorrent(hash);
+                    logActivity(QString("❌ Download cancelled: %1").arg(hash));
+                    statusBar()->showMessage(tr("Download cancelled"), 2000);
+                }
+            });
     
     // P2P Network signals
     connect(p2pNetwork.get(), &P2PNetwork::statusChanged, this, &MainWindow::onP2PStatusChanged);
@@ -632,6 +646,39 @@ void MainWindow::initializeServicesDeferred()
     if (downloadsWidget) {
         downloadsWidget->setApi(api.get());
         downloadsWidget->setTorrentClient(torrentClient.get());
+    }
+    
+    if (detailsPanel) {
+        detailsPanel->setApi(api.get());
+        detailsPanel->setTorrentClient(torrentClient.get());
+    }
+    
+    // Connect TorrentClient signals to details panel for download status updates
+    if (torrentClient) {
+        connect(torrentClient.get(), &TorrentClient::progressUpdate, this,
+            [this](const QString& infoHash, qint64 downloaded, qint64 total, double speed, int /*peers*/) {
+                // Update details panel if it's showing this torrent
+                if (detailsPanel && detailsPanel->currentHash() == infoHash) {
+                    double progress = (total > 0) ? static_cast<double>(downloaded) / total : 0.0;
+                    detailsPanel->setDownloadProgress(progress, downloaded, total, static_cast<int>(speed));
+                }
+            });
+        
+        connect(torrentClient.get(), &TorrentClient::downloadCompleted, this,
+            [this](const QString& infoHash) {
+                // Update details panel if it's showing this torrent
+                if (detailsPanel && detailsPanel->currentHash() == infoHash) {
+                    detailsPanel->setDownloadCompleted();
+                }
+            });
+        
+        connect(torrentClient.get(), &TorrentClient::torrentRemoved, this,
+            [this](const QString& infoHash) {
+                // Reset details panel if it's showing this torrent
+                if (detailsPanel && detailsPanel->currentHash() == infoHash) {
+                    detailsPanel->resetDownloadState();
+                }
+            });
     }
     
     // Start REST/WebSocket API server if enabled
@@ -1007,6 +1054,11 @@ void MainWindow::onDownloadRequested(const QString &hash)
             if (response.success) {
                 logActivity(QString("✅ Download started: %1").arg(hash));
                 statusBar()->showMessage("⬇️ Download started", 2000);
+                
+                // Update details panel to show download in progress
+                if (detailsPanel && detailsPanel->currentHash() == hash) {
+                    detailsPanel->setDownloadProgress(0.0, 0, 0, 0);
+                }
             } else {
                 logActivity(QString("❌ Download failed: %1").arg(response.error));
                 QMessageBox::warning(this, "Download Failed", response.error);
