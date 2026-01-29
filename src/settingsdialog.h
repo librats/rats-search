@@ -113,6 +113,9 @@ private:
 
     // Database
     QLineEdit* dataPathEdit_;
+    
+    // Downloads
+    QLineEdit* downloadPathEdit_;
 };
 
 #endif // SETTINGSDIALOG_H

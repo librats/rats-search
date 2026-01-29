@@ -342,6 +342,33 @@ void SettingsDialog::setupUi()
     mainLayout->addWidget(filtersGroup);
 
     // =========================================================================
+    // Downloads Settings
+    // =========================================================================
+    QGroupBox *downloadGroup = new QGroupBox(tr("Downloads"));
+    QFormLayout *downloadLayout = new QFormLayout(downloadGroup);
+
+    QHBoxLayout *downloadPathLayout = new QHBoxLayout();
+    downloadPathEdit_ = new QLineEdit();
+    QPushButton *browseDownloadBtn = new QPushButton(tr("Browse..."));
+    browseDownloadBtn->setObjectName("secondaryButton");
+    connect(browseDownloadBtn, &QPushButton::clicked, this, [this]() {
+        QString dir = QFileDialog::getExistingDirectory(this, tr("Select Download Directory"), 
+            downloadPathEdit_->text());
+        if (!dir.isEmpty()) {
+            downloadPathEdit_->setText(dir);
+        }
+    });
+    downloadPathLayout->addWidget(downloadPathEdit_);
+    downloadPathLayout->addWidget(browseDownloadBtn);
+    downloadLayout->addRow(tr("Default Download Directory:"), downloadPathLayout);
+    
+    QLabel *downloadPathHint = new QLabel(tr("* Default location for downloaded torrents"));
+    downloadPathHint->setObjectName("hintLabel");
+    downloadLayout->addRow(downloadPathHint);
+
+    mainLayout->addWidget(downloadGroup);
+
+    // =========================================================================
     // Database Settings
     // =========================================================================
     QGroupBox *dbGroup = new QGroupBox(tr("Database"));
@@ -438,6 +465,9 @@ void SettingsDialog::loadSettings()
     archivesCheck_->setChecked(enabledTypes.contains("archive"));
     discsCheck_->setChecked(enabledTypes.contains("disc"));
     
+    // Downloads
+    downloadPathEdit_->setText(config_->downloadPath());
+    
     // Database - load from QSettings first (source of truth for data directory),
     // then fallback to config, then to current runtime directory
     QSettings settings("RatsSearch", "RatsSearch");
@@ -513,6 +543,12 @@ void SettingsDialog::saveSettings()
         config_->setFiltersContentType("");
     } else {
         config_->setFiltersContentType(contentTypes.join(","));
+    }
+
+    // Save Download Path
+    QString newDownloadPath = downloadPathEdit_->text();
+    if (!newDownloadPath.isEmpty()) {
+        config_->setDownloadPath(newDownloadPath);
     }
 
     // Save Data Directory

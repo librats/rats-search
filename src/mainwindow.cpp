@@ -57,6 +57,8 @@
 #include <QStyle>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QFileDialog>
+#include <QStandardPaths>
 
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
@@ -1052,9 +1054,62 @@ void MainWindow::onDownloadRequested(const QString &hash)
 {
     logActivity(QString("⬇️ Download requested: %1").arg(hash));
     
-    // Use RatsAPI to start download
+    // Show popup menu to choose download location
+    QMenu menu(this);
+    menu.setStyleSheet(this->styleSheet());
+    
+    // Get default download path from config
+    QString defaultPath = config ? config->downloadPath() : QString();
+    
+    // Option 1: Download to default directory
+    QString defaultText = tr("📥 Download to default folder");
+    if (!defaultPath.isEmpty()) {
+        // Show shortened path in menu
+        QString shortPath = defaultPath;
+        if (shortPath.length() > 40) {
+            shortPath = "..." + shortPath.right(37);
+        }
+        defaultText = tr("📥 Download to: %1").arg(shortPath);
+    }
+    QAction *defaultAction = menu.addAction(defaultText);
+    defaultAction->setToolTip(defaultPath);
+    
+    // Option 2: Choose custom location
+    QAction *customAction = menu.addAction(tr("📂 Choose download location..."));
+    
+    menu.addSeparator();
+    
+    // Option 3: Cancel
+    QAction *cancelAction = menu.addAction(tr("❌ Cancel"));
+    
+    // Show menu at cursor position
+    QAction *selectedAction = menu.exec(QCursor::pos());
+    
+    if (selectedAction == cancelAction || selectedAction == nullptr) {
+        logActivity(QString("❌ Download cancelled by user"));
+        return;
+    }
+    
+    QString downloadPath;
+    
+    if (selectedAction == defaultAction) {
+        downloadPath = defaultPath;
+    } else if (selectedAction == customAction) {
+        // Show folder selection dialog
+        QString startDir = defaultPath.isEmpty() ? 
+            QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) : defaultPath;
+        downloadPath = QFileDialog::getExistingDirectory(this, 
+            tr("Select Download Location"), startDir);
+        
+        if (downloadPath.isEmpty()) {
+            logActivity(QString("❌ Download cancelled: no folder selected"));
+            return;
+        }
+    }
+    
+    // Start the download
     if (api) {
-        api->downloadAdd(hash, QString(), [this, hash](const ApiResponse& response) {
+        api->downloadAdd(hash, downloadPath, [this, hash](const ApiResponse& response) {
             if (response.success) {
                 logActivity(QString("✅ Download started: %1").arg(hash));
                 statusBar()->showMessage("⬇️ Download started", 2000);
