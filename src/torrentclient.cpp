@@ -878,47 +878,91 @@ int TorrentClient::loadSession(const QString& filePath)
 void TorrentClient::onUpdateTimer()
 {
 #ifdef RATS_SEARCH_FEATURES
-    QMutexLocker lock(&torrentsMutex_);
+    // Structure to hold torrent data for processing outside the mutex
+    struct TorrentUpdateInfo {
+        QString hash;
+        std::shared_ptr<librats::Torrent> download;
+        bool removeOnDone;
+        bool wasCompleted;
+        QString name;
+    };
     
-    QStringList toRemove;
+    QVector<TorrentUpdateInfo> torrentsToUpdate;
     QStringList pendingMetadata;  // Torrents waiting for metadata
     
-    for (auto it = torrents_.begin(); it != torrents_.end(); ++it) {
-        const QString& hash = it.key();
-        ActiveTorrent& torrent = it.value();
-        
-        // Check if torrent is waiting for metadata (download == nullptr)
-        if (!torrent.download) {
-            pendingMetadata.append(hash);
-            continue;
+    // Step 1: Collect torrents and their download pointers under mutex
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        for (auto it = torrents_.begin(); it != torrents_.end(); ++it) {
+            const QString& hash = it.key();
+            ActiveTorrent& torrent = it.value();
+            
+            // Check if torrent is waiting for metadata (download == nullptr)
+            if (!torrent.download) {
+                pendingMetadata.append(hash);
+                continue;
+            }
+            
+            TorrentUpdateInfo info;
+            info.hash = hash;
+            info.download = torrent.download;
+            info.removeOnDone = torrent.removeOnDone;
+            info.wasCompleted = torrent.completed;
+            info.name = torrent.name;
+            torrentsToUpdate.append(info);
         }
+    }
+    
+    // Step 2: Update each torrent status (calls librats without holding torrentsMutex_)
+    QStringList toRemove;
+    QStringList completedTorrents;
+    
+    for (const auto& info : torrentsToUpdate) {
+        // updateTorrentStatus handles its own locking
+        updateTorrentStatus(info.hash);
         
-        // Update status from librats
-        updateTorrentStatus(hash);
+        // Check for completion (call librats method WITHOUT torrentsMutex_)
+        bool isComplete = info.download->is_complete();
         
-        // Emit progress JSON for API consumers
-        emitProgressJson(hash, torrent);
-        
-        // Check for completion
-        if (torrent.download->is_complete() && !torrent.completed) {
-            torrent.completed = true;
-            torrent.progress = 1.0;
-            
-            qInfo() << "TorrentClient: Download completed:" << torrent.name;
-            
-            // Emit on main thread
-            QMetaObject::invokeMethod(this, [this, hash]() {
-                emit downloadCompleted(hash);
-            }, Qt::QueuedConnection);
+        if (isComplete && !info.wasCompleted) {
+            completedTorrents.append(info.hash);
+            qInfo() << "TorrentClient: Download completed:" << info.name;
             
             // Mark for removal if removeOnDone
-            if (torrent.removeOnDone) {
-                toRemove.append(hash);
+            if (info.removeOnDone) {
+                toRemove.append(info.hash);
             }
         }
     }
     
-    lock.unlock();
+    // Step 3: Update completion status and emit progress under mutex
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        
+        // Mark completed torrents
+        for (const QString& hash : completedTorrents) {
+            auto it = torrents_.find(hash);
+            if (it != torrents_.end()) {
+                it->completed = true;
+                it->progress = 1.0;
+            }
+        }
+        
+        // Emit progress JSON for all active torrents
+        for (const auto& info : torrentsToUpdate) {
+            auto it = torrents_.find(info.hash);
+            if (it != torrents_.end()) {
+                emitProgressJson(info.hash, *it);
+            }
+        }
+    }
+    
+    // Step 4: Emit completion signals outside mutex
+    for (const QString& hash : completedTorrents) {
+        QMetaObject::invokeMethod(this, [this, hash]() {
+            emit downloadCompleted(hash);
+        }, Qt::QueuedConnection);
+    }
     
     // Check if metadata has been received for pending torrents
     // (complete_metadata_download -> add_torrent creates the TorrentDownload)
@@ -1128,24 +1172,44 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
 void TorrentClient::updateTorrentStatus(const QString& hash)
 {
 #ifdef RATS_SEARCH_FEATURES
-    // Must be called with torrentsMutex_ held
-    auto it = torrents_.find(hash);
-    if (it == torrents_.end() || !it->download) {
-        return;
+    // Get the download pointer without holding the mutex for long
+    std::shared_ptr<librats::Torrent> download;
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        auto it = torrents_.find(hash);
+        if (it == torrents_.end() || !it->download) {
+            return;
+        }
+        download = it->download;
     }
     
-    ActiveTorrent& torrent = *it;
+    // Call librats methods WITHOUT holding torrentsMutex_ to avoid deadlock
+    // (librats::Torrent methods acquire their own mutex internally)
+    qint64 downloadedBytes = static_cast<qint64>(download->downloaded_bytes());
+    double progress = download->progress_percentage() / 100.0;
+    double downloadSpeed = download->download_speed();
+    int peersConnected = static_cast<int>(download->num_peers());
     
-    torrent.downloadedBytes = static_cast<qint64>(torrent.download->downloaded_bytes());
-    torrent.progress = torrent.download->progress_percentage() / 100.0;
-    torrent.downloadSpeed = torrent.download->download_speed();
-    torrent.peersConnected = static_cast<int>(torrent.download->num_peers());
+    qint64 totalSize = 0;
+    const auto& info = download->get_torrent_info();
+    if (info.is_valid()) {
+        totalSize = static_cast<qint64>(info.total_size());
+    }
     
-    // Get total size if not set yet
-    if (torrent.totalSize == 0) {
-        const auto& info = torrent.download->get_torrent_info();
-        if (info.is_valid()) {
-            torrent.totalSize = static_cast<qint64>(info.total_size());
+    // Now update the structure with the mutex held
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        auto it = torrents_.find(hash);
+        if (it != torrents_.end()) {
+            it->downloadedBytes = downloadedBytes;
+            it->progress = progress;
+            it->downloadSpeed = downloadSpeed;
+            it->peersConnected = peersConnected;
+            
+            // Get total size if not set yet
+            if (it->totalSize == 0 && totalSize > 0) {
+                it->totalSize = totalSize;
+            }
         }
     }
 #else
