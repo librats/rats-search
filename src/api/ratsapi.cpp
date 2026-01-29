@@ -1954,6 +1954,8 @@ void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
     torrent.size = torrentData["size"].toVariant().toLongLong();
     torrent.files = torrentData["files"].toInt();
     torrent.seeders = torrentData["seeders"].toInt();
+    torrent.leechers = torrentData["leechers"].toInt();
+    torrent.completed = torrentData["completed"].toInt();
     torrent.good = torrentData["good"].toInt();
     torrent.bad = torrentData["bad"].toInt();
     
@@ -1965,6 +1967,24 @@ void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
     
     torrent.added = QDateTime::currentDateTime();
     
+    // Parse filesList from incoming data (like legacy insertTorrentToDB)
+    // This is critical for P2P replication - without this, files are lost!
+    if (torrentData.contains("filesList")) {
+        QJsonArray filesArray = torrentData["filesList"].toArray();
+        for (const QJsonValue& fileVal : filesArray) {
+            QJsonObject fileObj = fileVal.toObject();
+            TorrentFile tf;
+            tf.path = fileObj["path"].toString();
+            tf.size = fileObj["size"].toVariant().toLongLong();
+            torrent.filesList.append(tf);
+        }
+        
+        // Update files count if not set
+        if (torrent.files == 0 && !torrent.filesList.isEmpty()) {
+            torrent.files = torrent.filesList.size();
+        }
+    }
+    
     // Check filters before inserting
     QString rejectionReason = getTorrentRejectionReason(torrent);
     if (!rejectionReason.isEmpty()) {
@@ -1972,10 +1992,11 @@ void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
         return;
     }
     
-    // Insert into database
+    // Insert into database (this will also insert files via addFilesToDatabase)
     d->database->insertTorrent(torrent);
     
-    qInfo() << "Inserted torrent from feed:" << torrent.name.left(30);
+    qInfo() << "Inserted torrent from feed:" << torrent.name.left(30) 
+            << "with" << torrent.filesList.size() << "files";
 }
 
 void RatsAPI::handleP2PSearchResult(const QString& peerId, const QJsonObject& data)
@@ -2064,7 +2085,8 @@ void RatsAPI::handleP2PRandomTorrentsRequest(const QString& peerId, const QJsonO
     
     qInfo() << "Processing P2P randomTorrents request from" << peerId.left(8) << "limit:" << limit;
     
-    QVector<TorrentInfo> torrents = d->database->getRandomTorrents(limit);
+    // Include files for replication (like legacy api.js that queries files table)
+    QVector<TorrentInfo> torrents = d->database->getRandomTorrents(limit, true);
     
     QJsonArray response;
     for (const TorrentInfo& torrent : torrents) {

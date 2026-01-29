@@ -196,8 +196,10 @@ public:
     
     /**
      * @brief Get random torrents for P2P replication
+     * @param limit Number of torrents to return
+     * @param includeFiles If true, include file list for each torrent (for replication)
      */
-    QVector<TorrentInfo> getRandomTorrents(int limit = 5);
+    QVector<TorrentInfo> getRandomTorrents(int limit = 5, bool includeFiles = false);
     
     /**
      * @brief Insert a torrent (alias for addTorrent)

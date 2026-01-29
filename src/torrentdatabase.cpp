@@ -725,7 +725,7 @@ void TorrentInfo::setContentCategoryFromString(const QString& category)
     contentCategory = category;
 }
 
-QVector<TorrentInfo> TorrentDatabase::getRandomTorrents(int limit)
+QVector<TorrentInfo> TorrentDatabase::getRandomTorrents(int limit, bool includeFiles)
 {
     QVector<TorrentInfo> results;
     
@@ -741,8 +741,47 @@ QVector<TorrentInfo> TorrentDatabase::getRandomTorrents(int limit)
         .arg(limit);
     
     auto rows = sphinxQL_->query(sql);
+    
+    // Build hash->index map for batch file lookup
+    QHash<QString, int> hashToIndex;
     for (const auto& row : rows) {
-        results.append(rowToTorrent(row));
+        TorrentInfo torrent = rowToTorrent(row);
+        hashToIndex[torrent.hash] = results.size();
+        results.append(torrent);
+    }
+    
+    // Legacy: sphinxSingle.query(`SELECT * FROM files WHERE hash IN(${inSql})`, ...)
+    if (includeFiles && !results.isEmpty()) {
+        QStringList hashList;
+        for (const TorrentInfo& t : results) {
+            hashList.append(QString("'%1'").arg(t.hash));
+        }
+        
+        QString filesSql = QString("SELECT * FROM files WHERE hash IN (%1)")
+            .arg(hashList.join(","));
+        
+        auto fileRows = sphinxQL_->query(filesSql);
+        
+        // Parse files and attach to corresponding torrents
+        for (const auto& fileRow : fileRows) {
+            QString hash = fileRow.value("hash").toString();
+            int idx = hashToIndex.value(hash, -1);
+            if (idx < 0) continue;
+            
+            // Parse concatenated path and size (same format as getFilesForTorrent)
+            QString pathStr = fileRow.value("path").toString();
+            QString sizeStr = fileRow.value("size").toString();
+            
+            QStringList paths = pathStr.split('\n');
+            QStringList sizes = sizeStr.split('\n');
+            
+            for (int i = 0; i < paths.size(); ++i) {
+                TorrentFile file;
+                file.path = paths[i];
+                file.size = (i < sizes.size()) ? sizes[i].toLongLong() : 0;
+                results[idx].filesList.append(file);
+            }
+        }
     }
     
     return results;
