@@ -28,7 +28,21 @@ void TorrentDetailsPanel::setupUi()
 {
     setObjectName("detailsPanel");
     
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    // Main layout for the panel (no margins - scroll area fills entire panel)
+    QVBoxLayout *panelLayout = new QVBoxLayout(this);
+    panelLayout->setContentsMargins(0, 0, 0, 0);
+    panelLayout->setSpacing(0);
+    
+    // Create scroll area for vertical scrolling
+    QScrollArea *scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setObjectName("detailsScrollArea");
+    
+    // Content widget inside scroll area
+    QWidget *contentWidget = new QWidget();
+    QVBoxLayout *mainLayout = new QVBoxLayout(contentWidget);
     mainLayout->setContentsMargins(16, 12, 16, 16);
     mainLayout->setSpacing(12);
     
@@ -289,6 +303,10 @@ void TorrentDetailsPanel::setupUi()
     copyHashButton_->setCursor(Qt::PointingHandCursor);
     connect(copyHashButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onCopyHashClicked);
     mainLayout->addWidget(copyHashButton_);
+    
+    // Set up scroll area with content
+    scrollArea->setWidget(contentWidget);
+    panelLayout->addWidget(scrollArea);
 }
 
 void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)

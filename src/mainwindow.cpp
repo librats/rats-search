@@ -355,6 +355,7 @@ void MainWindow::setupUi()
     detailsPanel = new TorrentDetailsPanel(this);
     detailsPanel->setMinimumWidth(280);
     detailsPanel->setMaximumWidth(380);
+    detailsPanel->setMinimumHeight(150);  // Allow vertical shrinking with scroll
     detailsPanel->hide();  // Hidden by default
     
     mainSplitter->addWidget(detailsPanel);
