@@ -867,9 +867,12 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (closeToTray && trayIcon && trayIcon->isVisible()) {
         qInfo() << "Closing to tray";
         hide();
-        trayIcon->showMessage("Rats Search", 
-            "Application is still running in the system tray.",
-            QSystemTrayIcon::Information, 2000);
+        if (!trayNotificationShown_) {
+            trayIcon->showMessage("Rats Search", 
+                "Application is still running in the system tray.",
+                QSystemTrayIcon::Information, 2000);
+            trayNotificationShown_ = true;
+        }
         event->ignore();
         return;
     }
@@ -1331,10 +1334,11 @@ void MainWindow::changeEvent(QEvent *event)
         if (isMinimized() && minimizeToTray && trayIcon && trayIcon->isVisible()) {
             // Hide to tray when minimized
             QTimer::singleShot(0, this, &QWidget::hide);
-            if (trayIcon) {
+            if (trayIcon && !trayNotificationShown_) {
                 trayIcon->showMessage("Rats Search", 
                     "Application minimized to tray. Click to restore.",
                     QSystemTrayIcon::Information, 2000);
+                trayNotificationShown_ = true;
             }
         }
     }

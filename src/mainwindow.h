@@ -152,6 +152,7 @@ private:
     // System Tray
     QSystemTrayIcon *trayIcon;
     QMenu *trayMenu;
+    bool trayNotificationShown_ = false;
     
     // Cached statistics (updated via signals, no polling)
     qint64 cachedTorrents_ = 0;
