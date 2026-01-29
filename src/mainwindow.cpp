@@ -366,7 +366,7 @@ void MainWindow::setupUi()
     // Bottom panel - Files widget (like qBittorrent)
     filesWidget = new TorrentFilesWidget(this);
     filesWidget->setMinimumHeight(120);
-    filesWidget->setMaximumHeight(350);
+    // No maximum height limit - allow user to expand freely via splitter
     filesWidget->hide();  // Hidden by default until a torrent is selected
     verticalSplitter->addWidget(filesWidget);
     
