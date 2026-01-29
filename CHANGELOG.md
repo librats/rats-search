@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.4](https://github.com/DEgITx/rats-search/compare/v2.0.3...v2.0.4) (2026-01-29)
+
+
+### 🐛 Bug Fixes
+
+
+- **connection:** Fix CLI ports override([d5b272c](https://github.com/DEgITx/rats-search/commit/d5b272cd2513304b0fbe64977acdf3454feb3cd8)) by @DEgITx
+- **logs:** Increase log level for important logs([40e1c61](https://github.com/DEgITx/rats-search/commit/40e1c6182c1b039121ba34183cb9d7181b726ea5)) by @DEgITx
+- **ui:** Fix closing application when it already hidden to tray([f1db0c7](https://github.com/DEgITx/rats-search/commit/f1db0c75476cd8d90dc5b6e2c0cf23907ba85435)) by @DEgITx
+- **ui:** Fix downloading progress display on right panel([59aa890](https://github.com/DEgITx/rats-search/commit/59aa890c078e4a546ea624ceaba123185c3db730)) by @DEgITx
+- **downloading:** Fix deadlock situation on status update([11fd84c](https://github.com/DEgITx/rats-search/commit/11fd84c7aaca7e3fe92fd75e3ed4646386ae5811)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.3([28829aa](https://github.com/DEgITx/rats-search/commit/28829aa0f4ae5dff6cdb06e2a4c381f5734de493)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **ui:** Display files search from torrent restore #237([0f21f64](https://github.com/DEgITx/rats-search/commit/0f21f649b78d54adecc4c558324f463ac9913423)) by @DEgITx
+- **ui:** Show tray notification only first time([def7030](https://github.com/DEgITx/rats-search/commit/def70305a9aa50869914f9060390c09d53f8126d)) by @DEgITx
+- **ui:** Display downloading on details panel([d67c2de](https://github.com/DEgITx/rats-search/commit/d67c2de73e2c9e27a936da1b6863d352ec9f7231)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.3](https://github.com/DEgITx/rats-search/compare/v2.0.2...v2.0.3) (2026-01-28)
 
 
