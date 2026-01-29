@@ -655,12 +655,15 @@ void MainWindow::initializeServicesDeferred()
     
     // Connect TorrentClient signals to details panel for download status updates
     if (torrentClient) {
-        connect(torrentClient.get(), &TorrentClient::progressUpdate, this,
-            [this](const QString& infoHash, qint64 downloaded, qint64 total, double speed, int /*peers*/) {
+        connect(torrentClient.get(), &TorrentClient::progressUpdated, this,
+            [this](const QString& infoHash, const QJsonObject& progress) {
                 // Update details panel if it's showing this torrent
                 if (detailsPanel && detailsPanel->currentHash() == infoHash) {
-                    double progress = (total > 0) ? static_cast<double>(downloaded) / total : 0.0;
-                    detailsPanel->setDownloadProgress(progress, downloaded, total, static_cast<int>(speed));
+                    qint64 downloaded = progress["downloaded"].toVariant().toLongLong();
+                    qint64 total = progress["size"].toVariant().toLongLong();
+                    double progressVal = progress["progress"].toDouble();
+                    int speed = static_cast<int>(progress["downloadSpeed"].toDouble());
+                    detailsPanel->setDownloadProgress(progressVal, downloaded, total, speed);
                 }
             });
         
