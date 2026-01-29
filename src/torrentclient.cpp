@@ -94,20 +94,23 @@ TorrentClient::~TorrentClient()
         updateTimer_->stop();
     }
     
-    // Stop all active torrents
+    // Save resume data and stop all active torrents
     QMutexLocker lock(&torrentsMutex_);
     for (auto& torrent : torrents_) {
         if (torrent.download) {
+            // Save resume data before stopping (preserves downloaded pieces)
+            torrent.download->save_resume_data();
             torrent.download->stop();
         }
     }
     torrents_.clear();
 }
 
-bool TorrentClient::initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database)
+bool TorrentClient::initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database, const QString& dataDirectory)
 {
     p2pNetwork_ = p2pNetwork;
     database_ = database;
+    dataDirectory_ = dataDirectory;
     
 #ifdef RATS_SEARCH_FEATURES
     if (!p2pNetwork_) {
@@ -130,12 +133,18 @@ bool TorrentClient::initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database
         }
     }
     
+    // Set resume data path to app data directory (not the download folder)
+    if (!dataDirectory_.isEmpty()) {
+        p2pNetwork_->setResumeDataPath(dataDirectory_);
+    }
+    
     initialized_ = true;
     updateTimer_->start();
     
     qInfo() << "TorrentClient initialized successfully";
     return true;
 #else
+    Q_UNUSED(dataDirectory);
     qWarning() << "TorrentClient: RATS_SEARCH_FEATURES not enabled at compile time";
     return false;
 #endif
@@ -349,7 +358,7 @@ bool TorrentClient::downloadTorrentFile(const QString& torrentFile, const QStrin
 #endif
 }
 
-void TorrentClient::stopTorrent(const QString& infoHash)
+void TorrentClient::stopTorrent(const QString& infoHash, bool saveResumeData)
 {
 #ifdef RATS_SEARCH_FEATURES
     QString hash = infoHash.toLower();
@@ -363,6 +372,11 @@ void TorrentClient::stopTorrent(const QString& infoHash)
     }
     
     if (it->download) {
+        // Save resume data before stopping (preserves downloaded pieces)
+        if (saveResumeData) {
+            qInfo() << "TorrentClient: Saving resume data for:" << hash;
+            it->download->save_resume_data();
+        }
         it->download->stop();
     }
     
@@ -380,6 +394,7 @@ void TorrentClient::stopTorrent(const QString& infoHash)
     qInfo() << "TorrentClient: Stopped and removed torrent:" << hash;
 #else
     Q_UNUSED(infoHash);
+    Q_UNUSED(saveResumeData);
 #endif
 }
 
@@ -653,6 +668,123 @@ bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, q
 #endif
 }
 
+bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath, bool wasCompleted)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!isReady()) {
+        qWarning() << "TorrentClient: Not ready for restore";
+        return false;
+    }
+    
+    QString normalizedHash = hash.toLower();
+    
+    // Check if already downloading
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        if (torrents_.contains(normalizedHash)) {
+            qInfo() << "TorrentClient: Already active:" << normalizedHash.left(8);
+            return false;
+        }
+    }
+    
+    QString path = savePath.isEmpty() ? defaultDownloadPath_ : savePath;
+    
+    // Ensure download directory exists
+    QDir dir(path);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    
+    auto* client = p2pNetwork_->getRatsClient();
+    
+    qInfo() << "TorrentClient: Restoring torrent" << normalizedHash.left(8) << "from" << path;
+    
+    // Add torrent - librats will automatically try to load resume data from save_path/.resume/{hash}.resume
+    auto download = client->add_torrent_by_hash(normalizedHash.toStdString(), path.toStdString());
+    
+    // Create ActiveTorrent entry
+    ActiveTorrent torrent;
+    torrent.hash = normalizedHash;
+    torrent.savePath = path;
+    torrent.download = download;
+    
+    if (download) {
+        // Try to load resume data (restores downloaded pieces)
+        bool resumeLoaded = download->try_load_resume_data();
+        if (resumeLoaded) {
+            qInfo() << "TorrentClient: Resume data loaded for" << normalizedHash.left(8);
+        }
+        
+        // Get info if available
+        const auto& info = download->get_torrent_info();
+        if (info.is_valid() && info.has_metadata()) {
+            torrent.name = QString::fromStdString(info.name());
+            torrent.totalSize = static_cast<qint64>(info.total_size());
+            torrent.ready = true;
+            
+            // Get current download progress
+            torrent.downloadedBytes = static_cast<qint64>(download->downloaded_bytes());
+            torrent.progress = download->progress_percentage() / 100.0;
+            torrent.completed = download->is_complete();
+            
+            // If it was completed before, it should still be complete
+            if (wasCompleted && !torrent.completed) {
+                // Re-check files to verify completion
+                qInfo() << "TorrentClient: Verifying files for" << normalizedHash.left(8);
+            }
+            
+            // Populate files
+            const auto& files = info.files().files();
+            for (size_t i = 0; i < files.size(); ++i) {
+                TorrentFileInfo fi;
+                fi.path = QString::fromStdString(files[i].path);
+                fi.size = static_cast<qint64>(files[i].size);
+                fi.index = static_cast<int>(i);
+                fi.selected = true;
+                torrent.files.append(fi);
+            }
+        } else {
+            torrent.name = normalizedHash;
+            torrent.ready = false;
+        }
+        
+        // Setup callbacks
+        setupTorrentCallbacks(normalizedHash, download);
+        
+        // Start the torrent (will seed if complete, download if not)
+        download->start();
+    } else {
+        // Metadata needs to be fetched via BEP 9
+        torrent.name = normalizedHash;
+        torrent.ready = false;
+        qInfo() << "TorrentClient: Waiting for metadata via BEP 9 for:" << normalizedHash.left(8);
+    }
+    
+    // Store torrent
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        torrents_[normalizedHash] = torrent;
+    }
+    
+    emit downloadStarted(normalizedHash);
+    
+    if (torrent.ready) {
+        emit filesReady(normalizedHash, torrent.files);
+        
+        if (torrent.completed) {
+            emit downloadCompleted(normalizedHash);
+        }
+    }
+    
+    return true;
+#else
+    Q_UNUSED(hash);
+    Q_UNUSED(savePath);
+    Q_UNUSED(wasCompleted);
+    return false;
+#endif
+}
+
 QJsonArray TorrentClient::toJsonArray() const
 {
     QMutexLocker lock(&torrentsMutex_);
@@ -739,12 +871,7 @@ bool TorrentClient::saveSession(const QString& filePath)
     
     QJsonArray sessionsArray;
     
-    for (const auto& torrent : torrents_) {
-        // Only save incomplete torrents
-        if (torrent.completed) {
-            continue;
-        }
-        
+    for (auto& torrent : torrents_) {
         QJsonObject session;
         session["hash"] = torrent.hash;
         session["name"] = torrent.name;
@@ -752,6 +879,17 @@ bool TorrentClient::saveSession(const QString& filePath)
         session["totalSize"] = torrent.totalSize;
         session["paused"] = torrent.paused;
         session["removeOnDone"] = torrent.removeOnDone;
+        session["completed"] = torrent.completed;  // Also save completed torrents for seeding
+        session["downloadedBytes"] = torrent.downloadedBytes;
+        session["progress"] = torrent.progress;
+        
+#ifdef RATS_SEARCH_FEATURES
+        // Save resume data for each torrent (preserves downloaded pieces)
+        if (torrent.download) {
+            qInfo() << "TorrentClient: Saving resume data for" << torrent.hash.left(8);
+            torrent.download->save_resume_data();
+        }
+#endif
         
         // Save file selection
         QJsonArray filesArr;
@@ -840,10 +978,12 @@ int TorrentClient::loadSession(const QString& filePath)
         QString savePath = session["savePath"].toString();
         bool paused = session["paused"].toBool();
         bool removeOnDone = session["removeOnDone"].toBool();
+        bool wasCompleted = session["completed"].toBool();
         
-        qInfo() << "TorrentClient: Restoring torrent:" << hash.left(8);
+        qInfo() << "TorrentClient: Restoring torrent:" << hash.left(8) 
+                << (wasCompleted ? "(completed/seeding)" : "(downloading)");
         
-        if (downloadTorrent(hash, savePath)) {
+        if (restoreTorrent(hash, savePath, wasCompleted)) {
             // Apply saved settings
             if (paused) {
                 pauseTorrent(hash);

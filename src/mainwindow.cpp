@@ -556,7 +556,7 @@ void MainWindow::startServices()
         // Initialize TorrentClient after P2P is running (requires RatsClient)
         if (torrentClient && !torrentClient->isReady()) {
             qint64 tcStart = timer.elapsed();
-            if (torrentClient->initialize(p2pNetwork.get(), torrentDatabase.get())) {
+            if (torrentClient->initialize(p2pNetwork.get(), torrentDatabase.get(), dataDirectory_)) {
                 qInfo() << "TorrentClient initialize took:" << (timer.elapsed() - tcStart) << "ms";
                 logActivity("✅ TorrentClient initialized");
             } else {
@@ -589,6 +589,12 @@ void MainWindow::stopServices()
     }
     
     logActivity("🛑 Stopping services...");
+    
+    // Save torrent session if not already saved (safety net)
+    if (torrentClient && torrentClient->count() > 0) {
+        QString sessionFile = dataDirectory_ + "/torrents_session.json";
+        torrentClient->saveSession(sessionFile);
+    }
     
     // Stop services in reverse order
     if (torrentSpider) {
@@ -699,6 +705,21 @@ void MainWindow::initializeServicesDeferred()
     qint64 servicesStart = timer.elapsed();
     startServices();
     qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
+    
+    // Restore previous download session (loads resume data to continue from saved progress)
+    if (torrentClient && torrentClient->isReady()) {
+        QString sessionFile = dataDirectory_ + "/torrents_session.json";
+        QFile sessionFileCheck(sessionFile);
+        if (sessionFileCheck.exists()) {
+            qInfo() << "Loading previous torrent session from" << sessionFile;
+            logActivity(tr("🔄 Restoring previous downloads..."));
+            int restored = torrentClient->loadSession(sessionFile);
+            if (restored > 0) {
+                logActivity(tr("✅ Restored %1 download(s)").arg(restored));
+                qInfo() << "Restored" << restored << "torrents from session";
+            }
+        }
+    }
 
     // Initialize new tab widgets with API
     if (topTorrentsWidget) {
@@ -946,6 +967,19 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // Stop API server
     if (apiServer) {
         apiServer->stop();
+    }
+    
+    // Save torrent download session (preserves downloaded pieces via resume data)
+    if (torrentClient && torrentClient->count() > 0) {
+        QString sessionFile = dataDirectory_ + "/torrents_session.json";
+        qInfo() << "Closing: Saving torrent session to" << sessionFile;
+        logActivity(tr("💾 Saving download session..."));
+        if (torrentClient->saveSession(sessionFile)) {
+            qInfo() << "Closing: Torrent session saved";
+            logActivity(tr("✅ Download session saved"));
+        } else {
+            qWarning() << "Closing: Failed to save torrent session";
+        }
     }
     
     qInfo() << "Closing: Saving settings";

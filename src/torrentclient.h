@@ -88,9 +88,11 @@ public:
      * @brief Initialize the torrent client with P2P network
      * @param p2pNetwork P2P network instance (provides access to RatsClient)
      * @param database Optional torrent database for metadata lookup
+     * @param dataDirectory App data directory for storing resume data
      * @return true if initialization succeeded
      */
-    bool initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database = nullptr);
+    bool initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database = nullptr, 
+                    const QString& dataDirectory = QString());
 
     /**
      * @brief Check if the client is ready (BitTorrent enabled)
@@ -136,8 +138,9 @@ public:
     /**
      * @brief Stop and remove a torrent
      * @param infoHash Info hash of torrent to stop
+     * @param saveResumeData Whether to save resume data before stopping (default: false)
      */
-    void stopTorrent(const QString& infoHash);
+    void stopTorrent(const QString& infoHash, bool saveResumeData = false);
 
     /**
      * @brief Pause a torrent download
@@ -248,6 +251,15 @@ public:
      */
     int loadSession(const QString& filePath);
 
+    /**
+     * @brief Restore a torrent from a previous session with resume data
+     * @param hash Info hash (40 char hex)
+     * @param savePath Download directory
+     * @param wasCompleted Whether the torrent was completed before shutdown
+     * @return true if torrent was restored successfully
+     */
+    bool restoreTorrent(const QString& hash, const QString& savePath, bool wasCompleted);
+
 signals:
     /**
      * @brief Emitted when a torrent starts downloading (metadata received)
@@ -317,6 +329,7 @@ private:
     P2PNetwork* p2pNetwork_ = nullptr;
     TorrentDatabase* database_ = nullptr;
     QString defaultDownloadPath_;
+    QString dataDirectory_;  // App data directory for resume data
     
     // Active torrents by info hash
     QHash<QString, ActiveTorrent> torrents_;

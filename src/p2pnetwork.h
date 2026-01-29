@@ -105,6 +105,12 @@ public:
     void disableBitTorrent();
     
     /**
+     * @brief Set the directory for storing resume data files
+     * @param path Directory path for resume data (should be app data directory)
+     */
+    void setResumeDataPath(const QString& path);
+    
+    /**
      * @brief Get the RatsClient instance (for advanced usage)
      */
     librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }

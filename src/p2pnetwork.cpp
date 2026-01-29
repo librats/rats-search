@@ -431,6 +431,18 @@ void P2PNetwork::disableBitTorrent()
 #endif
 }
 
+void P2PNetwork::setResumeDataPath(const QString& path)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (ratsClient_ && bitTorrentEnabled_) {
+        ratsClient_->set_resume_data_path(path.toStdString());
+        qInfo() << "Resume data path set to:" << path;
+    }
+#else
+    Q_UNUSED(path);
+#endif
+}
+
 // =========================================================================
 // Bootstrap Peers
 // =========================================================================
