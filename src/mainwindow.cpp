@@ -897,6 +897,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
     stopServices();
     event->accept();
     qInfo() << "Closing: Done (accepted)";
+
+    if (isHidden()) {
+        qInfo() << "Closing: Previously hidden, quitting";
+        QApplication::quit();
+    }
 }
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
