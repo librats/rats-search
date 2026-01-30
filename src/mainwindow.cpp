@@ -690,6 +690,10 @@ void MainWindow::initializeServicesDeferred()
                 if (detailsPanel && detailsPanel->currentHash() == infoHash) {
                     detailsPanel->resetDownloadState();
                 }
+                
+                // Save session immediately after torrent removal to prevent restoration on restart
+                QString sessionFile = dataDirectory_ + "/torrents_session.json";
+                torrentClient->saveSession(sessionFile);
             });
     }
     
@@ -970,7 +974,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
     
     // Save torrent download session (preserves downloaded pieces via resume data)
-    if (torrentClient && torrentClient->count() > 0) {
+    // Always save session - if empty, saveSession() will remove the session file
+    if (torrentClient) {
         QString sessionFile = dataDirectory_ + "/torrents_session.json";
         qInfo() << "Closing: Saving torrent session to" << sessionFile;
         logActivity(tr("💾 Saving download session..."));
