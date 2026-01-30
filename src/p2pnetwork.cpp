@@ -62,6 +62,9 @@ bool P2PNetwork::start()
         // Set data directory
         std::string dataDir = dataDirectory_.toStdString();
         ratsClient_->set_data_directory(dataDir);
+
+        // Enable storage
+        ratsClient_->get_storage_manager();
         
         // Load configuration
         ratsClient_->load_configuration();

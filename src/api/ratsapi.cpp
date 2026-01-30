@@ -1192,7 +1192,10 @@ void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
     if (d->p2pStore && d->p2pStore->isAvailable() && d->p2pStore->hasVoted(hash)) {
         // Already voted - return current vote counts from P2P store
         VoteCounts votes = d->p2pStore->getVotes(hash);
-        
+
+        qInfo() << "Already voted - returning current vote counts from P2P store" << votes.toJson();
+        qInfo() << "Good:" << votes.good << "Bad:" << votes.bad << "SelfVoted:" << votes.selfVoted;
+
         QJsonObject result;
         result["hash"] = hash;
         result["good"] = votes.good;
@@ -1209,6 +1212,7 @@ void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
     if (d->p2pStore && d->p2pStore->isAvailable()) {
         // Include torrent data for replication (like legacy _temp field)
         QJsonObject torrentData = torrentInfoToJson(torrent);
+        qInfo() << "Storing vote in P2P network for" << hash.left(8) << "with torrent data" << torrentData;
         storedInP2P = d->p2pStore->storeVote(hash, isGood, torrentData);
         
         if (storedInP2P) {
@@ -1222,6 +1226,7 @@ void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
     } else {
         torrent.bad++;
     }
+    qInfo() << "Updating local database counts for" << hash.left(8) << "with good:" << torrent.good << "bad:" << torrent.bad;
     d->database->updateTorrent(torrent);
     
     // Update feed
@@ -1247,6 +1252,7 @@ void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
     result["bad"] = badCount;
     result["selfVoted"] = true;
     result["distributed"] = storedInP2P;
+    qInfo() << "Returning result for" << hash.left(8) << "with good:" << goodCount << "bad:" << badCount << "selfVoted:" << true << "distributed:" << storedInP2P;
     
     if (callback) callback(ApiResponse::ok(result));
 }
