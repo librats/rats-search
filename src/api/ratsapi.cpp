@@ -437,10 +437,9 @@ void RatsAPI::registerMethods()
     methods_["torrent.remove"] = [this](const QJsonObject& params, ApiCallback cb) {
         removeTorrents(params["checkOnly"].toBool(false), cb);
     };
-    methods_["torrent.drop"] = [this](const QJsonObject& params, ApiCallback cb) {
-        // Accept base64-encoded torrent data
-        QByteArray data = QByteArray::fromBase64(params["data"].toString().toLatin1());
-        dropTorrents(data, cb);
+    methods_["torrent.addFile"] = [this](const QJsonObject& params, ApiCallback cb) {
+        QString filePath = params["path"].toString();
+        addTorrentFile(filePath, cb);
     };
     
     // Feed
@@ -1447,16 +1446,31 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
     });
 }
 
-void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)
+void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
 {
 #ifdef RATS_SEARCH_FEATURES
-    if (torrentData.isEmpty()) {
-        if (callback) callback(ApiResponse::fail("Empty torrent data"));
+    if (filePath.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Empty file path"));
         return;
     }
     
     if (!d->database) {
         if (callback) callback(ApiResponse::fail("Database not initialized"));
+        return;
+    }
+    
+    // Read the torrent file
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (callback) callback(ApiResponse::fail("Failed to open torrent file: " + file.errorString()));
+        return;
+    }
+    
+    QByteArray torrentData = file.readAll();
+    file.close();
+    
+    if (torrentData.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Empty torrent file"));
         return;
     }
     
@@ -1528,35 +1542,9 @@ void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)
     
     if (callback) callback(ApiResponse::ok(result));
 #else
-    Q_UNUSED(torrentData);
+    Q_UNUSED(filePath);
     if (callback) callback(ApiResponse::fail("BitTorrent features not enabled"));
 #endif
-}
-
-void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
-{
-    if (filePath.isEmpty()) {
-        if (callback) callback(ApiResponse::fail("Empty file path"));
-        return;
-    }
-    
-    // Read the torrent file
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        if (callback) callback(ApiResponse::fail("Failed to open torrent file: " + file.errorString()));
-        return;
-    }
-    
-    QByteArray torrentData = file.readAll();
-    file.close();
-    
-    if (torrentData.isEmpty()) {
-        if (callback) callback(ApiResponse::fail("Empty torrent file"));
-        return;
-    }
-    
-    // Use dropTorrents to parse and add to index
-    dropTorrents(torrentData, callback);
 }
 
 void RatsAPI::createTorrent(const QString& path,
