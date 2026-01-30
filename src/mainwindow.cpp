@@ -34,6 +34,9 @@
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QCloseEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
 #include <QLabel>
 #include <QTabWidget>
 #include <QSplitter>
@@ -88,6 +91,9 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     
     // Set application icon
     setWindowIcon(QIcon(":/images/icon.png"));
+    
+    // Enable drag & drop for .torrent files
+    setAcceptDrops(true);
     
     // UI setup (show window fast)
     qint64 uiStart = startupTimer.elapsed();
@@ -1017,6 +1023,84 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
     Q_UNUSED(event);
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    // Accept drag if it contains URLs (files)
+    if (event->mimeData()->hasUrls()) {
+        // Check if any of the files are .torrent files
+        for (const QUrl& url : event->mimeData()->urls()) {
+            if (url.isLocalFile() && url.toLocalFile().endsWith(".torrent", Qt::CaseInsensitive)) {
+                event->acceptProposedAction();
+                return;
+            }
+        }
+    }
+    event->ignore();
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    if (!event->mimeData()->hasUrls()) {
+        event->ignore();
+        return;
+    }
+    
+    QStringList torrentFiles;
+    
+    // Collect all .torrent files
+    for (const QUrl& url : event->mimeData()->urls()) {
+        if (url.isLocalFile()) {
+            QString filePath = url.toLocalFile();
+            if (filePath.endsWith(".torrent", Qt::CaseInsensitive)) {
+                torrentFiles.append(filePath);
+            }
+        }
+    }
+    
+    if (torrentFiles.isEmpty()) {
+        event->ignore();
+        return;
+    }
+    
+    event->acceptProposedAction();
+    
+    logActivity(tr("📥 Dropped %1 torrent file(s)").arg(torrentFiles.size()));
+    
+    // Add each torrent file using the same method as menu action
+    int addedCount = 0;
+    int alreadyExistsCount = 0;
+    int failedCount = 0;
+    
+    for (const QString& filePath : torrentFiles) {
+        if (!api) {
+            logActivity(tr("❌ API not initialized"));
+            continue;
+        }
+        
+        api->addTorrentFile(filePath, [this, filePath, &addedCount, &alreadyExistsCount, &failedCount, 
+                                        torrentFilesCount = torrentFiles.size()](const ApiResponse& response) {
+            if (response.success) {
+                QJsonObject data = response.data.toObject();
+                QString name = data["name"].toString();
+                bool alreadyExists = data["alreadyExists"].toBool();
+                
+                if (alreadyExists) {
+                    alreadyExistsCount++;
+                    logActivity(tr("ℹ️ Already indexed: %1").arg(name));
+                } else {
+                    addedCount++;
+                    logActivity(tr("✅ Added: %1").arg(name));
+                }
+            } else {
+                failedCount++;
+                logActivity(tr("❌ Failed: %1 - %2").arg(QFileInfo(filePath).fileName(), response.error));
+            }
+        });
+    }
+    
+    statusBar()->showMessage(tr("Processing %1 torrent file(s)...").arg(torrentFiles.size()), 3000);
 }
 
 // Slots implementation
