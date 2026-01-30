@@ -12,6 +12,7 @@
 #ifdef RATS_SEARCH_FEATURES
 #include "../librats/src/bittorrent.h"
 #include "../librats/src/librats.h"
+#include "../librats/src/bt_create_torrent.h"
 #endif
 
 #include <QDebug>
@@ -1528,6 +1529,261 @@ void RatsAPI::dropTorrents(const QByteArray& torrentData, ApiCallback callback)
     if (callback) callback(ApiResponse::ok(result));
 #else
     Q_UNUSED(torrentData);
+    if (callback) callback(ApiResponse::fail("BitTorrent features not enabled"));
+#endif
+}
+
+void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
+{
+    if (filePath.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Empty file path"));
+        return;
+    }
+    
+    // Read the torrent file
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (callback) callback(ApiResponse::fail("Failed to open torrent file: " + file.errorString()));
+        return;
+    }
+    
+    QByteArray torrentData = file.readAll();
+    file.close();
+    
+    if (torrentData.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Empty torrent file"));
+        return;
+    }
+    
+    // Use dropTorrents to parse and add to index
+    dropTorrents(torrentData, callback);
+}
+
+void RatsAPI::createTorrent(const QString& path,
+                            bool startSeeding,
+                            const QStringList& trackers,
+                            const QString& comment,
+                            TorrentCreationProgressCallback progressCallback,
+                            ApiCallback callback)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (path.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Empty path"));
+        return;
+    }
+    
+    if (!d->database) {
+        if (callback) callback(ApiResponse::fail("Database not initialized"));
+        return;
+    }
+    
+    // Check if path exists
+    QFileInfo pathInfo(path);
+    if (!pathInfo.exists()) {
+        if (callback) callback(ApiResponse::fail("Path does not exist: " + path));
+        return;
+    }
+    
+    // Prepare torrents directory in app data folder
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString torrentsDir = dataPath + "/torrents";
+    QDir dir(torrentsDir);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+    
+    QString hash;
+    QString torrentFilePath;  // Path where .torrent file is saved
+    
+    if (startSeeding && d->torrentClient && d->torrentClient->isReady()) {
+        // Create and start seeding using TorrentClient
+        TorrentClient::CreationProgressCallback tcCallback = nullptr;
+        if (progressCallback) {
+            tcCallback = [progressCallback](int current, int total) {
+                progressCallback(current, total);
+            };
+        }
+        
+        hash = d->torrentClient->createAndSeedTorrent(path, trackers, comment, tcCallback);
+        
+        if (hash.isEmpty()) {
+            if (callback) callback(ApiResponse::fail("Failed to create torrent"));
+            return;
+        }
+        
+        // Also save .torrent file to torrents directory
+        // Get the torrent name for the filename
+        ActiveTorrent active = d->torrentClient->getTorrent(hash);
+        QString torrentName = active.name.isEmpty() ? hash : active.name;
+        
+        // Sanitize filename (remove invalid characters)
+        torrentName.replace(QRegularExpression("[<>:\"/\\\\|?*]"), "_");
+        if (torrentName.length() > 200) {
+            torrentName = torrentName.left(200);
+        }
+        
+        torrentFilePath = torrentsDir + "/" + torrentName + ".torrent";
+        
+        // Use TorrentClient to create the .torrent file
+        bool fileSaved = d->torrentClient->createTorrentFile(
+            path, torrentFilePath, trackers, comment, nullptr);
+        
+        if (!fileSaved) {
+            qWarning() << "Failed to save .torrent file to:" << torrentFilePath;
+            torrentFilePath.clear();  // Clear path since save failed
+        } else {
+            qInfo() << "Saved .torrent file to:" << torrentFilePath;
+        }
+    } else {
+        // Just create the torrent info without seeding
+        // Use librats directly
+        librats::TorrentCreatorConfig config;
+        config.comment = comment.toStdString();
+        config.created_by = "Rats Search";
+        
+        librats::TorrentCreator creator(path.toStdString(), config);
+        
+        if (creator.num_files() == 0) {
+            if (callback) callback(ApiResponse::fail("No files found at path"));
+            return;
+        }
+        
+        for (const QString& tracker : trackers) {
+            creator.add_tracker(tracker.toStdString());
+        }
+        
+        // Convert progress callback
+        librats::PieceHashProgressCallback hashCallback = nullptr;
+        if (progressCallback) {
+            hashCallback = [progressCallback](uint32_t current, uint32_t total) {
+                progressCallback(static_cast<int>(current), static_cast<int>(total));
+            };
+        }
+        
+        librats::TorrentCreateError error;
+        if (!creator.set_piece_hashes(hashCallback, &error)) {
+            if (callback) callback(ApiResponse::fail("Failed to compute piece hashes: " + QString::fromStdString(error.message)));
+            return;
+        }
+        
+        auto torrentInfoOpt = creator.generate_torrent_info(&error);
+        if (!torrentInfoOpt) {
+            if (callback) callback(ApiResponse::fail("Failed to generate torrent: " + QString::fromStdString(error.message)));
+            return;
+        }
+        
+        hash = QString::fromStdString(torrentInfoOpt->info_hash_hex()).toLower();
+        
+        // Save .torrent file to torrents directory
+        QString torrentName = QString::fromStdString(torrentInfoOpt->name());
+        if (torrentName.isEmpty()) {
+            torrentName = hash;
+        }
+        
+        // Sanitize filename
+        torrentName.replace(QRegularExpression("[<>:\"/\\\\|?*]"), "_");
+        if (torrentName.length() > 200) {
+            torrentName = torrentName.left(200);
+        }
+        
+        torrentFilePath = torrentsDir + "/" + torrentName + ".torrent";
+        
+        if (!creator.save_to_file(torrentFilePath.toStdString(), &error)) {
+            qWarning() << "Failed to save .torrent file:" << QString::fromStdString(error.message);
+            torrentFilePath.clear();
+        } else {
+            qInfo() << "Saved .torrent file to:" << torrentFilePath;
+        }
+    }
+    
+    // Add to database for searching
+    // First check if it already exists
+    TorrentInfo existing = d->database->getTorrent(hash);
+    if (existing.isValid()) {
+        QJsonObject result = torrentInfoToJson(existing);
+        result["alreadyExists"] = true;
+        result["seeding"] = startSeeding;
+        if (callback) callback(ApiResponse::ok(result));
+        return;
+    }
+    
+    // Get torrent info from TorrentClient if seeding, otherwise from librats
+    TorrentInfo torrent;
+    torrent.hash = hash;
+    torrent.added = QDateTime::currentDateTime();
+    
+    if (startSeeding && d->torrentClient) {
+        ActiveTorrent active = d->torrentClient->getTorrent(hash);
+        torrent.name = active.name;
+        torrent.size = active.totalSize;
+        torrent.files = active.files.size();
+        
+        // Build file list
+        for (const TorrentFileInfo& f : active.files) {
+            TorrentFile tf;
+            tf.path = f.path;
+            tf.size = f.size;
+            torrent.filesList.append(tf);
+        }
+    } else {
+        // Need to recreate TorrentInfo (we don't have it from above due to scope)
+        librats::TorrentCreatorConfig config;
+        librats::TorrentCreator creator(path.toStdString(), config);
+        
+        librats::TorrentCreateError error;
+        creator.set_piece_hashes(nullptr, &error);
+        auto torrentInfoOpt = creator.generate_torrent_info(&error);
+        
+        if (torrentInfoOpt) {
+            torrent.name = QString::fromStdString(torrentInfoOpt->name());
+            torrent.size = static_cast<qint64>(torrentInfoOpt->total_size());
+            torrent.files = static_cast<int>(torrentInfoOpt->num_files());
+            torrent.piecelength = static_cast<int>(torrentInfoOpt->piece_length());
+            
+            const auto& files = torrentInfoOpt->files().files();
+            for (const auto& f : files) {
+                TorrentFile tf;
+                tf.path = QString::fromStdString(f.path);
+                tf.size = static_cast<qint64>(f.size);
+                torrent.filesList.append(tf);
+            }
+        }
+    }
+    
+    // Detect content type
+    TorrentDatabase::detectContentType(torrent);
+    
+    // Check filters before inserting
+    QString rejectionReason = getTorrentRejectionReason(torrent);
+    if (!rejectionReason.isEmpty()) {
+        if (callback) callback(ApiResponse::fail("Torrent rejected: " + rejectionReason));
+        return;
+    }
+    
+    // Insert into database
+    d->database->insertTorrent(torrent);
+    
+    qInfo() << "Created torrent:" << torrent.name.left(50) << "hash:" << hash.left(8) 
+            << (startSeeding ? "(seeding)" : "(indexed only)");
+    
+    emit torrentIndexed(hash, torrent.name);
+    
+    QJsonObject result = torrentInfoToJson(torrent);
+    result["created"] = true;
+    result["seeding"] = startSeeding;
+    
+    // Include path to saved .torrent file if it was created
+    if (!torrentFilePath.isEmpty()) {
+        result["torrentFile"] = torrentFilePath;
+    }
+    
+    if (callback) callback(ApiResponse::ok(result));
+#else
+    Q_UNUSED(path);
+    Q_UNUSED(startSeeding);
+    Q_UNUSED(trackers);
+    Q_UNUSED(comment);
+    Q_UNUSED(progressCallback);
     if (callback) callback(ApiResponse::fail("BitTorrent features not enabled"));
 #endif
 }

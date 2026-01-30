@@ -260,6 +260,45 @@ public:
      */
     bool restoreTorrent(const QString& hash, const QString& name, const QString& savePath, bool wasCompleted);
 
+    // =========================================================================
+    // Torrent Creation (for seeding)
+    // =========================================================================
+
+    /**
+     * @brief Callback for torrent creation progress
+     * @param currentPiece Current piece being hashed
+     * @param totalPieces Total number of pieces
+     */
+    using CreationProgressCallback = std::function<void(int currentPiece, int totalPieces)>;
+
+    /**
+     * @brief Create a torrent from a file or directory and start seeding
+     * @param path Path to file or directory
+     * @param trackers List of tracker URLs (optional)
+     * @param comment Torrent comment (optional)
+     * @param progressCallback Callback for progress updates (optional)
+     * @return Info hash of created torrent, or empty string on failure
+     */
+    QString createAndSeedTorrent(const QString& path,
+                                  const QStringList& trackers = QStringList(),
+                                  const QString& comment = QString(),
+                                  CreationProgressCallback progressCallback = nullptr);
+
+    /**
+     * @brief Create a torrent file (.torrent) without starting to seed
+     * @param path Path to file or directory
+     * @param outputFile Path where to save the .torrent file
+     * @param trackers List of tracker URLs (optional)
+     * @param comment Torrent comment (optional)
+     * @param progressCallback Callback for progress updates (optional)
+     * @return true if torrent file was created successfully
+     */
+    bool createTorrentFile(const QString& path,
+                           const QString& outputFile,
+                           const QStringList& trackers = QStringList(),
+                           const QString& comment = QString(),
+                           CreationProgressCallback progressCallback = nullptr);
+
 signals:
     /**
      * @brief Emitted when a torrent starts downloading (metadata received)
@@ -316,6 +355,11 @@ signals:
      * @brief Emitted when download state changes (API compatible)
      */
     void stateChanged(const QString& infoHash, const QJsonObject& state);
+
+    /**
+     * @brief Emitted when a torrent is created and ready for seeding
+     */
+    void torrentCreated(const QString& infoHash, const QString& name, qint64 size);
 
 private slots:
     void onUpdateTimer();

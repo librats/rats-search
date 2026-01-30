@@ -3,6 +3,7 @@
 #include "p2pnetwork.h"
 #include <QDebug>
 #include <QFile>
+#include <QFileInfo>
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonArray>
@@ -1322,6 +1323,184 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
 #else
     Q_UNUSED(hash);
     Q_UNUSED(download);
+#endif
+}
+
+// ============================================================================
+// Torrent Creation
+// ============================================================================
+
+QString TorrentClient::createAndSeedTorrent(const QString& path,
+                                             const QStringList& trackers,
+                                             const QString& comment,
+                                             CreationProgressCallback progressCallback)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!isReady()) {
+        qWarning() << "TorrentClient: Not ready for torrent creation";
+        return QString();
+    }
+    
+    auto* client = p2pNetwork_->getRatsClient();
+    if (!client) {
+        qWarning() << "TorrentClient: RatsClient not available";
+        return QString();
+    }
+    
+    // Convert QStringList to std::vector<std::string>
+    std::vector<std::string> trackerList;
+    for (const QString& tracker : trackers) {
+        trackerList.push_back(tracker.toStdString());
+    }
+    
+    // Convert progress callback
+    librats::RatsClient::TorrentCreationProgressCallback libCallback = nullptr;
+    if (progressCallback) {
+        libCallback = [progressCallback](uint32_t current, uint32_t total) {
+            progressCallback(static_cast<int>(current), static_cast<int>(total));
+        };
+    }
+    
+    qInfo() << "TorrentClient: Creating and seeding torrent from:" << path;
+    
+    // Use librats to create and seed the torrent
+    auto download = client->create_and_seed_torrent(
+        path.toStdString(),
+        trackerList,
+        comment.toStdString(),
+        libCallback
+    );
+    
+    if (!download) {
+        qWarning() << "TorrentClient: Failed to create torrent from:" << path;
+        return QString();
+    }
+    
+    // Get torrent info
+    const auto& info = download->get_torrent_info();
+    QString hash = QString::fromStdString(librats::info_hash_to_hex(info.info_hash())).toLower();
+    QString name = QString::fromStdString(info.name());
+    qint64 totalSize = static_cast<qint64>(info.total_size());
+    
+    // Check if already exists
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        if (torrents_.contains(hash)) {
+            qInfo() << "TorrentClient: Torrent already exists:" << hash;
+            return hash;  // Return existing hash - not an error
+        }
+    }
+    
+    // Create ActiveTorrent entry
+    ActiveTorrent torrent;
+    torrent.hash = hash;
+    torrent.name = name;
+    // Get the save path from the source path's parent directory
+    QFileInfo pathInfo(path);
+    torrent.savePath = pathInfo.isDir() ? pathInfo.absolutePath() : pathInfo.dir().absolutePath();
+    torrent.totalSize = totalSize;
+    torrent.downloadedBytes = totalSize;  // Already complete for seeding
+    torrent.progress = 1.0;
+    torrent.download = download;
+    torrent.ready = true;
+    torrent.completed = true;
+    
+    // Populate files
+    const auto& files = info.files().files();
+    for (size_t i = 0; i < files.size(); ++i) {
+        TorrentFileInfo fi;
+        fi.path = QString::fromStdString(files[i].path);
+        fi.size = static_cast<qint64>(files[i].size);
+        fi.index = static_cast<int>(i);
+        fi.selected = true;
+        fi.progress = 1.0;  // Complete
+        torrent.files.append(fi);
+    }
+    
+    // Setup callbacks
+    setupTorrentCallbacks(hash, download);
+    
+    // Store torrent
+    {
+        QMutexLocker lock(&torrentsMutex_);
+        torrents_[hash] = torrent;
+    }
+    
+    qInfo() << "TorrentClient: Created and seeding torrent:" << name << "hash:" << hash.left(8);
+    
+    emit downloadStarted(hash);
+    emit filesReady(hash, torrent.files);
+    emit downloadCompleted(hash);
+    emit torrentCreated(hash, name, totalSize);
+    
+    return hash;
+#else
+    Q_UNUSED(path);
+    Q_UNUSED(trackers);
+    Q_UNUSED(comment);
+    Q_UNUSED(progressCallback);
+    qWarning() << "TorrentClient: RATS_SEARCH_FEATURES not enabled";
+    return QString();
+#endif
+}
+
+bool TorrentClient::createTorrentFile(const QString& path,
+                                       const QString& outputFile,
+                                       const QStringList& trackers,
+                                       const QString& comment,
+                                       CreationProgressCallback progressCallback)
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!isReady()) {
+        qWarning() << "TorrentClient: Not ready for torrent creation";
+        return false;
+    }
+    
+    auto* client = p2pNetwork_->getRatsClient();
+    if (!client) {
+        qWarning() << "TorrentClient: RatsClient not available";
+        return false;
+    }
+    
+    // Convert QStringList to std::vector<std::string>
+    std::vector<std::string> trackerList;
+    for (const QString& tracker : trackers) {
+        trackerList.push_back(tracker.toStdString());
+    }
+    
+    // Convert progress callback
+    librats::RatsClient::TorrentCreationProgressCallback libCallback = nullptr;
+    if (progressCallback) {
+        libCallback = [progressCallback](uint32_t current, uint32_t total) {
+            progressCallback(static_cast<int>(current), static_cast<int>(total));
+        };
+    }
+    
+    qInfo() << "TorrentClient: Creating torrent file from:" << path << "to:" << outputFile;
+    
+    bool result = client->create_torrent_file(
+        path.toStdString(),
+        outputFile.toStdString(),
+        trackerList,
+        comment.toStdString(),
+        libCallback
+    );
+    
+    if (result) {
+        qInfo() << "TorrentClient: Torrent file created:" << outputFile;
+    } else {
+        qWarning() << "TorrentClient: Failed to create torrent file";
+    }
+    
+    return result;
+#else
+    Q_UNUSED(path);
+    Q_UNUSED(outputFile);
+    Q_UNUSED(trackers);
+    Q_UNUSED(comment);
+    Q_UNUSED(progressCallback);
+    qWarning() << "TorrentClient: RATS_SEARCH_FEATURES not enabled";
+    return false;
 #endif
 }
 

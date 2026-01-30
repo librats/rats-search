@@ -40,6 +40,7 @@
 #include <QTextEdit>
 #include <QGroupBox>
 #include <QProgressBar>
+#include <QCheckBox>
 #include <QApplication>
 #include <QComboBox>
 #include <QMenu>
@@ -380,6 +381,20 @@ void MainWindow::setupMenuBar()
 {
     // File menu
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
+    
+    // Add Torrent - imports .torrent file to search index
+    QAction *addTorrentAction = fileMenu->addAction(tr("📥 &Add Torrent..."));
+    addTorrentAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_O));
+    addTorrentAction->setToolTip(tr("Add a .torrent file to the search index"));
+    connect(addTorrentAction, &QAction::triggered, this, &MainWindow::addTorrentFile);
+    
+    // Create Torrent - creates torrent from file/folder and starts seeding
+    QAction *createTorrentAction = fileMenu->addAction(tr("🔨 &Create Torrent..."));
+    createTorrentAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_N));
+    createTorrentAction->setToolTip(tr("Create a torrent from a file or folder and start seeding"));
+    connect(createTorrentAction, &QAction::triggered, this, &MainWindow::createTorrent);
+    
+    fileMenu->addSeparator();
     
     QAction *settingsAction = fileMenu->addAction(tr("&Settings"));
     connect(settingsAction, &QAction::triggered, this, &MainWindow::showSettings);
@@ -1395,6 +1410,247 @@ void MainWindow::showAbout()
 void MainWindow::showStatistics()
 {
     tabWidget->setCurrentIndex(2);  // Switch to Statistics tab
+}
+
+void MainWindow::addTorrentFile()
+{
+    // Open file dialog to select .torrent file
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        tr("Add Torrent File"),
+        QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
+        tr("Torrent Files (*.torrent);;All Files (*)")
+    );
+    
+    if (filePath.isEmpty()) {
+        return;  // User cancelled
+    }
+    
+    logActivity(tr("📥 Adding torrent file: %1").arg(QFileInfo(filePath).fileName()));
+    
+    if (!api) {
+        QMessageBox::warning(this, tr("Error"), tr("API not initialized"));
+        return;
+    }
+    
+    api->addTorrentFile(filePath, [this, filePath](const ApiResponse& response) {
+        if (response.success) {
+            QJsonObject data = response.data.toObject();
+            QString name = data["name"].toString();
+            QString hash = data["hash"].toString();
+            bool alreadyExists = data["alreadyExists"].toBool();
+            
+            if (alreadyExists) {
+                logActivity(tr("ℹ️ Torrent already indexed: %1").arg(name));
+                statusBar()->showMessage(tr("Torrent already in index: %1").arg(name), 3000);
+            } else {
+                logActivity(tr("✅ Torrent added to index: %1").arg(name));
+                statusBar()->showMessage(tr("Added to index: %1").arg(name), 3000);
+            }
+            
+            // Show notification
+            if (trayIcon && trayIcon->isVisible()) {
+                trayIcon->showMessage(
+                    tr("Torrent Added"),
+                    tr("%1 has been added to the search index").arg(name),
+                    QSystemTrayIcon::Information,
+                    3000
+                );
+            }
+        } else {
+            logActivity(tr("❌ Failed to add torrent: %1").arg(response.error));
+            QMessageBox::warning(this, tr("Error"), 
+                tr("Failed to add torrent file:\n%1").arg(response.error));
+        }
+    });
+}
+
+void MainWindow::createTorrent()
+{
+    // First ask user to select file or folder
+    QMenu menu(this);
+    menu.setStyleSheet(this->styleSheet());
+    
+    QAction *fileAction = menu.addAction(tr("📄 Create from File..."));
+    QAction *folderAction = menu.addAction(tr("📁 Create from Folder..."));
+    menu.addSeparator();
+    QAction *cancelAction = menu.addAction(tr("❌ Cancel"));
+    
+    QAction *selected = menu.exec(QCursor::pos());
+    
+    if (selected == cancelAction || selected == nullptr) {
+        return;
+    }
+    
+    QString path;
+    
+    if (selected == fileAction) {
+        path = QFileDialog::getOpenFileName(
+            this,
+            tr("Select File to Create Torrent From"),
+            QStandardPaths::writableLocation(QStandardPaths::HomeLocation),
+            tr("All Files (*)")
+        );
+    } else if (selected == folderAction) {
+        path = QFileDialog::getExistingDirectory(
+            this,
+            tr("Select Folder to Create Torrent From"),
+            QStandardPaths::writableLocation(QStandardPaths::HomeLocation)
+        );
+    }
+    
+    if (path.isEmpty()) {
+        return;  // User cancelled
+    }
+    
+    // Create a simple dialog for torrent creation options
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Create Torrent"));
+    dialog.setMinimumWidth(450);
+    dialog.setStyleSheet(this->styleSheet());
+    
+    QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(12);
+    layout->setContentsMargins(20, 20, 20, 20);
+    
+    // Source path
+    QLabel *pathLabel = new QLabel(tr("Source: %1").arg(QFileInfo(path).fileName()));
+    pathLabel->setWordWrap(true);
+    pathLabel->setObjectName("subtitleLabel");
+    layout->addWidget(pathLabel);
+    
+    // Trackers
+    QLabel *trackersLabel = new QLabel(tr("Trackers (one per line, optional):"));
+    layout->addWidget(trackersLabel);
+    
+    QTextEdit *trackersEdit = new QTextEdit();
+    trackersEdit->setPlaceholderText("udp://tracker.example.com:6969/announce\nhttp://tracker2.example.com/announce");
+    trackersEdit->setMaximumHeight(80);
+    layout->addWidget(trackersEdit);
+    
+    // Comment
+    QLabel *commentLabel = new QLabel(tr("Comment (optional):"));
+    layout->addWidget(commentLabel);
+    
+    QLineEdit *commentEdit = new QLineEdit();
+    commentEdit->setPlaceholderText(tr("Created with Rats Search"));
+    layout->addWidget(commentEdit);
+    
+    // Start seeding checkbox
+    QCheckBox *seedCheckBox = new QCheckBox(tr("Start seeding immediately"));
+    seedCheckBox->setChecked(true);
+    layout->addWidget(seedCheckBox);
+    
+    // Progress bar (hidden initially)
+    QProgressBar *progressBar = new QProgressBar();
+    progressBar->setVisible(false);
+    progressBar->setFormat(tr("Hashing pieces... %p%"));
+    layout->addWidget(progressBar);
+    
+    // Status label
+    QLabel *statusLabel = new QLabel();
+    statusLabel->setObjectName("hintLabel");
+    layout->addWidget(statusLabel);
+    
+    layout->addStretch();
+    
+    // Buttons
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *cancelBtn = new QPushButton(tr("Cancel"));
+    QPushButton *createBtn = new QPushButton(tr("🔨 Create Torrent"));
+    createBtn->setObjectName("primaryButton");
+    
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(cancelBtn);
+    buttonLayout->addWidget(createBtn);
+    layout->addLayout(buttonLayout);
+    
+    connect(cancelBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    
+    connect(createBtn, &QPushButton::clicked, [&]() {
+        if (!api) {
+            QMessageBox::warning(this, tr("Error"), tr("API not initialized"));
+            return;
+        }
+        
+        createBtn->setEnabled(false);
+        cancelBtn->setEnabled(false);
+        progressBar->setVisible(true);
+        progressBar->setValue(0);
+        statusLabel->setText(tr("Creating torrent..."));
+        
+        // Parse trackers
+        QStringList trackers;
+        QString trackersText = trackersEdit->toPlainText().trimmed();
+        if (!trackersText.isEmpty()) {
+            trackers = trackersText.split('\n', Qt::SkipEmptyParts);
+            for (QString& t : trackers) {
+                t = t.trimmed();
+            }
+            trackers.removeAll("");
+        }
+        
+        QString comment = commentEdit->text().trimmed();
+        if (comment.isEmpty()) {
+            comment = "Created with Rats Search";
+        }
+        
+        bool startSeeding = seedCheckBox->isChecked();
+        
+        // Progress callback
+        auto progressCallback = [progressBar](int current, int total) {
+            if (total > 0) {
+                int percent = (current * 100) / total;
+                QMetaObject::invokeMethod(progressBar, [progressBar, percent]() {
+                    progressBar->setValue(percent);
+                }, Qt::QueuedConnection);
+            }
+        };
+        
+        api->createTorrent(path, startSeeding, trackers, comment, progressCallback,
+            [this, &dialog, statusLabel, createBtn, cancelBtn, startSeeding](const ApiResponse& response) {
+                if (response.success) {
+                    QJsonObject data = response.data.toObject();
+                    QString name = data["name"].toString();
+                    QString hash = data["hash"].toString();
+                    bool alreadyExists = data["alreadyExists"].toBool();
+                    
+                    if (alreadyExists) {
+                        statusLabel->setText(tr("Torrent already exists"));
+                        logActivity(tr("ℹ️ Torrent already exists: %1").arg(name));
+                    } else {
+                        statusLabel->setText(tr("✅ Torrent created successfully!"));
+                        logActivity(tr("✅ Created torrent: %1 %2").arg(name)
+                            .arg(startSeeding ? tr("(seeding)") : ""));
+                    }
+                    
+                    // Show success message with torrent file path
+                    QString torrentFile = data["torrentFile"].toString();
+                    QString message = startSeeding 
+                        ? tr("Torrent created and seeding:\n%1\n\nHash: %2").arg(name, hash)
+                        : tr("Torrent created and indexed:\n%1\n\nHash: %2").arg(name, hash);
+                    
+                    if (!torrentFile.isEmpty()) {
+                        message += tr("\n\nTorrent file saved to:\n%1").arg(torrentFile);
+                    }
+                    
+                    QMessageBox::information(&dialog, tr("Torrent Created"), message);
+                    
+                    dialog.accept();
+                } else {
+                    statusLabel->setText(tr("❌ Failed: %1").arg(response.error));
+                    logActivity(tr("❌ Failed to create torrent: %1").arg(response.error));
+                    
+                    createBtn->setEnabled(true);
+                    cancelBtn->setEnabled(true);
+                    
+                    QMessageBox::warning(&dialog, tr("Error"), 
+                        tr("Failed to create torrent:\n%1").arg(response.error));
+                }
+            });
+    });
+    
+    dialog.exec();
 }
 
 void MainWindow::setupSystemTray()

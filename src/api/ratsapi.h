@@ -338,6 +338,39 @@ public:
     void dropTorrents(const QByteArray& torrentData, ApiCallback callback);
     
     /**
+     * @brief Add a torrent file to the search index
+     * 
+     * Parses the .torrent file and adds it to the database for searching.
+     * Does NOT start downloading or seeding.
+     * 
+     * @param filePath Path to the .torrent file
+     */
+    void addTorrentFile(const QString& filePath, ApiCallback callback);
+    
+    /**
+     * @brief Callback for torrent creation progress
+     */
+    using TorrentCreationProgressCallback = std::function<void(int currentPiece, int totalPieces)>;
+    
+    /**
+     * @brief Create a torrent from a file or directory
+     * 
+     * Creates a .torrent, indexes it in the database, and optionally starts seeding.
+     * 
+     * @param path Path to file or directory
+     * @param startSeeding If true, start seeding immediately
+     * @param trackers List of tracker URLs (optional)
+     * @param comment Torrent comment (optional)
+     * @param progressCallback Callback for progress updates (optional)
+     */
+    void createTorrent(const QString& path,
+                       bool startSeeding,
+                       const QStringList& trackers,
+                       const QString& comment,
+                       TorrentCreationProgressCallback progressCallback,
+                       ApiCallback callback);
+    
+    /**
      * @brief Check if a torrent passes the configured filters
      * @param torrent Torrent info to check
      * @return true if torrent passes all filters, false if should be rejected

@@ -71,6 +71,10 @@ private slots:
     void toggleWindowVisibility();
     void initializeServicesDeferred();  // Deferred heavy initialization
     
+    // Torrent management slots
+    void addTorrentFile();      // Add .torrent file to search index
+    void createTorrent();       // Create torrent from file/directory and seed
+    
     // Settings slots - applied immediately
     void onDarkModeChanged(bool enabled);
     void onLanguageChanged(const QString& languageCode);
