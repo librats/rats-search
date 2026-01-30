@@ -2,6 +2,7 @@
 #include "torrentitemdelegate.h"
 #include "torrentclient.h"
 #include "api/ratsapi.h"
+#include "api/p2pstoremanager.h"
 #include <QClipboard>
 #include <QApplication>
 #include <QDesktopServices>
@@ -313,7 +314,15 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
 {
     currentTorrent_ = torrent;
     currentHash_ = torrent.hash;
+    
+    // Check voted status from P2P storage
     hasVoted_ = false;
+    if (api_) {
+        P2PStoreManager* store = api_->p2pStore();
+        if (store && store->isAvailable()) {
+            hasVoted_ = store->hasVoted(torrent.hash);
+        }
+    }
     
     // Update UI
     titleLabel_->setText(torrent.name);
