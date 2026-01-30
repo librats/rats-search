@@ -258,7 +258,7 @@ public:
      * @param wasCompleted Whether the torrent was completed before shutdown
      * @return true if torrent was restored successfully
      */
-    bool restoreTorrent(const QString& hash, const QString& savePath, bool wasCompleted);
+    bool restoreTorrent(const QString& hash, const QString& name, const QString& savePath, bool wasCompleted);
 
 signals:
     /**

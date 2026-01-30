@@ -668,7 +668,7 @@ bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, q
 #endif
 }
 
-bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath, bool wasCompleted)
+bool TorrentClient::restoreTorrent(const QString& hash, const QString& name, const QString& savePath, bool wasCompleted)
 {
 #ifdef RATS_SEARCH_FEATURES
     if (!isReady()) {
@@ -697,7 +697,7 @@ bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath,
     
     auto* client = p2pNetwork_->getRatsClient();
     
-    qInfo() << "TorrentClient: Restoring torrent" << normalizedHash.left(8) << "from" << path;
+    qInfo() << "TorrentClient: Restoring torrent" << normalizedHash.left(8) << name.left(30) << "from" << path;
     
     // Add torrent - librats will automatically try to load resume data from save_path/.resume/{hash}.resume
     auto download = client->add_torrent_by_hash(normalizedHash.toStdString(), path.toStdString());
@@ -707,6 +707,9 @@ bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath,
     torrent.hash = normalizedHash;
     torrent.savePath = path;
     torrent.download = download;
+    
+    // Use saved name as default (will be overwritten if metadata is available)
+    torrent.name = name.isEmpty() ? normalizedHash : name;
     
     if (download) {
         // Try to load resume data (restores downloaded pieces)
@@ -718,7 +721,11 @@ bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath,
         // Get info if available
         const auto& info = download->get_torrent_info();
         if (info.is_valid() && info.has_metadata()) {
-            torrent.name = QString::fromStdString(info.name());
+            // Prefer name from metadata if available
+            QString metadataName = QString::fromStdString(info.name());
+            if (!metadataName.isEmpty()) {
+                torrent.name = metadataName;
+            }
             torrent.totalSize = static_cast<qint64>(info.total_size());
             torrent.ready = true;
             
@@ -744,7 +751,7 @@ bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath,
                 torrent.files.append(fi);
             }
         } else {
-            torrent.name = normalizedHash;
+            // No metadata yet - keep the saved name
             torrent.ready = false;
         }
         
@@ -755,7 +762,6 @@ bool TorrentClient::restoreTorrent(const QString& hash, const QString& savePath,
         download->start();
     } else {
         // Metadata needs to be fetched via BEP 9
-        torrent.name = normalizedHash;
         torrent.ready = false;
         qInfo() << "TorrentClient: Waiting for metadata via BEP 9 for:" << normalizedHash.left(8);
     }
@@ -975,15 +981,16 @@ int TorrentClient::loadSession(const QString& filePath)
             continue;
         }
         
+        QString name = session["name"].toString();
         QString savePath = session["savePath"].toString();
         bool paused = session["paused"].toBool();
         bool removeOnDone = session["removeOnDone"].toBool();
         bool wasCompleted = session["completed"].toBool();
         
-        qInfo() << "TorrentClient: Restoring torrent:" << hash.left(8) 
+        qInfo() << "TorrentClient: Restoring torrent:" << hash.left(8) << name.left(30)
                 << (wasCompleted ? "(completed/seeding)" : "(downloading)");
         
-        if (restoreTorrent(hash, savePath, wasCompleted)) {
+        if (restoreTorrent(hash, name, savePath, wasCompleted)) {
             // Apply saved settings
             if (paused) {
                 pauseTorrent(hash);
@@ -1246,6 +1253,15 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
             it->name = QString::fromStdString(info.name());
             it->totalSize = static_cast<qint64>(info.total_size());
             it->ready = true;
+            
+            // Get current progress from librats (includes restored resume data)
+            if (it->download) {
+                it->downloadedBytes = static_cast<qint64>(it->download->downloaded_bytes());
+                it->progress = it->download->progress_percentage() / 100.0;
+                it->completed = it->download->is_complete();
+                qInfo() << "TorrentClient: Metadata received for" << hash.left(8) 
+                        << "progress:" << (it->progress * 100.0) << "%";
+            }
             
             // Populate files
             it->files.clear();
