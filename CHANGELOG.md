@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.6](https://github.com/DEgITx/rats-search/compare/v2.0.5...v2.0.6) (2026-01-30)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix discovery in parallel with spider([4fa02b6](https://github.com/DEgITx/rats-search/commit/4fa02b67c9a7af677ae1b07cb06c9ce5a7463535)) by @DEgITx
+- **restore:** Fix naming restore of torrent download([5bb36bc](https://github.com/DEgITx/rats-search/commit/5bb36bcd6101859ea6412d3df52287a7b2656b5d)) by @DEgITx
+- **downloading:** Fix cancel save session([4ae76ff](https://github.com/DEgITx/rats-search/commit/4ae76ff0d37ed2a2baa641b72c8672a507b65010)) by @DEgITx
+- **torrent:** Cleanup drop torrent old method([1c20081](https://github.com/DEgITx/rats-search/commit/1c2008182ab637582d78998c357f0dbdfc5611d3)) by @DEgITx
+- **download:** Fix resuming folder creation([e22951f](https://github.com/DEgITx/rats-search/commit/e22951fdd8f36a1576fa2055d84caeffca8d77ca)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.5([9db28b2](https://github.com/DEgITx/rats-search/commit/9db28b2972ead7ab2cc024349197f7d3eafd6f8b)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **ui:** Files stretch allow([62dc885](https://github.com/DEgITx/rats-search/commit/62dc885480992492ff1bece34a3c8870543af2ae)) by @DEgITx
+- **ui:** Allow file panel to be bigger and right panel to be scrollable([254fa14](https://github.com/DEgITx/rats-search/commit/254fa143186c3a26d57c6fca406592904833d001)) by @DEgITx
+- **download:** Settings for default download path([39ddabd](https://github.com/DEgITx/rats-search/commit/39ddabd0d182ba683351594e4f5004facc42ace0)) by @DEgITx
+- **download:** Resume directory support([bb8ac3b](https://github.com/DEgITx/rats-search/commit/bb8ac3b3eefae9941995827ba68c6ccb1a835c02)) by @DEgITx
+- **torrent:** Create/open torrents([37a1369](https://github.com/DEgITx/rats-search/commit/37a1369887902ea9c283dd6b20201e3dcca7a584)) by @DEgITx
+- **torrent:** Drag & drop support restored([49e58f0](https://github.com/DEgITx/rats-search/commit/49e58f009a6408eb0779eed6551c3e29173a3bf3)) by @DEgITx
+- **download:** Fix download resume([1a683a2](https://github.com/DEgITx/rats-search/commit/1a683a26b9a30e0b24a1bc226ba53f91315f52c0)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 12 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.5](https://github.com/DEgITx/rats-search/compare/v2.0.4...v2.0.5) (2026-01-29)
 
 
