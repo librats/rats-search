@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.7](https://github.com/DEgITx/rats-search/compare/v2.0.6...v2.0.7) (2026-01-31)
+
+
+### 🐛 Bug Fixes
+
+
+- **storage:** Fix p2p storage initialization([06a997d](https://github.com/DEgITx/rats-search/commit/06a997d9ae4a0419acf910c71fb9a4a97bf182ad)) by @DEgITx
+- **vote:** Fix vote indication on vote page([bd08f1f](https://github.com/DEgITx/rats-search/commit/bd08f1f0b0e38c7abbc7f6b7b2d9b57139caf4a2)) by @DEgITx
+- **feed:** Fix feed files getting([e5ed90a](https://github.com/DEgITx/rats-search/commit/e5ed90a294d663fb9b96dac7b7828cad0c3c324c)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.6([c0580be](https://github.com/DEgITx/rats-search/commit/c0580be72b5e3e2937785a3151fef1e0894f3097)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.6](https://github.com/DEgITx/rats-search/compare/v2.0.5...v2.0.6) (2026-01-30)
 
 
