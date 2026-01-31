@@ -2114,7 +2114,57 @@ void RatsAPI::handleP2PFeedRequest(const QString& peerId, const QJsonObject& dat
     QJsonObject response;
     
     if (d->feedManager) {
-        response["feed"] = d->feedManager->toJsonArray();
+        // Get feed items and ensure files are included for proper replication
+        QJsonArray feedArray = d->feedManager->toJsonArray();
+        
+        // Enrich feed items with files if missing (for old feed items without files)
+        // Use batch query to avoid N+1 queries problem
+        if (d->database) {
+            // First pass: collect hashes that need files lookup
+            QStringList hashesNeedingFiles;
+            QHash<QString, int> hashToIndex;
+            
+            for (int i = 0; i < feedArray.size(); ++i) {
+                QJsonObject item = feedArray[i].toObject();
+                
+                // Check if this item needs files
+                if (!item.contains("filesList") || item["filesList"].toArray().isEmpty()) {
+                    QString hash = item["hash"].toString();
+                    if (hash.length() == 40) {
+                        hashesNeedingFiles.append(hash);
+                        hashToIndex[hash] = i;
+                    }
+                }
+            }
+            
+            // Single batch query to get all missing files
+            if (!hashesNeedingFiles.isEmpty()) {
+                QHash<QString, QVector<TorrentFile>> filesMap = 
+                    d->database->getFilesForTorrents(hashesNeedingFiles);
+                
+                // Update feed items with the retrieved files
+                for (auto it = filesMap.begin(); it != filesMap.end(); ++it) {
+                    const QString& hash = it.key();
+                    const QVector<TorrentFile>& files = it.value();
+                    
+                    int idx = hashToIndex.value(hash, -1);
+                    if (idx >= 0 && !files.isEmpty()) {
+                        QJsonObject item = feedArray[idx].toObject();
+                        QJsonArray filesArray;
+                        for (const TorrentFile& f : files) {
+                            QJsonObject fileObj;
+                            fileObj["path"] = f.path;
+                            fileObj["size"] = f.size;
+                            filesArray.append(fileObj);
+                        }
+                        item["filesList"] = filesArray;
+                        feedArray[idx] = item;
+                    }
+                }
+            }
+        }
+        
+        response["feed"] = feedArray;
         response["feedDate"] = d->feedManager->feedDate();
         response["size"] = d->feedManager->size();
     } else {

@@ -10,6 +10,17 @@
 class TorrentDatabase;
 
 /**
+ * @brief TorrentFeedFile - A file in a feed torrent
+ */
+struct TorrentFeedFile {
+    QString path;
+    qint64 size = 0;
+    
+    QJsonObject toJson() const;
+    static TorrentFeedFile fromJson(const QJsonObject& obj);
+};
+
+/**
  * @brief TorrentFeedItem - A torrent in the feed
  */
 struct TorrentFeedItem {
@@ -23,6 +34,7 @@ struct TorrentFeedItem {
     int good = 0;
     int bad = 0;
     qint64 feedDate = 0;  // When added to feed
+    QVector<TorrentFeedFile> filesList;  // Files for P2P replication
     
     QJsonObject toJson() const;
     static TorrentFeedItem fromJson(const QJsonObject& obj);

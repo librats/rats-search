@@ -288,6 +288,13 @@ public:
      */
     ManticoreManager* manager() const { return manager_.get(); }
 
+    /**
+     * @brief Get files for multiple torrents in a single query (batch operation)
+     * @param hashes List of torrent hashes
+     * @return Map of hash -> files list
+     */
+    QHash<QString, QVector<TorrentFile>> getFilesForTorrents(const QStringList& hashes);
+
 signals:
     void torrentAdded(const QString& hash);
     void torrentUpdated(const QString& hash);

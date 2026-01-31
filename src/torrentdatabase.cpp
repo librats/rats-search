@@ -584,6 +584,57 @@ QVector<TorrentFile> TorrentDatabase::getFilesForTorrent(const QString& hash)
     return files;
 }
 
+QHash<QString, QVector<TorrentFile>> TorrentDatabase::getFilesForTorrents(const QStringList& hashes)
+{
+    QHash<QString, QVector<TorrentFile>> result;
+    
+    if (hashes.isEmpty() || !isReady()) {
+        return result;
+    }
+    
+    // Build IN clause with quoted hashes
+    QStringList quotedHashes;
+    for (const QString& hash : hashes) {
+        if (hash.length() == 40) {
+            quotedHashes.append(QString("'%1'").arg(hash));
+        }
+    }
+    
+    if (quotedHashes.isEmpty()) {
+        return result;
+    }
+    
+    // Single batch query for all files
+    QString sql = QString("SELECT * FROM files WHERE hash IN (%1)")
+        .arg(quotedHashes.join(","));
+    
+    auto fileRows = sphinxQL_->query(sql);
+    
+    // Parse files and group by hash
+    for (const auto& fileRow : fileRows) {
+        QString hash = fileRow.value("hash").toString();
+        
+        // Parse concatenated path and size (same format as getFilesForTorrent)
+        QString pathStr = fileRow.value("path").toString();
+        QString sizeStr = fileRow.value("size").toString();
+        
+        QStringList paths = pathStr.split('\n');
+        QStringList sizes = sizeStr.split('\n');
+        
+        QVector<TorrentFile> files;
+        for (int i = 0; i < paths.size(); ++i) {
+            TorrentFile file;
+            file.path = paths[i];
+            file.size = (i < sizes.size()) ? sizes[i].toLongLong() : 0;
+            files.append(file);
+        }
+        
+        result[hash] = files;
+    }
+    
+    return result;
+}
+
 bool TorrentDatabase::optimize()
 {
     if (!isReady()) {
@@ -742,44 +793,24 @@ QVector<TorrentInfo> TorrentDatabase::getRandomTorrents(int limit, bool includeF
     
     auto rows = sphinxQL_->query(sql);
     
-    // Build hash->index map for batch file lookup
+    // Build results and collect hashes
     QHash<QString, int> hashToIndex;
+    QStringList hashes;
     for (const auto& row : rows) {
         TorrentInfo torrent = rowToTorrent(row);
         hashToIndex[torrent.hash] = results.size();
+        hashes.append(torrent.hash);
         results.append(torrent);
     }
     
-    // Legacy: sphinxSingle.query(`SELECT * FROM files WHERE hash IN(${inSql})`, ...)
+    // Batch fetch files using shared method
     if (includeFiles && !results.isEmpty()) {
-        QStringList hashList;
-        for (const TorrentInfo& t : results) {
-            hashList.append(QString("'%1'").arg(t.hash));
-        }
+        QHash<QString, QVector<TorrentFile>> filesMap = getFilesForTorrents(hashes);
         
-        QString filesSql = QString("SELECT * FROM files WHERE hash IN (%1)")
-            .arg(hashList.join(","));
-        
-        auto fileRows = sphinxQL_->query(filesSql);
-        
-        // Parse files and attach to corresponding torrents
-        for (const auto& fileRow : fileRows) {
-            QString hash = fileRow.value("hash").toString();
-            int idx = hashToIndex.value(hash, -1);
-            if (idx < 0) continue;
-            
-            // Parse concatenated path and size (same format as getFilesForTorrent)
-            QString pathStr = fileRow.value("path").toString();
-            QString sizeStr = fileRow.value("size").toString();
-            
-            QStringList paths = pathStr.split('\n');
-            QStringList sizes = sizeStr.split('\n');
-            
-            for (int i = 0; i < paths.size(); ++i) {
-                TorrentFile file;
-                file.path = paths[i];
-                file.size = (i < sizes.size()) ? sizes[i].toLongLong() : 0;
-                results[idx].filesList.append(file);
+        for (auto it = filesMap.begin(); it != filesMap.end(); ++it) {
+            int idx = hashToIndex.value(it.key(), -1);
+            if (idx >= 0) {
+                results[idx].filesList = it.value();
             }
         }
     }

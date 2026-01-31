@@ -7,6 +7,26 @@
 #include <cmath>
 
 // ============================================================================
+// TorrentFeedFile
+// ============================================================================
+
+QJsonObject TorrentFeedFile::toJson() const
+{
+    QJsonObject obj;
+    obj["path"] = path;
+    obj["size"] = size;
+    return obj;
+}
+
+TorrentFeedFile TorrentFeedFile::fromJson(const QJsonObject& obj)
+{
+    TorrentFeedFile file;
+    file.path = obj["path"].toString();
+    file.size = obj["size"].toVariant().toLongLong();
+    return file;
+}
+
+// ============================================================================
 // TorrentFeedItem
 // ============================================================================
 
@@ -23,6 +43,16 @@ QJsonObject TorrentFeedItem::toJson() const
     obj["good"] = good;
     obj["bad"] = bad;
     obj["feedDate"] = feedDate;
+    
+    // Include files list for P2P replication (critical for proper sync)
+    if (!filesList.isEmpty()) {
+        QJsonArray filesArray;
+        for (const TorrentFeedFile& file : filesList) {
+            filesArray.append(file.toJson());
+        }
+        obj["filesList"] = filesArray;
+    }
+    
     return obj;
 }
 
@@ -39,6 +69,22 @@ TorrentFeedItem TorrentFeedItem::fromJson(const QJsonObject& obj)
     item.good = obj["good"].toInt();
     item.bad = obj["bad"].toInt();
     item.feedDate = obj["feedDate"].toVariant().toLongLong();
+    
+    // Parse files list for P2P replication
+    if (obj.contains("filesList")) {
+        QJsonArray filesArray = obj["filesList"].toArray();
+        for (const QJsonValue& fileVal : filesArray) {
+            if (fileVal.isObject()) {
+                item.filesList.append(TorrentFeedFile::fromJson(fileVal.toObject()));
+            }
+        }
+    }
+    
+    // Update files count if not set but we have filesList
+    if (item.files == 0 && !item.filesList.isEmpty()) {
+        item.files = item.filesList.size();
+    }
+    
     return item;
 }
 
@@ -263,7 +309,8 @@ void FeedManager::addByHash(const QString& hash)
         return;
     }
     
-    TorrentInfo torrent = database_->getTorrent(hash);
+    // Get torrent WITH files included for P2P replication
+    TorrentInfo torrent = database_->getTorrent(hash, true);
     if (!torrent.isValid()) {
         return;
     }
@@ -278,6 +325,14 @@ void FeedManager::addByHash(const QString& hash)
     item.seeders = torrent.seeders;
     item.good = torrent.good;
     item.bad = torrent.bad;
+    
+    // Include files for P2P replication (critical for proper sync)
+    for (const TorrentFile& f : torrent.filesList) {
+        TorrentFeedFile feedFile;
+        feedFile.path = f.path;
+        feedFile.size = f.size;
+        item.filesList.append(feedFile);
+    }
     
     add(item);
 }
