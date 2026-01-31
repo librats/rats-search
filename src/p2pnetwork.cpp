@@ -54,7 +54,7 @@ bool P2PNetwork::start()
         
         // Create librats client
         ratsClient_ = std::make_unique<librats::RatsClient>(port_);
-        
+
         // Set protocol name for rats-search
         ratsClient_->set_protocol_name("rats-search");
         ratsClient_->set_protocol_version("2.0");
@@ -68,6 +68,10 @@ bool P2PNetwork::start()
         
         // Load configuration
         ratsClient_->load_configuration();
+
+        // Improtant to call initialize_encryption after loading configuration
+        // Enable encryption for rats peers
+        ratsClient_->initialize_encryption(true);
         
         // Setup librats callbacks
         setupLibratsCallbacks();
