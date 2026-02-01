@@ -73,6 +73,7 @@ private:
     QString formatBytes(qint64 bytes) const;
     QString formatDate(qint64 timestamp) const;
     QString formatSpeed(int bytesPerSec) const;
+    QString makeBreakable(const QString& text) const;
     
     RatsAPI* api_ = nullptr;
     TorrentClient* torrentClient_ = nullptr;

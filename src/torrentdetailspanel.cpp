@@ -324,8 +324,8 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
         }
     }
     
-    // Update UI
-    titleLabel_->setText(torrent.name);
+    // Update UI - use makeBreakable to allow wrapping of long names without spaces
+    titleLabel_->setText(makeBreakable(torrent.name));
     
     // Content type
     QString contentType = torrent.contentType.isEmpty() ? "unknown" : torrent.contentType;
@@ -346,8 +346,8 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     dateLabel_->setText(torrent.added.isValid() ? torrent.added.toString("MMMM d, yyyy") : "-");
     categoryLabel_->setText(torrent.contentCategory.isEmpty() ? tr("General") : torrent.contentCategory);
     
-    // Hash
-    hashLabel_->setText(torrent.hash);
+    // Hash - use makeBreakable for long hash strings
+    hashLabel_->setText(makeBreakable(torrent.hash));
     
     // Rating
     updateRatingDisplay();
@@ -606,4 +606,41 @@ QString TorrentDetailsPanel::formatSpeed(int bytesPerSec) const
     } else {
         return QString::number(bytesPerSec / (1024.0 * 1024.0), 'f', 1) + " MB/s";
     }
+}
+
+QString TorrentDetailsPanel::makeBreakable(const QString& text) const
+{
+    // Insert zero-width space after common separators to allow line breaking
+    // This helps with long filenames without spaces
+    const QChar zwsp(0x200B); // Zero-width space
+    QString result;
+    result.reserve(text.size() * 2);
+    
+    int consecutiveChars = 0;
+    const int maxConsecutive = 20; // Force break after this many chars without a break opportunity
+    
+    for (int i = 0; i < text.size(); ++i) {
+        QChar c = text[i];
+        result += c;
+        
+        if (c.isSpace()) {
+            consecutiveChars = 0;
+        } else {
+            consecutiveChars++;
+            
+            // Insert break opportunity after common separators
+            if (c == '.' || c == '_' || c == '-' || c == '~' || c == '+' || 
+                c == '[' || c == ']' || c == '(' || c == ')') {
+                result += zwsp;
+                consecutiveChars = 0;
+            }
+            // Force break after many consecutive non-space characters
+            else if (consecutiveChars >= maxConsecutive) {
+                result += zwsp;
+                consecutiveChars = 0;
+            }
+        }
+    }
+    
+    return result;
 }
