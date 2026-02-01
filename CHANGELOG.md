@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.9](https://github.com/DEgITx/rats-search/compare/v2.0.8...v2.0.9) (2026-02-01)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix peers exchange for incoming connections([aaa68fc](https://github.com/DEgITx/rats-search/commit/aaa68fc3229a1ae67340a3c69a14ec1fa8ec652c)) by @DEgITx
+- **ui:** Fix new line break for right panel to avoid horizontal size problems([dc2165b](https://github.com/DEgITx/rats-search/commit/dc2165b8b8cdad9ac3fea4914f69e96f3692ab26)) by @DEgITx
+- **ui:** Removed activity tab - old one, not needed([f83110d](https://github.com/DEgITx/rats-search/commit/f83110d346ffaabb7281469b5538cf5ca690eb89)) by @DEgITx
+- **ui:** Real status([382b36e](https://github.com/DEgITx/rats-search/commit/382b36e891b8a46b9b57155280f51d8bc09b6453)) by @DEgITx
+- **ui:** Removed statistic tab - will be reworked in future([b6d708d](https://github.com/DEgITx/rats-search/commit/b6d708d854d1811ae15430faa6365f907e127ab0)) by @DEgITx
+- **theme:** Fix focus on activity elements([6b6fb05](https://github.com/DEgITx/rats-search/commit/6b6fb05451c028255c47b2481e93777f9a843ec1)) by @DEgITx
+- **tabs:** Fix switch torrents between tabs when they focused([894c232](https://github.com/DEgITx/rats-search/commit/894c2321c5453453796de5814aff8c356b17f767)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.8([1e5330d](https://github.com/DEgITx/rats-search/commit/1e5330db23da34d21eb467c5f1f65c59ce0a8cde)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **ui:** New panel indication in the bottom (including green p2p indication)([dc42e40](https://github.com/DEgITx/rats-search/commit/dc42e405c337095ec13240e974fc1f7d520b88bd)) by @DEgITx
+- **activity:** Restored activity tab([886f895](https://github.com/DEgITx/rats-search/commit/886f895d77bb418df787b012c3d382c95af4b089)) by @DEgITx
+- **search:** Auto focus tab of search when searching([a2ffe5d](https://github.com/DEgITx/rats-search/commit/a2ffe5df6e1cab714d914b3dfd9a1da47996d07d)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 10 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.8](https://github.com/DEgITx/rats-search/compare/v2.0.7...v2.0.8) (2026-02-01)
 
 
