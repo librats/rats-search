@@ -525,6 +525,9 @@ void RatsAPI::setupP2PHandlers()
             
             if (inserted > 0) {
                 qInfo() << "Replicated" << inserted << "new torrents from" << peerId.left(8);
+                
+                // Emit signal to update UI (statusbar, etc.)
+                emit replicationProgress(inserted, d->totalReplicatedTorrents);
             }
         });
     

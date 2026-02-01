@@ -489,6 +489,13 @@ signals:
      * @brief Emitted when P2P replication stops
      */
     void replicationStopped();
+    
+    /**
+     * @brief Emitted when torrents are replicated from peers
+     * @param replicated Number of torrents replicated in this batch
+     * @param total Total number of replicated torrents since start
+     */
+    void replicationProgress(int replicated, qint64 total);
 
 private:
     class Private;

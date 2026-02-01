@@ -491,6 +491,12 @@ void MainWindow::connectSignals()
     if (api) {
         connect(api.get(), &RatsAPI::torrentIndexed, this, &MainWindow::onTorrentIndexed);
         
+        // Update torrent counter when torrents are replicated from peers
+        connect(api.get(), &RatsAPI::replicationProgress, this, 
+            [this](int /*replicated*/, qint64 /*total*/) {
+                updateStatusBar();
+            });
+        
         // Handle remote file search results from P2P peers
         connect(api.get(), &RatsAPI::remoteFileSearchResults, this, 
             [this](const QString& searchId, const QJsonArray& torrents) {
