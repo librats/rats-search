@@ -35,6 +35,7 @@ class TopTorrentsWidget;
 class FeedWidget;
 class DownloadsWidget;
 class TorrentFilesWidget;
+class ActivityWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -126,6 +127,7 @@ private:
     TopTorrentsWidget *topTorrentsWidget;
     FeedWidget *feedWidget;
     DownloadsWidget *downloadsWidget;
+    ActivityWidget *activityWidget;
     
     // Status bar
     QLabel *p2pStatusLabel;

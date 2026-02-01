@@ -13,6 +13,7 @@
 #include "feedwidget.h"
 #include "downloadswidget.h"
 #include "torrentfileswidget.h"
+#include "activitywidget.h"
 
 // New API layer
 #include "api/ratsapi.h"
@@ -313,6 +314,36 @@ void MainWindow::setupUi()
     // Downloads tab (migrated from legacy/app/download-page.js)
     downloadsWidget = new DownloadsWidget(this);
     tabWidget->addTab(downloadsWidget, tr("📥 Downloads"));
+    
+    // Activity tab (migrated from legacy/app/activity-page.js)
+    activityWidget = new ActivityWidget(this);
+    connect(activityWidget, &ActivityWidget::torrentSelected,
+            this, [this](const TorrentInfo& torrent) {
+                detailsPanel->setTorrent(torrent);
+                detailsPanel->show();
+                // Fetch files for bottom panel
+                if (api) {
+                    api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+                        if (response.success) {
+                            QJsonObject data = response.data.toObject();
+                            QJsonArray files = data["filesList"].toArray();
+                            if (!files.isEmpty()) {
+                                filesWidget->setFiles(torrent.hash, torrent.name, files);
+                                filesWidget->show();
+                                verticalSplitter->setSizes({600, 200});
+                            }
+                        }
+                    });
+                }
+            });
+    connect(activityWidget, &ActivityWidget::torrentDoubleClicked,
+            this, [this](const TorrentInfo& torrent) {
+                QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
+                    .arg(torrent.hash)
+                    .arg(QUrl::toPercentEncoding(torrent.name));
+                QDesktopServices::openUrl(QUrl(magnetLink));
+            });
+    tabWidget->addTab(activityWidget, tr("⚡ Activity"));
     
     mainSplitter->addWidget(tabWidget);
     
@@ -698,6 +729,15 @@ void MainWindow::initializeServicesDeferred()
         // Connect remote top torrents signal
         connect(api.get(), &RatsAPI::remoteTopTorrents,
                 topTorrentsWidget, &TopTorrentsWidget::handleRemoteTopTorrents);
+    }
+    
+    if (activityWidget) {
+        activityWidget->setApi(api.get());
+        // Connect top button to switch to Top tab
+        connect(activityWidget, &ActivityWidget::navigateToTop,
+                this, [this]() {
+                    tabWidget->setCurrentWidget(topTorrentsWidget);
+                });
     }
     
     qInfo() << "Total deferred initialization:" << timer.elapsed() << "ms";

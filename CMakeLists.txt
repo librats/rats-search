@@ -171,6 +171,7 @@ set(SOURCES
     src/toptorrentswidget.cpp
     src/feedwidget.cpp
     src/downloadswidget.cpp
+    src/activitywidget.cpp
     # API layer (replaces old searchapi.cpp and searchengine.cpp)
     src/api/ratsapi.cpp
     src/api/configmanager.cpp
@@ -200,6 +201,7 @@ set(HEADERS
     src/toptorrentswidget.h
     src/feedwidget.h
     src/downloadswidget.h
+    src/activitywidget.h
     # API layer (replaces old searchapi.h and searchengine.h)
     src/api/ratsapi.h
     src/api/configmanager.h
