@@ -493,7 +493,8 @@ void MainWindow::connectSignals()
         
         // Update torrent counter when torrents are replicated from peers
         connect(api.get(), &RatsAPI::replicationProgress, this, 
-            [this](int /*replicated*/, qint64 /*total*/) {
+            [this](int replicated, qint64 /*total*/) {
+                cachedTorrentCount_ += replicated;
                 updateStatusBar();
             });
         
@@ -727,6 +728,17 @@ void MainWindow::initializeServicesDeferred()
     startServices();
     qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
     
+    // Load initial torrent count for statusbar (only once at startup)
+    if (api) {
+        api->getStatistics([this](const ApiResponse& response) {
+            if (response.success) {
+                QJsonObject stats = response.data.toObject();
+                cachedTorrentCount_ = stats["torrents"].toVariant().toLongLong();
+                updateStatusBar();
+            }
+        });
+    }
+    
     // Restore previous download session (loads resume data to continue from saved progress)
     if (torrentClient && torrentClient->isReady()) {
         QString sessionFile = dataDirectory_ + "/torrents_session.json";
@@ -886,15 +898,7 @@ void MainWindow::performSearch(const QString &query)
 
 void MainWindow::updateStatusBar()
 {
-    if (api) {
-        api->getStatistics([this](const ApiResponse& response) {
-            if (response.success) {
-                QJsonObject stats = response.data.toObject();
-                qint64 count = stats["torrents"].toVariant().toLongLong();
-                torrentCountLabel->setText(tr("📦 Torrents: %1").arg(count));
-            }
-        });
-    }
+    torrentCountLabel->setText(tr("📦 Torrents: %1").arg(cachedTorrentCount_));
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -1384,6 +1388,7 @@ void MainWindow::updateNetworkStatus()
 void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
 {
     statusBar()->showMessage(QString("📥 Indexed: %1").arg(name), 2000);
+    cachedTorrentCount_++;
     updateStatusBar();
     
     // Automatically check trackers for seeders/leechers info (like legacy spider.js)

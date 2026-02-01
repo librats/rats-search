@@ -162,6 +162,7 @@ private:
     // State
     bool servicesStarted_;
     QString currentSearchQuery_;
+    qint64 cachedTorrentCount_ = 0;  // Cached torrent count for statusbar
     
     // System Tray
     QSystemTrayIcon *trayIcon;

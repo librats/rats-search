@@ -584,7 +584,8 @@ private:
     static TorrentInfo createTorrentFromJson(const QJsonObject& data);
     
     // Helper to insert a torrent from feed replication (uses processAndInsertTorrent)
-    void insertTorrentFromFeed(const QJsonObject& torrentData);
+    // Returns true if torrent was inserted, false if already exists or rejected
+    bool insertTorrentFromFeed(const QJsonObject& torrentData);
     
     // =========================================================================
     // Replication Timer (private)

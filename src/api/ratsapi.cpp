@@ -510,11 +510,9 @@ void RatsAPI::setupP2PHandlers()
             for (const QJsonValue& val : torrents) {
                 if (val.isObject()) {
                     QJsonObject torrentObj = val.toObject();
-                    QString hash = torrentObj["hash"].toString();
                     
-                    // Check if we already have this torrent
-                    if (d->database && !d->database->hasTorrent(hash)) {
-                        insertTorrentFromFeed(torrentObj);
+                    // insertTorrentFromFeed returns true if torrent was actually inserted
+                    if (insertTorrentFromFeed(torrentObj)) {
                         inserted++;
                         
                         // Track for replication statistics
@@ -2303,13 +2301,13 @@ void RatsAPI::handleP2PFeedResponse(const QString& peerId, const QJsonObject& da
     }
 }
 
-void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
+bool RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
 {
     // Use helper to create TorrentInfo from JSON
     TorrentInfo torrent = createTorrentFromJson(torrentData);
     
     if (torrent.hash.length() != 40) {
-        return;
+        return false;
     }
     
     // Use centralized insert logic
@@ -2320,9 +2318,12 @@ void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
     if (result.success && !result.alreadyExists) {
         qInfo() << "Inserted torrent from feed:" << result.torrent.name.left(30) 
                 << "with" << result.torrent.filesList.size() << "files";
+        return true;
     } else if (!result.success) {
         qInfo() << "Rejected torrent from feed:" << torrent.name.left(30) << "-" << result.error;
     }
+    
+    return false;
 }
 
 void RatsAPI::handleP2PSearchResult(const QString& peerId, const QJsonObject& data)
