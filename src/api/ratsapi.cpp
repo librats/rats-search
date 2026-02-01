@@ -103,6 +103,161 @@ RatsAPI::~RatsAPI()
     }
 }
 
+// ============================================================================
+// Torrent Processing Helpers Implementation
+// ============================================================================
+
+#ifdef RATS_SEARCH_FEATURES
+TorrentInfo RatsAPI::createTorrentFromLibrats(const QString& hash, 
+                                               const librats::TorrentInfo& libratsTorrent)
+{
+    TorrentInfo torrent;
+    torrent.hash = hash.toLower();
+    torrent.name = QString::fromStdString(libratsTorrent.name());
+    torrent.size = static_cast<qint64>(libratsTorrent.total_size());
+    torrent.files = static_cast<int>(libratsTorrent.files().files().size());
+    torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
+    torrent.added = QDateTime::currentDateTime();
+    
+    // Build file list
+    const auto& files = libratsTorrent.files().files();
+    for (const auto& f : files) {
+        TorrentFile tf;
+        tf.path = QString::fromStdString(f.path);
+        tf.size = static_cast<qint64>(f.size);
+        torrent.filesList.append(tf);
+    }
+    
+    return torrent;
+}
+#endif
+
+TorrentInfo RatsAPI::createTorrentFromJson(const QJsonObject& data)
+{
+    TorrentInfo torrent;
+    
+    torrent.hash = data["hash"].toString().toLower();
+    torrent.name = data["name"].toString();
+    torrent.size = data["size"].toVariant().toLongLong();
+    torrent.files = data["files"].toInt();
+    torrent.piecelength = data["piecelength"].toInt();
+    torrent.seeders = data["seeders"].toInt();
+    torrent.leechers = data["leechers"].toInt();
+    torrent.completed = data["completed"].toInt();
+    torrent.good = data["good"].toInt();
+    torrent.bad = data["bad"].toInt();
+    
+    // Parse added timestamp
+    if (data.contains("added")) {
+        qint64 addedMs = data["added"].toVariant().toLongLong();
+        if (addedMs > 0) {
+            torrent.added = QDateTime::fromMSecsSinceEpoch(addedMs);
+        }
+    }
+    if (!torrent.added.isValid()) {
+        torrent.added = QDateTime::currentDateTime();
+    }
+    
+    // Parse content type/category
+    QString contentType = data["contentType"].toString();
+    if (!contentType.isEmpty()) {
+        torrent.setContentTypeFromString(contentType);
+    }
+    
+    QString contentCategory = data["contentCategory"].toString();
+    if (!contentCategory.isEmpty()) {
+        torrent.setContentCategoryFromString(contentCategory);
+    }
+    
+    // Parse filesList (critical for P2P replication)
+    if (data.contains("filesList")) {
+        QJsonArray filesArray = data["filesList"].toArray();
+        for (const QJsonValue& fileVal : filesArray) {
+            QJsonObject fileObj = fileVal.toObject();
+            TorrentFile tf;
+            tf.path = fileObj["path"].toString();
+            tf.size = fileObj["size"].toVariant().toLongLong();
+            torrent.filesList.append(tf);
+        }
+        
+        // Update files count if not set
+        if (torrent.files == 0 && !torrent.filesList.isEmpty()) {
+            torrent.files = torrent.filesList.size();
+        }
+    }
+    
+    return torrent;
+}
+
+RatsAPI::InsertResult RatsAPI::processAndInsertTorrent(TorrentInfo& torrent,
+                                                        bool detectContentType,
+                                                        bool emitSignal)
+{
+    InsertResult result;
+    
+    if (!d->database) {
+        result.error = "Database not initialized";
+        return result;
+    }
+    
+    if (torrent.hash.length() != 40) {
+        result.error = "Invalid hash";
+        return result;
+    }
+    
+    if (torrent.name.isEmpty()) {
+        result.error = "Empty torrent name";
+        return result;
+    }
+    
+    // Check if torrent already exists
+    TorrentInfo existing = d->database->getTorrent(torrent.hash);
+    if (existing.isValid()) {
+        result.success = true;
+        result.alreadyExists = true;
+        result.torrent = existing;
+        
+        // Update votes if remote has more
+        if (torrent.good > existing.good || torrent.bad > existing.bad) {
+            existing.good = qMax(existing.good, torrent.good);
+            existing.bad = qMax(existing.bad, torrent.bad);
+            d->database->updateTorrent(existing);
+            result.torrent = existing;
+        }
+        
+        return result;
+    }
+    
+    // Detect content type from files if needed
+    if (detectContentType && torrent.contentTypeId == 0) {
+        TorrentDatabase::detectContentType(torrent);
+    }
+    
+    // Check filters before inserting
+    QString rejectionReason = getTorrentRejectionReason(torrent);
+    if (!rejectionReason.isEmpty()) {
+        result.error = "Rejected: " + rejectionReason;
+        return result;
+    }
+    
+    // Insert into database (this also handles files via addFilesToDatabase)
+    d->database->insertTorrent(torrent);
+    
+    result.success = true;
+    result.torrent = torrent;
+    
+    // Emit signal for UI updates
+    if (emitSignal) {
+        emit torrentIndexed(torrent.hash, torrent.name);
+    }
+    
+    return result;
+}
+
+// ============================================================================
+// Initialization
+// ============================================================================
+
 void RatsAPI::initialize(TorrentDatabase* database,
                          P2PNetwork* p2p,
                          TorrentClient* torrentClient,
@@ -580,40 +735,17 @@ void RatsAPI::searchTorrents(const QString& text,
                             if (success && libratsTorrent.is_valid()) {
                                 qInfo() << "DHT search lookup succeeded for" << hash.left(8);
                                 
-                                // Create TorrentInfo
-                                TorrentInfo torrent;
-                                torrent.hash = hash;
-                                torrent.name = QString::fromStdString(libratsTorrent.name());
-                                torrent.size = static_cast<qint64>(libratsTorrent.total_size());
-                                torrent.files = static_cast<int>(libratsTorrent.files().files().size());
-                                torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
-                                torrent.added = QDateTime::currentDateTime();
+                                // Use helper to create and insert torrent
+                                TorrentInfo torrent = createTorrentFromLibrats(hash, libratsTorrent);
+                                InsertResult insertResult = const_cast<RatsAPI*>(this)->processAndInsertTorrent(torrent);
                                 
-                                // Build file list
-                                const auto& files = libratsTorrent.files().files();
-                                for (const auto& f : files) {
-                                    TorrentFile tf;
-                                    tf.path = QString::fromStdString(f.path);
-                                    tf.size = static_cast<qint64>(f.size);
-                                    torrent.filesList.append(tf);
-                                }
-                                
-                                // Detect content type
-                                TorrentDatabase::detectContentType(torrent);
-                                
-                                // Insert into database
-                                if (d->database) {
-                                    d->database->insertTorrent(torrent);
-                                }
-                                
-                                QJsonObject result = torrentInfoToJson(torrent);
+                                QJsonObject result = torrentInfoToJson(insertResult.torrent);
                                 result["fromDHT"] = true;
                                 
                                 QJsonArray results;
                                 results.append(result);
                                 
-                                QMetaObject::invokeMethod(this, [this, callback, results, hash, torrent]() {
-                                    emit torrentIndexed(hash, torrent.name);
+                                QMetaObject::invokeMethod(this, [callback, results]() {
                                     if (callback) callback(ApiResponse::ok(results));
                                 }, Qt::QueuedConnection);
                             } else {
@@ -786,39 +918,17 @@ void RatsAPI::getTorrent(const QString& hash,
                             if (success && libratsTorrent.is_valid()) {
                                 qInfo() << "DHT metadata lookup succeeded for" << hash.left(8);
                                 
-                                // Create TorrentInfo for database
-                                TorrentInfo torrent;
-                                torrent.hash = hash;
-                                torrent.name = QString::fromStdString(libratsTorrent.name());
-                                torrent.size = static_cast<qint64>(libratsTorrent.total_size());
-                                torrent.files = static_cast<int>(libratsTorrent.files().files().size());
-                                torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
-                                torrent.added = QDateTime::currentDateTime();
+                                // Use helper to create and insert torrent
+                                TorrentInfo torrent = createTorrentFromLibrats(hash, libratsTorrent);
+                                InsertResult insertResult = const_cast<RatsAPI*>(this)->processAndInsertTorrent(torrent);
                                 
-                                // Build file list
-                                const auto& files = libratsTorrent.files().files();
-                                for (const auto& f : files) {
-                                    TorrentFile tf;
-                                    tf.path = QString::fromStdString(f.path);
-                                    tf.size = static_cast<qint64>(f.size);
-                                    torrent.filesList.append(tf);
-                                }
-                                
-                                // Detect content type
-                                TorrentDatabase::detectContentType(torrent);
-                                
-                                // Insert into database for future lookups
-                                if (d->database) {
-                                    d->database->insertTorrent(torrent);
-                                }
-                                
-                                QJsonObject result = torrentInfoToJson(torrent);
+                                QJsonObject result = torrentInfoToJson(insertResult.torrent);
                                 result["fromDHT"] = true;
                                 
                                 // Add files to result
-                                if (!torrent.filesList.isEmpty()) {
+                                if (!insertResult.torrent.filesList.isEmpty()) {
                                     QJsonArray filesArr;
-                                    for (const TorrentFile& f : torrent.filesList) {
+                                    for (const TorrentFile& f : insertResult.torrent.filesList) {
                                         QJsonObject fileObj;
                                         fileObj["path"] = f.path;
                                         fileObj["size"] = f.size;
@@ -827,8 +937,7 @@ void RatsAPI::getTorrent(const QString& hash,
                                     result["filesList"] = filesArr;
                                 }
                                 
-                                QMetaObject::invokeMethod(this, [this, callback, result, hash, torrent]() {
-                                    emit torrentIndexed(hash, torrent.name);
+                                QMetaObject::invokeMethod(this, [callback, result]() {
                                     if (callback) callback(ApiResponse::ok(result));
                                 }, Qt::QueuedConnection);
                             } else {
@@ -1460,11 +1569,6 @@ void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
         return;
     }
     
-    if (!d->database) {
-        if (callback) callback(ApiResponse::fail("Database not initialized"));
-        return;
-    }
-    
     // Read the torrent file
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -1498,53 +1602,22 @@ void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
     QString hash = QString::fromStdString(
         librats::info_hash_to_hex(libratsTorrent.info_hash()));
     
-    // Check if torrent already exists
-    TorrentInfo existing = d->database->getTorrent(hash);
-    if (existing.isValid()) {
-        // Return existing torrent info
-        QJsonObject result = torrentInfoToJson(existing);
-        result["alreadyExists"] = true;
-        if (callback) callback(ApiResponse::ok(result));
+    // Use helper to create TorrentInfo from librats
+    TorrentInfo torrent = createTorrentFromLibrats(hash, libratsTorrent);
+    
+    // Use centralized insert logic
+    InsertResult insertResult = processAndInsertTorrent(torrent);
+    
+    if (!insertResult.success && !insertResult.alreadyExists) {
+        if (callback) callback(ApiResponse::fail(insertResult.error));
         return;
     }
     
-    // Create TorrentInfo for database
-    TorrentInfo torrent;
-    torrent.hash = hash;
-    torrent.name = QString::fromStdString(libratsTorrent.name());
-    torrent.size = static_cast<qint64>(libratsTorrent.total_size());
-    torrent.files = static_cast<int>(libratsTorrent.files().files().size());
-    torrent.piecelength = static_cast<int>(libratsTorrent.piece_length());
-    torrent.added = QDateTime::currentDateTime();
+    qInfo() << "Imported torrent:" << insertResult.torrent.name.left(50) << "hash:" << hash.left(8);
     
-    // Build file list
-    const auto& files = libratsTorrent.files().files();
-    for (const auto& f : files) {
-        TorrentFile tf;
-        tf.path = QString::fromStdString(f.path);
-        tf.size = static_cast<qint64>(f.size);
-        torrent.filesList.append(tf);
-    }
-    
-    // Detect content type from files
-    TorrentDatabase::detectContentType(torrent);
-    
-    // Check filters before inserting
-    QString rejectionReason = getTorrentRejectionReason(torrent);
-    if (!rejectionReason.isEmpty()) {
-        if (callback) callback(ApiResponse::fail("Torrent rejected: " + rejectionReason));
-        return;
-    }
-    
-    // Insert into database (this also handles files via addFilesToDatabase)
-    d->database->insertTorrent(torrent);
-    
-    qInfo() << "Imported torrent:" << torrent.name.left(50) << "hash:" << hash.left(8);
-    
-    emit torrentIndexed(hash, torrent.name);
-    
-    QJsonObject result = torrentInfoToJson(torrent);
-    result["imported"] = true;
+    QJsonObject result = torrentInfoToJson(insertResult.torrent);
+    result["alreadyExists"] = insertResult.alreadyExists;
+    result["imported"] = !insertResult.alreadyExists;
     
     if (callback) callback(ApiResponse::ok(result));
 #else
@@ -1691,17 +1764,7 @@ void RatsAPI::createTorrent(const QString& path,
     }
     
     // Add to database for searching
-    // First check if it already exists
-    TorrentInfo existing = d->database->getTorrent(hash);
-    if (existing.isValid()) {
-        QJsonObject result = torrentInfoToJson(existing);
-        result["alreadyExists"] = true;
-        result["seeding"] = startSeeding;
-        if (callback) callback(ApiResponse::ok(result));
-        return;
-    }
-    
-    // Get torrent info from TorrentClient if seeding, otherwise from librats
+    // Build TorrentInfo based on source (TorrentClient if seeding, or librats)
     TorrentInfo torrent;
     torrent.hash = hash;
     torrent.added = QDateTime::currentDateTime();
@@ -1720,7 +1783,7 @@ void RatsAPI::createTorrent(const QString& path,
             torrent.filesList.append(tf);
         }
     } else {
-        // Need to recreate TorrentInfo (we don't have it from above due to scope)
+        // Recreate TorrentInfo from librats (we don't have it from above due to scope)
         librats::TorrentCreatorConfig config;
         librats::TorrentCreator creator(path.toStdString(), config);
         
@@ -1744,26 +1807,20 @@ void RatsAPI::createTorrent(const QString& path,
         }
     }
     
-    // Detect content type
-    TorrentDatabase::detectContentType(torrent);
+    // Use centralized insert logic (handles content type detection, filters, DB insert, signal)
+    InsertResult insertResult = processAndInsertTorrent(torrent);
     
-    // Check filters before inserting
-    QString rejectionReason = getTorrentRejectionReason(torrent);
-    if (!rejectionReason.isEmpty()) {
-        if (callback) callback(ApiResponse::fail("Torrent rejected: " + rejectionReason));
+    if (!insertResult.success && !insertResult.alreadyExists) {
+        if (callback) callback(ApiResponse::fail(insertResult.error));
         return;
     }
     
-    // Insert into database
-    d->database->insertTorrent(torrent);
-    
-    qInfo() << "Created torrent:" << torrent.name.left(50) << "hash:" << hash.left(8) 
+    qInfo() << "Created torrent:" << insertResult.torrent.name.left(50) << "hash:" << hash.left(8) 
             << (startSeeding ? "(seeding)" : "(indexed only)");
     
-    emit torrentIndexed(hash, torrent.name);
-    
-    QJsonObject result = torrentInfoToJson(torrent);
-    result["created"] = true;
+    QJsonObject result = torrentInfoToJson(insertResult.torrent);
+    result["alreadyExists"] = insertResult.alreadyExists;
+    result["created"] = !insertResult.alreadyExists;
     result["seeding"] = startSeeding;
     
     // Include path to saved .torrent file if it was created
@@ -2223,80 +2280,24 @@ void RatsAPI::handleP2PFeedResponse(const QString& peerId, const QJsonObject& da
 
 void RatsAPI::insertTorrentFromFeed(const QJsonObject& torrentData)
 {
-    if (!d->database) {
+    // Use helper to create TorrentInfo from JSON
+    TorrentInfo torrent = createTorrentFromJson(torrentData);
+    
+    if (torrent.hash.length() != 40) {
         return;
     }
     
-    QString hash = torrentData["hash"].toString();
-    if (hash.length() != 40) {
-        return;
+    // Use centralized insert logic
+    // detectContentType=true only if not already set in JSON
+    // emitSignal=false for replication (avoid UI spam)
+    InsertResult result = processAndInsertTorrent(torrent, true, false);
+    
+    if (result.success && !result.alreadyExists) {
+        qInfo() << "Inserted torrent from feed:" << result.torrent.name.left(30) 
+                << "with" << result.torrent.filesList.size() << "files";
+    } else if (!result.success) {
+        qInfo() << "Rejected torrent from feed:" << torrent.name.left(30) << "-" << result.error;
     }
-    
-    // Check if we already have this torrent
-    TorrentInfo existing = d->database->getTorrent(hash);
-    if (existing.isValid()) {
-        // Update votes if remote has more
-        int remoteGood = torrentData["good"].toInt();
-        int remoteBad = torrentData["bad"].toInt();
-        
-        if (remoteGood > existing.good || remoteBad > existing.bad) {
-            existing.good = qMax(existing.good, remoteGood);
-            existing.bad = qMax(existing.bad, remoteBad);
-            d->database->updateTorrent(existing);
-        }
-        return;
-    }
-    
-    // Create new torrent entry from feed data
-    TorrentInfo torrent;
-    torrent.hash = hash;
-    torrent.name = torrentData["name"].toString();
-    torrent.size = torrentData["size"].toVariant().toLongLong();
-    torrent.files = torrentData["files"].toInt();
-    torrent.seeders = torrentData["seeders"].toInt();
-    torrent.leechers = torrentData["leechers"].toInt();
-    torrent.completed = torrentData["completed"].toInt();
-    torrent.good = torrentData["good"].toInt();
-    torrent.bad = torrentData["bad"].toInt();
-    
-    QString contentType = torrentData["contentType"].toString();
-    torrent.setContentTypeFromString(contentType);
-    
-    QString contentCategory = torrentData["contentCategory"].toString();
-    torrent.setContentCategoryFromString(contentCategory);
-    
-    torrent.added = QDateTime::currentDateTime();
-    
-    // Parse filesList from incoming data (like legacy insertTorrentToDB)
-    // This is critical for P2P replication - without this, files are lost!
-    if (torrentData.contains("filesList")) {
-        QJsonArray filesArray = torrentData["filesList"].toArray();
-        for (const QJsonValue& fileVal : filesArray) {
-            QJsonObject fileObj = fileVal.toObject();
-            TorrentFile tf;
-            tf.path = fileObj["path"].toString();
-            tf.size = fileObj["size"].toVariant().toLongLong();
-            torrent.filesList.append(tf);
-        }
-        
-        // Update files count if not set
-        if (torrent.files == 0 && !torrent.filesList.isEmpty()) {
-            torrent.files = torrent.filesList.size();
-        }
-    }
-    
-    // Check filters before inserting
-    QString rejectionReason = getTorrentRejectionReason(torrent);
-    if (!rejectionReason.isEmpty()) {
-        qInfo() << "Rejected torrent from feed:" << torrent.name.left(30) << "-" << rejectionReason;
-        return;
-    }
-    
-    // Insert into database (this will also insert files via addFilesToDatabase)
-    d->database->insertTorrent(torrent);
-    
-    qInfo() << "Inserted torrent from feed:" << torrent.name.left(30) 
-            << "with" << torrent.filesList.size() << "files";
 }
 
 void RatsAPI::handleP2PSearchResult(const QString& peerId, const QJsonObject& data)

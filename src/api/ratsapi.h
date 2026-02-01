@@ -8,15 +8,22 @@
 #include <functional>
 #include <memory>
 
+// Include TorrentInfo for InsertResult struct (needs complete type)
+#include "../torrentdatabase.h"
+
 // Forward declarations
-class TorrentDatabase;
 class P2PNetwork;
 class TorrentClient;
 class ConfigManager;
 class FeedManager;
 class P2PStoreManager;
-struct TorrentInfo;
-struct TorrentFile;
+
+// librats forward declarations (only when RATS_SEARCH_FEATURES enabled)
+#ifdef RATS_SEARCH_FEATURES
+namespace librats {
+    class TorrentInfo;
+}
+#endif
 
 /**
  * @brief ApiResponse - Standard response wrapper for all API calls
@@ -511,7 +518,65 @@ private:
     // Helper to convert TorrentInfo to JSON for P2P responses
     static QJsonObject torrentToP2PJson(const TorrentInfo& torrent);
     
-    // Helper to insert a torrent from feed replication
+    // =========================================================================
+    // Torrent Processing Helpers (centralized insertion logic)
+    // =========================================================================
+    
+    /**
+     * @brief Result of processAndInsertTorrent operation
+     */
+    struct InsertResult {
+        bool success = false;
+        bool alreadyExists = false;
+        QString error;
+        TorrentInfo torrent;
+    };
+    
+    /**
+     * @brief Process and insert a torrent into the database
+     * 
+     * This is the central method for all torrent insertions. It:
+     * 1. Detects content type if not set
+     * 2. Checks filters
+     * 3. Inserts into database
+     * 4. Emits torrentIndexed signal
+     * 
+     * @param torrent TorrentInfo to insert (will be modified with detected content type)
+     * @param detectContentType Whether to auto-detect content type
+     * @param emitSignal Whether to emit torrentIndexed signal
+     * @return InsertResult with success status and error message if failed
+     */
+    InsertResult processAndInsertTorrent(TorrentInfo& torrent, 
+                                          bool detectContentType = true,
+                                          bool emitSignal = true);
+    
+#ifdef RATS_SEARCH_FEATURES
+    /**
+     * @brief Create TorrentInfo from librats::TorrentInfo
+     * 
+     * Converts librats torrent metadata to our TorrentInfo structure.
+     * Used for DHT metadata lookups and .torrent file parsing.
+     * 
+     * @param hash 40-char hex info hash
+     * @param libratsTorrent librats torrent info
+     * @return Populated TorrentInfo
+     */
+    static TorrentInfo createTorrentFromLibrats(const QString& hash, 
+                                                 const librats::TorrentInfo& libratsTorrent);
+#endif
+    
+    /**
+     * @brief Create TorrentInfo from JSON object
+     * 
+     * Converts a JSON torrent representation to TorrentInfo.
+     * Used for P2P replication and feed sync.
+     * 
+     * @param data JSON object with torrent data
+     * @return Populated TorrentInfo
+     */
+    static TorrentInfo createTorrentFromJson(const QJsonObject& data);
+    
+    // Helper to insert a torrent from feed replication (uses processAndInsertTorrent)
     void insertTorrentFromFeed(const QJsonObject& torrentData);
     
     // =========================================================================
