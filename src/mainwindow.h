@@ -88,6 +88,9 @@ private slots:
     void onUpdateError(const QString& error);
     void checkForUpdates();
     void showUpdateDialog();
+    
+    // Tab change handler
+    void onTabChanged(int index);
 
 private:
     void setupUi();

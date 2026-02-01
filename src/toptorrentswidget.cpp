@@ -149,6 +149,15 @@ void TopTorrentsWidget::setApi(RatsAPI* api)
     }
 }
 
+TorrentInfo TopTorrentsWidget::getSelectedTorrent() const
+{
+    QModelIndex index = tableView_->currentIndex();
+    if (index.isValid()) {
+        return model_->getTorrent(index.row());
+    }
+    return TorrentInfo();
+}
+
 void TopTorrentsWidget::refresh()
 {
     cache_.clear();

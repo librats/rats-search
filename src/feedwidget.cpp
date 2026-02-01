@@ -99,6 +99,15 @@ void FeedWidget::setApi(RatsAPI* api)
     loadMoreFeed();
 }
 
+TorrentInfo FeedWidget::getSelectedTorrent() const
+{
+    QModelIndex index = tableView_->currentIndex();
+    if (index.isValid()) {
+        return model_->getTorrent(index.row());
+    }
+    return TorrentInfo();
+}
+
 void FeedWidget::refresh()
 {
     feedTorrents_.clear();

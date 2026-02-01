@@ -40,6 +40,12 @@ public:
     ~ActivityWidget();
 
     void setApi(RatsAPI* api);
+    
+    /**
+     * @brief Get currently selected torrent (if any)
+     * @return Selected torrent or invalid TorrentInfo if none selected
+     */
+    TorrentInfo getSelectedTorrent() const;
 
 signals:
     void torrentSelected(const TorrentInfo& torrent);

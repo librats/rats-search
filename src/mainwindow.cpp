@@ -446,6 +446,9 @@ void MainWindow::connectSignals()
     connect(sortComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), 
             this, &MainWindow::onSortOrderChanged);
     
+    // Tab change signal - update details panel when switching tabs
+    connect(tabWidget, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
+    
     // Table view signals
     connect(resultsTableView->selectionModel(), &QItemSelectionModel::currentRowChanged,
             this, [this](const QModelIndex &current, const QModelIndex &) {
@@ -1080,6 +1083,70 @@ void MainWindow::onSortOrderChanged(int index)
     Q_UNUSED(index);
     if (!currentSearchQuery_.isEmpty()) {
         performSearch(currentSearchQuery_);
+    }
+}
+
+void MainWindow::onTabChanged(int index)
+{
+    Q_UNUSED(index);
+    
+    // Get the currently active widget
+    QWidget* currentWidget = tabWidget->currentWidget();
+    if (!currentWidget) {
+        return;
+    }
+    
+    TorrentInfo selectedTorrent;
+    
+    // Check which tab is active and get its selected torrent
+    if (currentWidget == resultsTableView->parentWidget()) {
+        // Search Results tab
+        QModelIndex idx = resultsTableView->currentIndex();
+        if (idx.isValid()) {
+            selectedTorrent = searchResultModel->getTorrent(idx.row());
+        }
+    } else if (currentWidget == topTorrentsWidget) {
+        selectedTorrent = topTorrentsWidget->getSelectedTorrent();
+    } else if (currentWidget == feedWidget) {
+        selectedTorrent = feedWidget->getSelectedTorrent();
+    } else if (currentWidget == activityWidget) {
+        selectedTorrent = activityWidget->getSelectedTorrent();
+    } else if (currentWidget == downloadsWidget) {
+        // Downloads tab doesn't have torrent selection in the same way
+        // Hide details panel when switching to downloads
+        detailsPanel->hide();
+        filesWidget->clear();
+        filesWidget->hide();
+        return;
+    }
+    
+    // Update details panel with the selected torrent from new tab
+    if (selectedTorrent.isValid()) {
+        detailsPanel->setTorrent(selectedTorrent);
+        detailsPanel->show();
+        
+        // Fetch files for bottom panel
+        if (api) {
+            api->getTorrent(selectedTorrent.hash, true, QString(), [this, selectedTorrent](const ApiResponse& response) {
+                if (response.success) {
+                    QJsonObject data = response.data.toObject();
+                    QJsonArray files = data["filesList"].toArray();
+                    if (!files.isEmpty()) {
+                        filesWidget->setFiles(selectedTorrent.hash, selectedTorrent.name, files);
+                        filesWidget->show();
+                        verticalSplitter->setSizes({600, 200});
+                    } else {
+                        filesWidget->clear();
+                        filesWidget->hide();
+                    }
+                }
+            });
+        }
+    } else {
+        // No selection in the new tab - hide details
+        detailsPanel->hide();
+        filesWidget->clear();
+        filesWidget->hide();
     }
 }
 

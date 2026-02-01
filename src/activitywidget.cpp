@@ -122,6 +122,18 @@ void ActivityWidget::setApi(RatsAPI* api)
     }
 }
 
+TorrentInfo ActivityWidget::getSelectedTorrent() const
+{
+    QListWidgetItem* item = torrentList_->currentItem();
+    if (item) {
+        QString hash = item->data(Qt::UserRole).toString();
+        if (displayedTorrents_.contains(hash)) {
+            return displayedTorrents_[hash];
+        }
+    }
+    return TorrentInfo();
+}
+
 void ActivityWidget::loadRecentTorrents()
 {
     if (!api_) return;
