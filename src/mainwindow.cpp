@@ -250,18 +250,6 @@ void MainWindow::setupUi()
     searchTabLayout->addWidget(resultsTableView);
     tabWidget->addTab(searchTab, tr("Search Results"));
     
-    // Activity tab
-    QWidget *activityTab = new QWidget();
-    QVBoxLayout *activityTabLayout = new QVBoxLayout(activityTab);
-    activityTabLayout->setContentsMargins(8, 8, 8, 8);
-    
-    activityLog = new QTextEdit();
-    activityLog->setReadOnly(true);
-    activityLog->setPlaceholderText(tr("Activity log will appear here..."));
-    activityTabLayout->addWidget(activityLog);
-    
-    tabWidget->addTab(activityTab, tr("Activity"));
-    
     // Statistics tab
     QWidget *statsTab = new QWidget();
     QVBoxLayout *statsTabLayout = new QVBoxLayout(statsTab);
@@ -319,7 +307,6 @@ void MainWindow::setupUi()
                     .arg(torrent.hash)
                     .arg(QUrl::toPercentEncoding(torrent.name));
                 QDesktopServices::openUrl(QUrl(magnetLink));
-                logActivity(QString("🧲 Opened magnet link for: %1").arg(torrent.name));
             });
     tabWidget->addTab(topTorrentsWidget, tr("🔥 Top"));
     
@@ -350,7 +337,6 @@ void MainWindow::setupUi()
                     .arg(torrent.hash)
                     .arg(QUrl::toPercentEncoding(torrent.name));
                 QDesktopServices::openUrl(QUrl(magnetLink));
-                logActivity(QString("🧲 Opened magnet link for: %1").arg(torrent.name));
             });
     tabWidget->addTab(feedWidget, tr("📰 Feed"));
     
@@ -479,7 +465,6 @@ void MainWindow::connectSignals()
                 // Cancel the download via TorrentClient
                 if (torrentClient) {
                     torrentClient->stopTorrent(hash);
-                    logActivity(QString("❌ Download cancelled: %1").arg(hash));
                     statusBar()->showMessage(tr("Download cancelled"), 2000);
                 }
             });
@@ -532,8 +517,6 @@ void MainWindow::connectSignals()
                     
                     searchResultModel->addFileResult(info);
                 }
-                
-                logActivity(QString("📡 Received %1 remote file results").arg(torrents.size()));
             });
     }
     
@@ -553,36 +536,28 @@ void MainWindow::startServices()
     QElapsedTimer timer;
     timer.start();
     
-    logActivity("🔧 Initializing services...");
-    
     // Initialize database (this starts Manticore - the slowest part)
     qint64 dbStart = timer.elapsed();
     if (!torrentDatabase->initialize()) {
         QMessageBox::critical(this, "Error", "Failed to initialize database!");
-        logActivity("❌ Database initialization failed");
         return;
     }
     qInfo() << "Database initialize took:" << (timer.elapsed() - dbStart) << "ms";
-    logActivity("✅ Database initialized");
     
     // Start P2P network
     qint64 p2pStart = timer.elapsed();
     if (!p2pNetwork->start()) {
         QMessageBox::warning(this, "Warning", "Failed to start P2P network. Some features may be limited.");
-        logActivity("⚠️ P2P network failed to start");
     } else {
         qInfo() << "P2P network start took:" << (timer.elapsed() - p2pStart) << "ms";
-        logActivity("✅ P2P network started");
         
         // Initialize TorrentClient after P2P is running (requires RatsClient)
         if (torrentClient && !torrentClient->isReady()) {
             qint64 tcStart = timer.elapsed();
             if (torrentClient->initialize(p2pNetwork.get(), torrentDatabase.get(), dataDirectory_)) {
                 qInfo() << "TorrentClient initialize took:" << (timer.elapsed() - tcStart) << "ms";
-                logActivity("✅ TorrentClient initialized");
             } else {
                 qWarning() << "Failed to initialize TorrentClient";
-                logActivity("⚠️ TorrentClient initialization failed - downloads disabled");
             }
         }
     }
@@ -591,10 +566,8 @@ void MainWindow::startServices()
     qint64 spiderStart = timer.elapsed();
     if (!torrentSpider->start()) {
         QMessageBox::warning(this, "Warning", "Failed to start torrent spider. Automatic indexing disabled.");
-        logActivity("⚠️ Torrent spider failed to start");
     } else {
         qInfo() << "Spider start took:" << (timer.elapsed() - spiderStart) << "ms";
-        logActivity("✅ Torrent spider started");
     }
     
     servicesStarted_ = true;
@@ -608,8 +581,6 @@ void MainWindow::stopServices()
     if (!servicesStarted_) {
         return;
     }
-    
-    logActivity("🛑 Stopping services...");
     
     // Save torrent session if not already saved (safety net)
     if (torrentClient && torrentClient->count() > 0) {
@@ -721,9 +692,7 @@ void MainWindow::initializeServicesDeferred()
     // Start REST/WebSocket API server if enabled
     if (config->restApiEnabled()) {
         apiServer = std::make_unique<ApiServer>(api.get());
-        if (apiServer->start(config->httpPort())) {
-            logActivity(QString("🌐 API server started on port %1").arg(config->httpPort()));
-        }
+        apiServer->start(config->httpPort());
     }
     
     // Start heavy services (database, P2P, spider)
@@ -737,10 +706,8 @@ void MainWindow::initializeServicesDeferred()
         QFile sessionFileCheck(sessionFile);
         if (sessionFileCheck.exists()) {
             qInfo() << "Loading previous torrent session from" << sessionFile;
-            logActivity(tr("🔄 Restoring previous downloads..."));
             int restored = torrentClient->loadSession(sessionFile);
             if (restored > 0) {
-                logActivity(tr("✅ Restored %1 download(s)").arg(restored));
                 qInfo() << "Restored" << restored << "torrents from session";
             }
         }
@@ -755,8 +722,6 @@ void MainWindow::initializeServicesDeferred()
     }
     
     qInfo() << "Total deferred initialization:" << timer.elapsed() << "ms";
-    logActivity("🚀 Rats Search started");
-    
     // Connect to database statistics signal (updated incrementally like legacy spider.js)
     connect(torrentDatabase.get(), &TorrentDatabase::statisticsChanged,
             this, &MainWindow::onDatabaseStatisticsChanged);
@@ -793,7 +758,6 @@ void MainWindow::initializeServicesDeferred()
         // Check for updates after a short delay
         if (config->checkUpdatesOnStartup()) {
             QTimer::singleShot(5000, this, [this]() {
-                logActivity("🔍 Checking for updates...");
                 updateManager->checkForUpdates();
             });
         }
@@ -808,7 +772,6 @@ void MainWindow::performSearch(const QString &query)
     
     currentSearchQuery_ = query;
     statusBar()->showMessage("🔍 Searching...", 2000);
-    logActivity(QString("🔍 Searching for: %1").arg(query));
     
     // Parse sort options
     QString sortData = sortComboBox->currentData().toString();
@@ -876,7 +839,6 @@ void MainWindow::performSearch(const QString &query)
         
         searchResultModel->addResults(results);
         statusBar()->showMessage(QString("✅ Found %1 torrents").arg(results.size()), 3000);
-        logActivity(QString("✅ Found %1 torrent results").arg(results.size()));
     });
     
     // Also search files within torrents
@@ -898,7 +860,6 @@ void MainWindow::performSearch(const QString &query)
             searchResultModel->addFileResults(results);
             int total = searchResultModel->resultCount();
             statusBar()->showMessage(QString("✅ Found %1 total results (incl. file matches)").arg(total), 3000);
-            logActivity(QString("✅ Found %1 file match results").arg(results.size()));
         }
     });
 }
@@ -951,13 +912,6 @@ void MainWindow::updateStatisticsTab()
     }
 }
 
-void MainWindow::logActivity(const QString &message)
-{
-    if (activityLog) {
-        QString timestamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-        activityLog->append(QString("[%1] %2").arg(timestamp, message));
-    }
-}
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
@@ -999,10 +953,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (torrentClient) {
         QString sessionFile = dataDirectory_ + "/torrents_session.json";
         qInfo() << "Closing: Saving torrent session to" << sessionFile;
-        logActivity(tr("💾 Saving download session..."));
         if (torrentClient->saveSession(sessionFile)) {
             qInfo() << "Closing: Torrent session saved";
-            logActivity(tr("✅ Download session saved"));
         } else {
             qWarning() << "Closing: Failed to save torrent session";
         }
@@ -1066,8 +1018,6 @@ void MainWindow::dropEvent(QDropEvent *event)
     
     event->acceptProposedAction();
     
-    logActivity(tr("📥 Dropped %1 torrent file(s)").arg(torrentFiles.size()));
-    
     // Add each torrent file using the same method as menu action
     int addedCount = 0;
     int alreadyExistsCount = 0;
@@ -1075,27 +1025,23 @@ void MainWindow::dropEvent(QDropEvent *event)
     
     for (const QString& filePath : torrentFiles) {
         if (!api) {
-            logActivity(tr("❌ API not initialized"));
             continue;
         }
         
         api->addTorrentFile(filePath, [this, filePath, &addedCount, &alreadyExistsCount, &failedCount, 
                                         torrentFilesCount = torrentFiles.size()](const ApiResponse& response) {
+            Q_UNUSED(this);
             if (response.success) {
                 QJsonObject data = response.data.toObject();
-                QString name = data["name"].toString();
                 bool alreadyExists = data["alreadyExists"].toBool();
                 
                 if (alreadyExists) {
                     alreadyExistsCount++;
-                    logActivity(tr("ℹ️ Already indexed: %1").arg(name));
                 } else {
                     addedCount++;
-                    logActivity(tr("✅ Added: %1").arg(name));
                 }
             } else {
                 failedCount++;
-                logActivity(tr("❌ Failed: %1 - %2").arg(QFileInfo(filePath).fileName(), response.error));
             }
         });
     }
@@ -1162,7 +1108,6 @@ void MainWindow::onTorrentDoubleClicked(const QModelIndex &index)
             .arg(torrent.hash)
             .arg(QUrl::toPercentEncoding(torrent.name));
         QDesktopServices::openUrl(QUrl(magnetLink));
-        logActivity(QString("🧲 Opened magnet link for: %1").arg(torrent.name));
     }
 }
 
@@ -1184,14 +1129,12 @@ void MainWindow::onDetailsPanelCloseRequested()
 
 void MainWindow::onMagnetLinkRequested(const QString &hash, const QString &name)
 {
-    logActivity(QString("🧲 Magnet link opened: %1").arg(name));
     Q_UNUSED(hash);
+    Q_UNUSED(name);
 }
 
 void MainWindow::onDownloadRequested(const QString &hash)
 {
-    logActivity(QString("⬇️ Download requested: %1").arg(hash));
-    
     // Show popup menu to choose download location
     QMenu menu(this);
     menu.setStyleSheet(this->styleSheet());
@@ -1224,7 +1167,6 @@ void MainWindow::onDownloadRequested(const QString &hash)
     QAction *selectedAction = menu.exec(QCursor::pos());
     
     if (selectedAction == cancelAction || selectedAction == nullptr) {
-        logActivity(QString("❌ Download cancelled by user"));
         return;
     }
     
@@ -1240,7 +1182,6 @@ void MainWindow::onDownloadRequested(const QString &hash)
             tr("Select Download Location"), startDir);
         
         if (downloadPath.isEmpty()) {
-            logActivity(QString("❌ Download cancelled: no folder selected"));
             return;
         }
     }
@@ -1249,7 +1190,6 @@ void MainWindow::onDownloadRequested(const QString &hash)
     if (api) {
         api->downloadAdd(hash, downloadPath, [this, hash](const ApiResponse& response) {
             if (response.success) {
-                logActivity(QString("✅ Download started: %1").arg(hash));
                 statusBar()->showMessage("⬇️ Download started", 2000);
                 
                 // Update details panel to show download in progress
@@ -1257,7 +1197,6 @@ void MainWindow::onDownloadRequested(const QString &hash)
                     detailsPanel->setDownloadProgress(0.0, 0, 0, 0);
                 }
             } else {
-                logActivity(QString("❌ Download failed: %1").arg(response.error));
                 QMessageBox::warning(this, "Download Failed", response.error);
             }
         });
@@ -1279,12 +1218,11 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
     QMenu contextMenu(this);
     
     QAction *magnetAction = contextMenu.addAction(tr("Open Magnet Link"));
-    connect(magnetAction, &QAction::triggered, [this, torrent]() {
+    connect(magnetAction, &QAction::triggered, [torrent]() {
         QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
             .arg(torrent.hash)
             .arg(QUrl::toPercentEncoding(torrent.name));
         QDesktopServices::openUrl(QUrl(magnetLink));
-        logActivity(tr("Opened magnet link for: %1").arg(torrent.name));
     });
     
     QAction *copyHashAction = contextMenu.addAction(tr("Copy Info Hash"));
@@ -1315,7 +1253,6 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
 void MainWindow::onP2PStatusChanged(const QString &status)
 {
     p2pStatusLabel->setText(tr("P2P: %1").arg(status));
-    logActivity(tr("P2P status: %1").arg(status));
     
     // Update cached P2P connection status
     if (p2pNetwork) {
@@ -1382,18 +1319,15 @@ void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
 void MainWindow::onDarkModeChanged(bool enabled)
 {
     applyTheme(enabled);
-    logActivity(tr("Theme changed to %1 mode").arg(enabled ? tr("dark") : tr("light")));
 }
 
 void MainWindow::onLanguageChanged(const QString& languageCode)
 {
     // Use TranslationManager to switch language at runtime
     auto& translationManager = TranslationManager::instance();
-    if (translationManager.setLanguage(languageCode)) {
-        logActivity(tr("Language changed to %1").arg(languageCode));
-        // Note: Full UI retranslation would require recreating widgets or using Qt's retranslateUi pattern
-        // For now, most static strings will update on next window open
-    }
+    translationManager.setLanguage(languageCode);
+    // Note: Full UI retranslation would require recreating widgets or using Qt's retranslateUi pattern
+    // For now, most static strings will update on next window open
 }
 
 void MainWindow::showSettings()
@@ -1411,7 +1345,6 @@ void MainWindow::showSettings()
         }
         
         saveSettings();
-        logActivity(tr("Settings saved"));
     }
 }
 
@@ -1493,7 +1426,7 @@ void MainWindow::showAbout()
 
 void MainWindow::showStatistics()
 {
-    tabWidget->setCurrentIndex(2);  // Switch to Statistics tab
+    tabWidget->setCurrentIndex(1);  // Switch to Statistics tab
 }
 
 void MainWindow::addTorrentFile()
@@ -1510,25 +1443,21 @@ void MainWindow::addTorrentFile()
         return;  // User cancelled
     }
     
-    logActivity(tr("📥 Adding torrent file: %1").arg(QFileInfo(filePath).fileName()));
-    
     if (!api) {
         QMessageBox::warning(this, tr("Error"), tr("API not initialized"));
         return;
     }
     
     api->addTorrentFile(filePath, [this, filePath](const ApiResponse& response) {
+        Q_UNUSED(filePath);
         if (response.success) {
             QJsonObject data = response.data.toObject();
             QString name = data["name"].toString();
-            QString hash = data["hash"].toString();
             bool alreadyExists = data["alreadyExists"].toBool();
             
             if (alreadyExists) {
-                logActivity(tr("ℹ️ Torrent already indexed: %1").arg(name));
                 statusBar()->showMessage(tr("Torrent already in index: %1").arg(name), 3000);
             } else {
-                logActivity(tr("✅ Torrent added to index: %1").arg(name));
                 statusBar()->showMessage(tr("Added to index: %1").arg(name), 3000);
             }
             
@@ -1542,7 +1471,6 @@ void MainWindow::addTorrentFile()
                 );
             }
         } else {
-            logActivity(tr("❌ Failed to add torrent: %1").arg(response.error));
             QMessageBox::warning(this, tr("Error"), 
                 tr("Failed to add torrent file:\n%1").arg(response.error));
         }
@@ -1701,11 +1629,8 @@ void MainWindow::createTorrent()
                     
                     if (alreadyExists) {
                         statusLabel->setText(tr("Torrent already exists"));
-                        logActivity(tr("ℹ️ Torrent already exists: %1").arg(name));
                     } else {
                         statusLabel->setText(tr("✅ Torrent created successfully!"));
-                        logActivity(tr("✅ Created torrent: %1 %2").arg(name)
-                            .arg(startSeeding ? tr("(seeding)") : ""));
                     }
                     
                     // Show success message with torrent file path
@@ -1723,7 +1648,6 @@ void MainWindow::createTorrent()
                     dialog.accept();
                 } else {
                     statusLabel->setText(tr("❌ Failed: %1").arg(response.error));
-                    logActivity(tr("❌ Failed to create torrent: %1").arg(response.error));
                     
                     createBtn->setEnabled(true);
                     cancelBtn->setEnabled(true);
@@ -1788,7 +1712,6 @@ void MainWindow::setupSystemTray()
             this, &MainWindow::onTrayIconActivated);
     
     trayIcon->show();
-    logActivity("🔔 System tray initialized");
 }
 
 void MainWindow::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
@@ -1858,7 +1781,6 @@ void MainWindow::checkForUpdates()
 {
     if (!updateManager) return;
     
-    logActivity("🔍 Checking for updates...");
     statusBar()->showMessage("Checking for updates...", 3000);
     
     // Disconnect previous connections to avoid duplicates
@@ -1867,7 +1789,6 @@ void MainWindow::checkForUpdates()
     
     // Connect for this manual check
     connect(updateManager.get(), &UpdateManager::noUpdateAvailable, this, [this]() {
-        logActivity("✅ You have the latest version");
         QMessageBox::information(this, tr("No Updates Available"),
             tr("You are running the latest version of Rats Search (%1).")
                 .arg(UpdateManager::currentVersion()));
@@ -1878,8 +1799,6 @@ void MainWindow::checkForUpdates()
 
 void MainWindow::onUpdateAvailable(const QString& version, const QString& releaseNotes)
 {
-    logActivity(QString("🆕 Update available: version %1").arg(version));
-    
     // Show update dialog
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Update Available"));
@@ -2010,8 +1929,6 @@ void MainWindow::onUpdateDownloadProgress(int percent)
 
 void MainWindow::onUpdateReady()
 {
-    logActivity("✅ Update downloaded and ready to install");
-    
     QMessageBox::StandardButton reply = QMessageBox::question(this,
         tr("Install Update"),
         tr("The update has been downloaded and is ready to install.\n\n"
@@ -2021,8 +1938,6 @@ void MainWindow::onUpdateReady()
         QMessageBox::Yes);
     
     if (reply == QMessageBox::Yes) {
-        logActivity("🔄 Installing update and restarting...");
-        
         // Save settings before update
         saveSettings();
         
@@ -2040,7 +1955,6 @@ void MainWindow::onUpdateReady()
 
 void MainWindow::onUpdateError(const QString& error)
 {
-    logActivity(QString("❌ Update error: %1").arg(error));
     statusBar()->showMessage(tr("Update error: %1").arg(error), 5000);
 }
 

@@ -29,7 +29,6 @@ class QTableView;
 class SearchResultModel;
 class TorrentItemDelegate;
 class TorrentDetailsPanel;
-class QTextEdit;
 class QMenu;
 class TopTorrentsWidget;
 class FeedWidget;
@@ -100,7 +99,6 @@ private:
     void updateStatusBar();
     void updateStatisticsTab();
     void applyTheme(bool darkMode);
-    void logActivity(const QString &message);
     void setupSystemTray();
     void loadSettings();
     void saveSettings();
@@ -115,7 +113,6 @@ private:
     QSplitter *verticalSplitter;  // Vertical: main content + files panel
     TorrentDetailsPanel *detailsPanel;
     TorrentFilesWidget *filesWidget;  // Bottom panel for file list
-    QTextEdit *activityLog;
     
     // New tab widgets (migrated from legacy)
     TopTorrentsWidget *topTorrentsWidget;
