@@ -776,6 +776,9 @@ void MainWindow::performSearch(const QString &query)
     currentSearchQuery_ = query;
     statusBar()->showMessage("🔍 Searching...", 2000);
     
+    // Switch to Search Results tab when searching
+    tabWidget->setCurrentIndex(0);
+    
     // Parse sort options
     QString sortData = sortComboBox->currentData().toString();
     QString orderBy = "seeders";
