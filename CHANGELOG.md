@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.8](https://github.com/DEgITx/rats-search/compare/v2.0.7...v2.0.8) (2026-02-01)
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.7([7287a01](https://github.com/DEgITx/rats-search/commit/7287a015c74afafd4a38bbf3bf694a8d01ca3f5a)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **encryption:** Enable peers encryption([41ab7ec](https://github.com/DEgITx/rats-search/commit/41ab7ec8ffa39e973a342dc84ea844700adc7e98)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.7](https://github.com/DEgITx/rats-search/compare/v2.0.6...v2.0.7) (2026-01-31)
 
 
