@@ -8,6 +8,7 @@
 #include <QSplitter>
 #include <QComboBox>
 #include <QSystemTrayIcon>
+#include <QTimer>
 #include <memory>
 
 // Core components
@@ -59,6 +60,7 @@ private slots:
     void onP2PStatusChanged(const QString &status);
     void onPeerCountChanged(int count);
     void onSpiderStatusChanged(const QString &status);
+    void updateNetworkStatus();  // Timer-based status update
     void onTorrentIndexed(const QString &infoHash, const QString &name);
     void onDetailsPanelCloseRequested();
     void onMagnetLinkRequested(const QString &hash, const QString &name);
@@ -99,6 +101,15 @@ private:
     void setupSystemTray();
     void loadSettings();
     void saveSettings();
+    void updateP2PIndicator();  // Update P2P status indicator color
+
+    // P2P Connection state for status indicator
+    enum class P2PState {
+        NotStarted,   // Red - P2P not started
+        NoConnection, // Yellow/Orange - No peers connected
+        Connected     // Green - Peers connected
+    };
+    P2PState p2pState_ = P2PState::NotStarted;
 
     // UI Components
     QLineEdit *searchLineEdit;
@@ -119,8 +130,10 @@ private:
     // Status bar
     QLabel *p2pStatusLabel;
     QLabel *peerCountLabel;
+    QLabel *dhtNodeCountLabel;
     QLabel *torrentCountLabel;
     QLabel *spiderStatusLabel;
+    QTimer *statusUpdateTimer_;
     
     // Core components
     std::unique_ptr<TorrentDatabase> torrentDatabase;

@@ -382,16 +382,28 @@ void MainWindow::setupMenuBar()
 
 void MainWindow::setupStatusBar()
 {
-    p2pStatusLabel = new QLabel(tr("P2P: Starting..."));
-    peerCountLabel = new QLabel(tr("Peers: %1").arg(0));
-    torrentCountLabel = new QLabel(tr("Torrents: %1").arg(0));
-    spiderStatusLabel = new QLabel(tr("Spider: Idle"));
+    // P2P status with colored indicator (will be updated via updateP2PIndicator)
+    p2pStatusLabel = new QLabel();
+    p2pStatusLabel->setTextFormat(Qt::RichText);
+    p2pState_ = P2PState::NotStarted;
+    updateP2PIndicator();
+    
+    peerCountLabel = new QLabel(tr("👥 Peers: %1").arg(0));
+    dhtNodeCountLabel = new QLabel(tr("🌐 DHT: %1").arg(0));
+    torrentCountLabel = new QLabel(tr("📦 Torrents: %1").arg(0));
+    spiderStatusLabel = new QLabel(tr("🕷️ Spider: Idle"));
     
     statusBar()->addWidget(p2pStatusLabel);
     statusBar()->addWidget(peerCountLabel);
+    statusBar()->addWidget(dhtNodeCountLabel);
     statusBar()->addWidget(torrentCountLabel);
     statusBar()->addWidget(spiderStatusLabel);
     statusBar()->addPermanentWidget(new QLabel(tr("Ready")));
+    
+    // Setup timer for periodic network status updates (DHT nodes, etc.)
+    statusUpdateTimer_ = new QTimer(this);
+    connect(statusUpdateTimer_, &QTimer::timeout, this, &MainWindow::updateNetworkStatus);
+    statusUpdateTimer_->start(30000);  // Update every 30 seconds, only dht nodes so not so pressing
 }
 
 void MainWindow::connectSignals()
@@ -524,6 +536,9 @@ void MainWindow::startServices()
                 qWarning() << "Failed to initialize TorrentClient";
             }
         }
+
+        // Initial DHT node count
+        updateNetworkStatus();
     }
     
     // Start torrent spider
@@ -816,7 +831,7 @@ void MainWindow::updateStatusBar()
             if (response.success) {
                 QJsonObject stats = response.data.toObject();
                 qint64 count = stats["torrents"].toVariant().toLongLong();
-                torrentCountLabel->setText(QString("📦 Torrents: %1").arg(count));
+                torrentCountLabel->setText(tr("📦 Torrents: %1").arg(count));
             }
         });
     }
@@ -1161,23 +1176,84 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
 
 void MainWindow::onP2PStatusChanged(const QString &status)
 {
-    p2pStatusLabel->setText(tr("P2P: %1").arg(status));
+    Q_UNUSED(status);
+    
+    // Determine P2P state based on network status
+    if (!p2pNetwork || !p2pNetwork->isRunning()) {
+        p2pState_ = P2PState::NotStarted;
+    } else if (p2pNetwork->getPeerCount() > 0) {
+        p2pState_ = P2PState::Connected;
+    } else {
+        p2pState_ = P2PState::NoConnection;
+    }
+    
+    updateP2PIndicator();
 }
 
 void MainWindow::onPeerCountChanged(int count)
 {
-    peerCountLabel->setText(tr("Peers: %1").arg(count));
+    peerCountLabel->setText(tr("👥 Peers: %1").arg(count));
     
-    // Update P2P status
-    if (p2pNetwork) {
-        bool connected = p2pNetwork->isConnected();
-        p2pStatusLabel->setText(tr("P2P: %1").arg(connected ? "Connected" : "Disconnected"));
+    // Update P2P state based on peer count
+    if (!p2pNetwork || !p2pNetwork->isRunning()) {
+        p2pState_ = P2PState::NotStarted;
+    } else if (count > 0) {
+        p2pState_ = P2PState::Connected;
+    } else {
+        p2pState_ = P2PState::NoConnection;
     }
+    
+    updateP2PIndicator();
 }
 
 void MainWindow::onSpiderStatusChanged(const QString &status)
 {
-    spiderStatusLabel->setText(tr("Spider: %1").arg(status));
+    spiderStatusLabel->setText(tr("🕷️ Spider: %1").arg(status));
+}
+
+void MainWindow::updateP2PIndicator()
+{
+    // Colored circle indicators using HTML
+    // ● (U+25CF) - filled circle
+    QString indicator;
+    QString statusText;
+    
+    switch (p2pState_) {
+    case P2PState::NotStarted:
+        // Red indicator - P2P not started
+        indicator = "<span style='color: #e74c3c; font-size: 14px;'>●</span>";
+        statusText = tr("P2P: Not Started");
+        break;
+    case P2PState::NoConnection:
+        // Yellow/Orange indicator - No peers
+        indicator = "<span style='color: #f39c12; font-size: 14px;'>●</span>";
+        statusText = tr("P2P: No Peers");
+        break;
+    case P2PState::Connected:
+        // Green indicator - Connected to peers
+        indicator = "<span style='color: #27ae60; font-size: 14px;'>●</span>";
+        statusText = tr("P2P: Connected");
+        break;
+    }
+    
+    p2pStatusLabel->setText(QString("%1 %2").arg(indicator, statusText));
+}
+
+void MainWindow::updateNetworkStatus()
+{
+    // Update DHT node count periodically
+    if (p2pNetwork && p2pNetwork->isRunning()) {
+        size_t dhtNodes = p2pNetwork->getDhtNodeCount();
+        bool dhtRunning = p2pNetwork->isDhtRunning();
+        
+        if (dhtRunning) {
+            dhtNodeCountLabel->setText(tr("🌐 DHT: %1 nodes").arg(dhtNodes));
+        } else {
+            dhtNodeCountLabel->setText(tr("🌐 DHT: Offline"));
+        }
+    } else if (p2pState_ != P2PState::NotStarted) {
+        dhtNodeCountLabel->setText(tr("🌐 DHT: Offline"));
+    }
 }
 
 void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
