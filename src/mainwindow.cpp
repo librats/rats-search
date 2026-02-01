@@ -1253,13 +1253,6 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
 void MainWindow::onP2PStatusChanged(const QString &status)
 {
     p2pStatusLabel->setText(tr("P2P: %1").arg(status));
-    
-    // Update cached P2P connection status
-    if (p2pNetwork) {
-        cachedP2pConnected_ = p2pNetwork->isConnected();
-        cachedDhtNodes_ = static_cast<int>(p2pNetwork->getDhtNodeCount());
-    }
-    updateStatisticsTab();
 }
 
 void MainWindow::onPeerCountChanged(int count)
@@ -1271,6 +1264,7 @@ void MainWindow::onPeerCountChanged(int count)
     if (p2pNetwork) {
         cachedDhtNodes_ = static_cast<int>(p2pNetwork->getDhtNodeCount());
         cachedP2pConnected_ = p2pNetwork->isConnected();
+        p2pStatusLabel->setText(tr("P2P: %1").arg(cachedP2pConnected_ ? "Connected" : "Disconnected"));
     }
     
     // Update statistics tab with new P2P data

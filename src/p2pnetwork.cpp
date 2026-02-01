@@ -108,7 +108,7 @@ bool P2PNetwork::start()
         updateTimer_->start(1000);  // Update every second
         
         emit started();
-        emit statusChanged("Connected");
+        emit statusChanged("Started");
         
         qInfo() << "P2P network started successfully";
         qInfo() << "Our peer ID:" << QString::fromStdString(ratsClient_->get_our_peer_id());
@@ -148,7 +148,7 @@ void P2PNetwork::stop()
     
     running_ = false;
     emit stopped();
-    emit statusChanged("Disconnected");
+    emit statusChanged("Stopped");
     
     qInfo() << "P2P network stopped";
 }
