@@ -501,6 +501,13 @@ void RatsAPI::setupP2PHandlers()
             handleP2PFeedResponse(peerId, data);
         });
     
+    // Handler for torrent_response (response to our torrent request from remote peer)
+    // This saves received torrent metadata to our database for replication
+    d->p2p->registerMessageHandler("torrent_response",
+        [this](const QString& peerId, const QJsonObject& data) {
+            handleP2PTorrentResponse(peerId, data);
+        });
+    
     // Handler for randomTorrents (P2P replication)
     d->p2p->registerMessageHandler("randomTorrents",
         [this](const QString& peerId, const QJsonObject& data) {
@@ -897,40 +904,7 @@ void RatsAPI::getTorrent(const QString& hash,
         
         // Send request to specific peer
         d->p2p->sendMessage(remotePeer, "torrent", request);
-        
-        // Register one-time handler for the response
-        QString responseType = QString("torrent_response:%1").arg(hash);
-        auto callbackCopy = callback;  // Copy for capture
-        
-        d->p2p->registerMessageHandler(responseType, 
-            [this, hash, callbackCopy, responseType](const QString& peerId, const QJsonObject& data) {
-                Q_UNUSED(peerId);
-                
-                // Unregister the handler (one-time)
-                d->p2p->unregisterMessageHandler(responseType);
-                
-                if (data.isEmpty() || !data.contains("hash")) {
-                    if (callbackCopy) callbackCopy(ApiResponse::fail("Remote peer did not have torrent"));
-                    return;
-                }
-                
-                // Replicate torrent to our database
-                insertTorrentFromFeed(data);
-                
-                // Mark as remote
-                QJsonObject result = data;
-                result["remote"] = true;
-                
-                if (callbackCopy) callbackCopy(ApiResponse::ok(result));
-            });
-        
-        // Timeout handler - will remove after 10 seconds if no response
-        QTimer::singleShot(10000, this, [this, responseType, callbackCopy]() {
-            // Check if handler still registered (no response received)
-            d->p2p->unregisterMessageHandler(responseType);
-            // Note: callback might have been called already, that's okay
-        });
-        
+
         return;
     }
     
@@ -2397,6 +2371,54 @@ void RatsAPI::handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject&
     insertTorrentFromFeed(data);
     
     emit torrentIndexed(hash, name);
+}
+
+void RatsAPI::handleP2PTorrentResponse(const QString& peerId, const QJsonObject& data)
+{
+    // Received torrent data from a remote peer (response to our 'torrent' request)
+    // This should be saved to our database for replication
+    
+    QString hash = data["hash"].toString();
+    if (hash.isEmpty()) {
+        hash = data["info_hash"].toString();
+    }
+    
+    if (hash.length() != 40) {
+        qWarning() << "Invalid torrent_response from" << peerId.left(8) << "- invalid hash";
+        return;
+    }
+    
+    QString name = data["name"].toString();
+    if (name.isEmpty()) {
+        qWarning() << "Invalid torrent_response from" << peerId.left(8) << "- empty name";
+        return;
+    }
+    
+    qInfo() << "Received torrent_response from" << peerId.left(8) << ":" << name.left(50) 
+            << "hash:" << hash.left(16);
+    
+    // First, emit signal for UI to receive the data (even if torrent already exists)
+    // This is important for getTorrent requests that need the response
+    QJsonObject torrentData = data;
+    torrentData["peer"] = peerId;
+    torrentData["remote"] = true;
+    emit remoteTorrentReceived(hash, torrentData);
+    
+    // Use the standard insertion method to save the torrent
+    // This handles content type detection, filtering, and proper database insertion
+    if (insertTorrentFromFeed(data)) {
+        qInfo() << "P2P: Saved torrent from peer" << peerId.left(8) << ":" << name.left(40);
+        
+        // Track replication statistics
+        onReplicationTorrentReceived();
+        
+        // Emit signals for UI updates
+        emit torrentIndexed(hash, name);
+        emit replicationProgress(1, d->totalReplicatedTorrents);
+    } else {
+        qDebug() << "P2P: Torrent from peer" << peerId.left(8) 
+                 << "already exists or was rejected:" << hash.left(16);
+    }
 }
 
 void RatsAPI::handleP2PPeerConnected(const QString& peerId)

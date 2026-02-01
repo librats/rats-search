@@ -539,6 +539,22 @@ void MainWindow::connectSignals()
                     searchResultModel->addFileResult(info);
                 }
             });
+        
+        // Handle torrent response from remote peers (for getTorrent with remote peer)
+        connect(api.get(), &RatsAPI::remoteTorrentReceived, this,
+            [this](const QString& hash, const QJsonObject& torrentData) {
+                // Update files widget if this torrent is currently selected
+                if (filesWidget && !hash.isEmpty()) {
+                    QJsonArray files = torrentData["filesList"].toArray();
+                    if (!files.isEmpty()) {
+                        QString name = torrentData["name"].toString();
+                        filesWidget->setFiles(hash, name, files);
+                        filesWidget->show();
+                        verticalSplitter->setSizes({600, 200});
+                        qInfo() << "Remote torrent files received:" << hash.left(16) << "with" << files.size() << "files";
+                    }
+                }
+            });
     }
     
     // ConfigManager signals - for immediate settings application

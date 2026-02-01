@@ -496,6 +496,17 @@ signals:
      * @param total Total number of replicated torrents since start
      */
     void replicationProgress(int replicated, qint64 total);
+    
+    /**
+     * @brief Emitted when a torrent is received from a remote peer
+     * 
+     * This is emitted in response to a getTorrent request to a remote peer.
+     * Contains the full torrent data including file list.
+     * 
+     * @param hash Torrent hash
+     * @param torrentData Full torrent JSON including filesList
+     */
+    void remoteTorrentReceived(const QString& hash, const QJsonObject& torrentData);
 
 private:
     class Private;
@@ -515,6 +526,7 @@ private:
     void handleP2PSearchFilesRequest(const QString& peerId, const QJsonObject& data);
     void handleP2PTopTorrentsRequest(const QString& peerId, const QJsonObject& data);
     void handleP2PTorrentRequest(const QString& peerId, const QJsonObject& data);
+    void handleP2PTorrentResponse(const QString& peerId, const QJsonObject& data);
     void handleP2PFeedRequest(const QString& peerId, const QJsonObject& data);
     void handleP2PSearchResult(const QString& peerId, const QJsonObject& data);
     void handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject& data);
