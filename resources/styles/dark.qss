@@ -1568,3 +1568,32 @@ QTreeWidget#filesTreeBottom QHeaderView::section {
 QTreeWidget#filesTreeBottom QHeaderView::section:last {
     border-right: none;
 }
+
+/* ============================================
+   Activity Widget
+   ============================================ */
+
+QListWidget#activityTorrentList {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3f41;
+    border-radius: 10px;
+    padding: 4px;
+}
+
+QListWidget#activityTorrentList::item {
+    padding: 12px 16px;
+    min-height: 50px;
+    border-radius: 6px;
+    margin: 2px 4px;
+    color: #e0e0e0;
+}
+
+QListWidget#activityTorrentList::item:selected {
+    background-color: #3d6a99;
+    color: #ffffff;
+}
+
+QListWidget#activityTorrentList::item:hover:!selected {
+    background-color: #2d3748;
+    color: #e0e0e0;
+}

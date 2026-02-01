@@ -100,12 +100,8 @@ void ActivityWidget::setupUi()
     torrentList_->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     torrentList_->setSpacing(2);
     
-    // Set custom item height
-    torrentList_->setStyleSheet(
-        "QListWidget::item { padding: 12px 16px; min-height: 50px; }"
-        "QListWidget::item:selected { background-color: palette(highlight); }"
-        "QListWidget::item:hover { background-color: palette(midlight); }"
-    );
+    // Note: Hover/selection colors are handled by the application theme (light.qss/dark.qss)
+    // We only set padding and height here
     
     connect(torrentList_, &QListWidget::itemClicked, this, &ActivityWidget::onItemClicked);
     connect(torrentList_, &QListWidget::itemDoubleClicked, this, &ActivityWidget::onItemDoubleClicked);
