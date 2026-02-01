@@ -250,36 +250,6 @@ void MainWindow::setupUi()
     searchTabLayout->addWidget(resultsTableView);
     tabWidget->addTab(searchTab, tr("Search Results"));
     
-    // Statistics tab
-    QWidget *statsTab = new QWidget();
-    QVBoxLayout *statsTabLayout = new QVBoxLayout(statsTab);
-    statsTabLayout->setContentsMargins(16, 16, 16, 16);
-    statsTabLayout->setSpacing(16);
-    
-    // P2P Stats
-    QGroupBox *p2pGroup = new QGroupBox(tr("P2P Network"));
-    QVBoxLayout *p2pLayout = new QVBoxLayout(p2pGroup);
-    statsP2pLabel = new QLabel(tr("Connected peers: %1").arg(0) + "\n" + 
-                               tr("DHT nodes: %1").arg(0) + "\n" + 
-                               tr("Status: %1").arg(tr("Starting...")));
-    statsP2pLabel->setObjectName("subtitleLabel");
-    p2pLayout->addWidget(statsP2pLabel);
-    
-    // Database Stats
-    QGroupBox *dbGroup = new QGroupBox(tr("Database"));
-    QVBoxLayout *dbLayout = new QVBoxLayout(dbGroup);
-    statsDbLabel = new QLabel(tr("Indexed torrents: %1").arg(0) + "\n" + 
-                              tr("Total files: %1").arg(0) + "\n" + 
-                              tr("Database size: %1 MB").arg(0));
-    statsDbLabel->setObjectName("subtitleLabel");
-    dbLayout->addWidget(statsDbLabel);
-    
-    statsTabLayout->addWidget(p2pGroup);
-    statsTabLayout->addWidget(dbGroup);
-    statsTabLayout->addStretch();
-    
-    tabWidget->addTab(statsTab, tr("Statistics"));
-    
     // Top Torrents tab (migrated from legacy/app/top-page.js)
     topTorrentsWidget = new TopTorrentsWidget(this);
     connect(topTorrentsWidget, &TopTorrentsWidget::torrentSelected,
@@ -396,12 +366,6 @@ void MainWindow::setupMenuBar()
     QAction *quitAction = fileMenu->addAction(tr("&Quit"));
     quitAction->setShortcut(QKeySequence::Quit);
     connect(quitAction, &QAction::triggered, this, &QMainWindow::close);
-    
-    // View menu
-    QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
-    
-    QAction *statsAction = viewMenu->addAction(tr("&Statistics"));
-    connect(statsAction, &QAction::triggered, this, &MainWindow::showStatistics);
     
     // Help menu
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -722,25 +686,6 @@ void MainWindow::initializeServicesDeferred()
     }
     
     qInfo() << "Total deferred initialization:" << timer.elapsed() << "ms";
-    // Connect to database statistics signal (updated incrementally like legacy spider.js)
-    connect(torrentDatabase.get(), &TorrentDatabase::statisticsChanged,
-            this, &MainWindow::onDatabaseStatisticsChanged);
-    
-    // Load initial statistics from database (one-time, cached)
-    auto stats = torrentDatabase->getStatistics();
-    cachedTorrents_ = stats.totalTorrents;
-    cachedFiles_ = stats.totalFiles;
-    cachedTotalSize_ = stats.totalSize;
-    
-    // Load initial P2P statistics
-    if (p2pNetwork) {
-        cachedPeerCount_ = p2pNetwork->getPeerCount();
-        cachedDhtNodes_ = static_cast<int>(p2pNetwork->getDhtNodeCount());
-        cachedP2pConnected_ = p2pNetwork->isConnected();
-    }
-    
-    // Initial UI update
-    updateStatisticsTab();
     
     // Setup update manager and check for updates on startup
     if (updateManager) {
@@ -876,42 +821,6 @@ void MainWindow::updateStatusBar()
         });
     }
 }
-
-void MainWindow::updateStatisticsTab()
-{
-    // Update P2P statistics from cached values (no DB query)
-    if (statsP2pLabel) {
-        QString statusText = cachedP2pConnected_ ? tr("Connected") : tr("Disconnected");
-        
-        statsP2pLabel->setText(
-            tr("Connected peers: %1").arg(cachedPeerCount_) + "\n" +
-            tr("DHT nodes: %1").arg(cachedDhtNodes_) + "\n" +
-            tr("Status: %1").arg(statusText)
-        );
-    }
-    
-    // Update database statistics from cached values (no DB query)
-    if (statsDbLabel) {
-        // Convert size to appropriate unit
-        QString sizeStr;
-        if (cachedTotalSize_ >= 1024LL * 1024 * 1024 * 1024) {
-            sizeStr = QString("%1 TB").arg(cachedTotalSize_ / (1024.0 * 1024 * 1024 * 1024), 0, 'f', 2);
-        } else if (cachedTotalSize_ >= 1024LL * 1024 * 1024) {
-            sizeStr = QString("%1 GB").arg(cachedTotalSize_ / (1024.0 * 1024 * 1024), 0, 'f', 2);
-        } else if (cachedTotalSize_ >= 1024LL * 1024) {
-            sizeStr = QString("%1 MB").arg(cachedTotalSize_ / (1024.0 * 1024), 0, 'f', 2);
-        } else {
-            sizeStr = QString("%1 KB").arg(cachedTotalSize_ / 1024.0, 0, 'f', 2);
-        }
-        
-        statsDbLabel->setText(
-            tr("Indexed torrents: %1").arg(cachedTorrents_) + "\n" +
-            tr("Total files: %1").arg(cachedFiles_) + "\n" +
-            tr("Total size: %1").arg(sizeStr)
-        );
-    }
-}
-
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
@@ -1257,32 +1166,13 @@ void MainWindow::onP2PStatusChanged(const QString &status)
 
 void MainWindow::onPeerCountChanged(int count)
 {
-    cachedPeerCount_ = count;
     peerCountLabel->setText(tr("Peers: %1").arg(count));
     
-    // Also update DHT nodes from P2P network
+    // Update P2P status
     if (p2pNetwork) {
-        cachedDhtNodes_ = static_cast<int>(p2pNetwork->getDhtNodeCount());
-        cachedP2pConnected_ = p2pNetwork->isConnected();
-        p2pStatusLabel->setText(tr("P2P: %1").arg(cachedP2pConnected_ ? "Connected" : "Disconnected"));
+        bool connected = p2pNetwork->isConnected();
+        p2pStatusLabel->setText(tr("P2P: %1").arg(connected ? "Connected" : "Disconnected"));
     }
-    
-    // Update statistics tab with new P2P data
-    updateStatisticsTab();
-}
-
-void MainWindow::onDatabaseStatisticsChanged(qint64 torrents, qint64 files, qint64 totalSize)
-{
-    // Update cached statistics (called when torrent is added/removed)
-    cachedTorrents_ = torrents;
-    cachedFiles_ = files;
-    cachedTotalSize_ = totalSize;
-    
-    // Update status bar
-    torrentCountLabel->setText(QString("📦 Torrents: %1").arg(torrents));
-    
-    // Update statistics tab
-    updateStatisticsTab();
 }
 
 void MainWindow::onSpiderStatusChanged(const QString &status)
@@ -1416,11 +1306,6 @@ void MainWindow::showAbout()
     layout->addLayout(buttonLayout);
     
     dialog.exec();
-}
-
-void MainWindow::showStatistics()
-{
-    tabWidget->setCurrentIndex(1);  // Switch to Statistics tab
 }
 
 void MainWindow::addTorrentFile()
@@ -1676,13 +1561,6 @@ void MainWindow::setupSystemTray()
     connect(showAction, &QAction::triggered, this, &MainWindow::toggleWindowVisibility);
     
     trayMenu->addSeparator();
-    
-    QAction *statsAction = trayMenu->addAction(tr("Statistics"));
-    connect(statsAction, &QAction::triggered, [this]() {
-        show();
-        activateWindow();
-        showStatistics();
-    });
     
     QAction *settingsAction = trayMenu->addAction(tr("Settings"));
     connect(settingsAction, &QAction::triggered, [this]() {
