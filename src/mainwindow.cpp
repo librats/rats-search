@@ -257,9 +257,9 @@ void MainWindow::setupUi()
             this, [this](const TorrentInfo& torrent) {
                 detailsPanel->setTorrent(torrent);
                 detailsPanel->show();
-                // Fetch files for bottom panel
+                // Fetch files for bottom panel (use remote peer if available)
                 if (api) {
-                    api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+                    api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
                         if (response.success) {
                             QJsonObject data = response.data.toObject();
                             QJsonArray files = data["filesList"].toArray();
@@ -287,9 +287,9 @@ void MainWindow::setupUi()
             this, [this](const TorrentInfo& torrent) {
                 detailsPanel->setTorrent(torrent);
                 detailsPanel->show();
-                // Fetch files for bottom panel
+                // Fetch files for bottom panel (use remote peer if available)
                 if (api) {
-                    api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+                    api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
                         if (response.success) {
                             QJsonObject data = response.data.toObject();
                             QJsonArray files = data["filesList"].toArray();
@@ -321,9 +321,9 @@ void MainWindow::setupUi()
             this, [this](const TorrentInfo& torrent) {
                 detailsPanel->setTorrent(torrent);
                 detailsPanel->show();
-                // Fetch files for bottom panel
+                // Fetch files for bottom panel (use remote peer if available)
                 if (api) {
-                    api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+                    api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
                         if (response.success) {
                             QJsonObject data = response.data.toObject();
                             QJsonArray files = data["filesList"].toArray();
@@ -517,6 +517,10 @@ void MainWindow::connectSignals()
                     info.bad = obj["bad"].toInt();
                     info.isFileMatch = obj["isFileMatch"].toBool(true);
                     
+                    // Track source peer for remote fetch (priority over DHT)
+                    info.sourcePeerId = obj["peer"].toString();
+                    info.isRemoteResult = obj["remote"].toBool(false) || !info.sourcePeerId.isEmpty();
+                    
                     // Get matching paths
                     if (obj.contains("matchingPaths")) {
                         QJsonArray paths = obj["matchingPaths"].toArray();
@@ -646,6 +650,10 @@ void MainWindow::initializeServicesDeferred()
             info.size = obj["size"].toVariant().toLongLong();
             info.seeders = obj["seeders"].toInt();
             info.leechers = obj["leechers"].toInt();
+            
+            // Track source peer for remote fetch (priority over DHT)
+            info.sourcePeerId = obj["peer"].toString();
+            info.isRemoteResult = obj["remote"].toBool(false) || !info.sourcePeerId.isEmpty();
             
             if (info.isValid()) {
                 searchResultModel->addResult(info);
@@ -1046,9 +1054,10 @@ void MainWindow::onTorrentSelected(const QModelIndex &index)
         // Clear files widget while loading
         filesWidget->clear();
         
-        // Fetch full details with files from database/DHT
+        // Fetch full details with files from remote peer (priority) or database/DHT
+        // If torrent came from P2P search, use sourcePeerId for faster direct fetch
         if (api) {
-            api->getTorrent(torrent.hash, true, QString(), [this, torrent](const ApiResponse& response) {
+            api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
                 if (response.success) {
                     QJsonObject data = response.data.toObject();
                     QJsonArray files = data["filesList"].toArray();
@@ -1128,9 +1137,9 @@ void MainWindow::onTabChanged(int index)
         detailsPanel->setTorrent(selectedTorrent);
         detailsPanel->show();
         
-        // Fetch files for bottom panel
+        // Fetch files for bottom panel (use remote peer if available)
         if (api) {
-            api->getTorrent(selectedTorrent.hash, true, QString(), [this, selectedTorrent](const ApiResponse& response) {
+            api->getTorrent(selectedTorrent.hash, true, selectedTorrent.sourcePeerId, [this, selectedTorrent](const ApiResponse& response) {
                 if (response.success) {
                     QJsonObject data = response.data.toObject();
                     QJsonArray files = data["filesList"].toArray();

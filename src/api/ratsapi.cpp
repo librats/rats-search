@@ -448,6 +448,8 @@ void RatsAPI::setupP2PHandlers()
             
             QJsonObject torrentData = data;
             torrentData["isFileMatch"] = true;
+            torrentData["remote"] = true;
+            torrentData["peer"] = peerId;  // Track source peer for remote fetch
             
             // Convert 'path' array to 'matchingPaths' for consistency
             if (data.contains("path")) {
@@ -458,6 +460,26 @@ void RatsAPI::setupP2PHandlers()
             emit remoteFileSearchResults(searchQuery, torrents);
             
             qInfo() << "Received file search result from" << peerId.left(8) << "for query:" << searchQuery;
+        });
+    
+    // Handler for top torrents response (incoming results from remote peers)
+    d->p2p->registerMessageHandler("topTorrents_response",
+        [this](const QString& peerId, const QJsonObject& data) {
+            QString type = data["type"].toString();
+            QString time = data["time"].toString();
+            QJsonArray torrents = data["torrents"].toArray();
+            
+            // Add source peer to each torrent for remote fetch
+            QJsonArray torrentsWithPeer;
+            for (const QJsonValue& val : torrents) {
+                QJsonObject obj = val.toObject();
+                obj["peer"] = peerId;
+                obj["remote"] = true;
+                torrentsWithPeer.append(obj);
+            }
+            
+            qInfo() << "Received" << torrentsWithPeer.size() << "top torrents from" << peerId.left(8);
+            emit remoteTopTorrents(torrentsWithPeer, type, time);
         });
     
     // Handler for torrent announcements

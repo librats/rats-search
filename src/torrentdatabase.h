@@ -52,6 +52,10 @@ struct TorrentInfo {
     QStringList matchingPaths;   // Highlighted file path snippets with <b> tags
     bool isFileMatch = false;    // True if this result came from file search
     
+    // P2P source tracking - for fetching details from remote peer
+    QString sourcePeerId;        // ID of peer that provided this result (for remote fetch)
+    bool isRemoteResult = false; // True if result came from P2P search
+    
     // Helper methods
     bool isValid() const { return !hash.isEmpty() && hash.length() == 40; }
     QString contentTypeString() const;

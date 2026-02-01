@@ -330,6 +330,10 @@ void TopTorrentsWidget::handleRemoteTopTorrents(const QJsonArray& torrents, cons
         info.completed = obj["completed"].toInt();
         info.contentType = obj["contentType"].toString();
         
+        // Track source peer for remote fetch (priority over DHT)
+        info.sourcePeerId = obj["peer"].toString();
+        info.isRemoteResult = obj["remote"].toBool(false) || !info.sourcePeerId.isEmpty();
+        
         if (info.isValid()) {
             torrentList.append(info);
         }
