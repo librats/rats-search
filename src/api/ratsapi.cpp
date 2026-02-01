@@ -20,6 +20,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QFileInfo>
 #include <QMutex>
 #include <QMutexLocker>
 
@@ -210,6 +211,8 @@ RatsAPI::InsertResult RatsAPI::processAndInsertTorrent(TorrentInfo& torrent,
         return result;
     }
     
+    qDebug() << "Processing torrent:" << torrent.hash.left(16) << torrent.name.left(40);
+    
     // Check if torrent already exists
     TorrentInfo existing = d->database->getTorrent(torrent.hash);
     if (existing.isValid()) {
@@ -236,6 +239,7 @@ RatsAPI::InsertResult RatsAPI::processAndInsertTorrent(TorrentInfo& torrent,
     // Check filters before inserting
     QString rejectionReason = getTorrentRejectionReason(torrent);
     if (!rejectionReason.isEmpty()) {
+        qInfo() << "Torrent rejected:" << torrent.hash.left(16) << "-" << rejectionReason;
         result.error = "Rejected: " + rejectionReason;
         return result;
     }
@@ -245,6 +249,9 @@ RatsAPI::InsertResult RatsAPI::processAndInsertTorrent(TorrentInfo& torrent,
     
     result.success = true;
     result.torrent = torrent;
+    
+    qInfo() << "Torrent indexed:" << torrent.hash.left(16) << torrent.name.left(50) 
+            << "size:" << (torrent.size / (1024*1024)) << "MB files:" << torrent.files;
     
     // Emit signal for UI updates
     if (emitSignal) {
@@ -504,7 +511,7 @@ void RatsAPI::setupP2PHandlers()
     d->p2p->registerMessageHandler("randomTorrents_response",
         [this](const QString& peerId, const QJsonObject& data) {
             QJsonArray torrents = data["torrents"].toArray();
-            qInfo() << "Received" << torrents.size() << "random torrents from" << peerId.left(8);
+            qDebug() << "Received" << torrents.size() << "random torrents from" << peerId.left(8);
             
             int inserted = 0;
             for (const QJsonValue& val : torrents) {
@@ -522,7 +529,7 @@ void RatsAPI::setupP2PHandlers()
             }
             
             if (inserted > 0) {
-                qInfo() << "Replicated" << inserted << "new torrents from" << peerId.left(8);
+                qInfo() << "P2P: Replicated" << inserted << "torrents from peer" << peerId.left(8);
                 
                 // Emit signal to update UI (statusbar, etc.)
                 emit replicationProgress(inserted, d->totalReplicatedTorrents);
@@ -711,6 +718,8 @@ void RatsAPI::searchTorrents(const QString& text,
         query = text;
     }
     
+    qInfo() << "API: searchTorrents query:" << query.left(40) << "limit:" << options["limit"].toInt(10);
+    
     SearchOptions opts;
     opts.query = query;
     opts.index = options["index"].toInt(0);
@@ -865,6 +874,7 @@ void RatsAPI::getTorrent(const QString& hash,
                           ApiCallback callback)
 {
     if (hash.length() != 40) {
+        qWarning() << "API: getTorrent invalid hash length:" << hash.length();
         if (callback) callback(ApiResponse::fail("Invalid hash"));
         return;
     }
@@ -876,7 +886,7 @@ void RatsAPI::getTorrent(const QString& hash,
     
     // Handle remote peer request via P2P (like legacy api.js:128-161)
     if (!remotePeer.isEmpty() && d->p2p) {
-        qInfo() << "Fetching torrent" << hash.left(8) << "from remote peer" << remotePeer.left(8);
+        qInfo() << "API: getTorrent" << hash.left(16) << "from remote peer" << remotePeer.left(8);
         
         QJsonObject request;
         request["hash"] = hash;
@@ -933,13 +943,14 @@ void RatsAPI::getTorrent(const QString& hash,
             if (d->p2p && d->p2p->isBitTorrentEnabled()) {
                 auto* client = d->p2p->getRatsClient();
                 if (client && client->is_bittorrent_enabled()) {
-                    qInfo() << "Torrent" << hash.left(8) << "not in DB, trying DHT metadata lookup...";
+                    qInfo() << "DHT: Looking up metadata for" << hash.left(16);
                     
                     // Use get_torrent_metadata to fetch via DHT/BEP9
                     client->get_torrent_metadata(hash.toStdString(),
                         [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
                             if (success && libratsTorrent.is_valid()) {
-                                qInfo() << "DHT metadata lookup succeeded for" << hash.left(8);
+                                qInfo() << "DHT: Metadata received for" << hash.left(16) 
+                                        << "name:" << QString::fromStdString(libratsTorrent.name()).left(40);
                                 
                                 // Use helper to create and insert torrent
                                 TorrentInfo torrent = createTorrentFromLibrats(hash, libratsTorrent);
@@ -964,8 +975,8 @@ void RatsAPI::getTorrent(const QString& hash,
                                     if (callback) callback(ApiResponse::ok(result));
                                 }, Qt::QueuedConnection);
                             } else {
-                                qInfo() << "DHT metadata lookup failed for" << hash.left(8) 
-                                        << ":" << QString::fromStdString(error);
+                                qInfo() << "DHT: Metadata lookup failed for" << hash.left(16) 
+                                        << "-" << QString::fromStdString(error);
                                 QMetaObject::invokeMethod(this, [callback]() {
                                     if (callback) callback(ApiResponse::fail("Torrent not found"));
                                 }, Qt::QueuedConnection);
@@ -976,6 +987,7 @@ void RatsAPI::getTorrent(const QString& hash,
             }
 #endif
             // No DHT available or not enabled
+            qDebug() << "Torrent not found in DB and DHT unavailable:" << hash.left(16);
             if (callback) {
                 QMetaObject::invokeMethod(this, [callback]() {
                     callback(ApiResponse::fail("Torrent not found"));
@@ -1091,6 +1103,8 @@ void RatsAPI::downloadAdd(const QString& hash,
                            const QString& savePath,
                            ApiCallback callback)
 {
+    qInfo() << "API: downloadAdd hash:" << hash.left(16) << "path:" << savePath;
+    
     if (hash.length() != 40) {
         if (callback) callback(ApiResponse::fail("Invalid hash"));
         return;
@@ -1120,6 +1134,8 @@ void RatsAPI::downloadAdd(const QString& hash,
 
 void RatsAPI::downloadCancel(const QString& hash, ApiCallback callback)
 {
+    qInfo() << "API: downloadCancel hash:" << hash.left(16);
+    
     if (!d->torrentClient) {
         if (callback) callback(ApiResponse::fail("Torrent client not initialized"));
         return;
@@ -1128,6 +1144,7 @@ void RatsAPI::downloadCancel(const QString& hash, ApiCallback callback)
     bool found = d->torrentClient->isDownloading(hash);
     if (found) {
         d->torrentClient->stopTorrent(hash);
+        qInfo() << "Download cancelled:" << hash.left(16);
     }
     if (callback) {
         callback(found ? ApiResponse::ok() : ApiResponse::fail("Download not found"));
@@ -1292,6 +1309,10 @@ void RatsAPI::setConfig(const QJsonObject& options, ApiCallback callback)
     
     QStringList changed = d->config->fromJson(options);
     
+    if (!changed.isEmpty()) {
+        qInfo() << "API: config changed keys:" << changed.join(", ");
+    }
+    
     QJsonObject result;
     result["changed"] = QJsonArray::fromStringList(changed);
     
@@ -1304,6 +1325,8 @@ void RatsAPI::setConfig(const QJsonObject& options, ApiCallback callback)
 
 void RatsAPI::vote(const QString& hash, bool isGood, ApiCallback callback)
 {
+    qInfo() << "API: vote hash:" << hash.left(16) << "isGood:" << isGood;
+    
     if (hash.length() != 40) {
         if (callback) callback(ApiResponse::fail("Invalid hash"));
         return;
@@ -1490,6 +1513,8 @@ void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
 
 void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
 {
+    qInfo() << "API: removeTorrents checkOnly:" << checkOnly;
+    
     if (!d->database) {
         if (callback) callback(ApiResponse::fail("Database not initialized"));
         return;
@@ -1587,6 +1612,8 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
 void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
 {
 #ifdef RATS_SEARCH_FEATURES
+    qInfo() << "API: addTorrentFile" << QFileInfo(filePath).fileName();
+    
     if (filePath.isEmpty()) {
         if (callback) callback(ApiResponse::fail("Empty file path"));
         return;
@@ -1657,6 +1684,8 @@ void RatsAPI::createTorrent(const QString& path,
                             ApiCallback callback)
 {
 #ifdef RATS_SEARCH_FEATURES
+    qInfo() << "API: createTorrent" << path << "seeding:" << startSeeding;
+    
     if (path.isEmpty()) {
         if (callback) callback(ApiResponse::fail("Empty path"));
         return;
@@ -1838,8 +1867,9 @@ void RatsAPI::createTorrent(const QString& path,
         return;
     }
     
-    qInfo() << "Created torrent:" << insertResult.torrent.name.left(50) << "hash:" << hash.left(8) 
-            << (startSeeding ? "(seeding)" : "(indexed only)");
+    qInfo() << "Torrent created:" << insertResult.torrent.name.left(50) << "hash:" << hash.left(16) 
+            << "size:" << (insertResult.torrent.size / (1024*1024)) << "MB"
+            << (startSeeding ? "seeding" : "indexed");
     
     QJsonObject result = torrentInfoToJson(insertResult.torrent);
     result["alreadyExists"] = insertResult.alreadyExists;
@@ -2371,9 +2401,11 @@ void RatsAPI::handleP2PTorrentAnnounce(const QString& peerId, const QJsonObject&
 
 void RatsAPI::handleP2PPeerConnected(const QString& peerId)
 {
+    qInfo() << "P2P: Peer connected:" << peerId.left(16);
+    
     // Request feed from newly connected peer (for P2P feed sync)
     if (d->p2p && d->feedManager) {
-        qInfo() << "Requesting feed from new peer" << peerId.left(8);
+        qDebug() << "Requesting feed from new peer" << peerId.left(8);
         
         QJsonObject request;
         request["localSize"] = d->feedManager->size();
@@ -2448,12 +2480,12 @@ void RatsAPI::startReplication()
     }
     
     if (!d->config->p2pReplication()) {
-        qInfo() << "P2P replication is disabled in config";
+        qInfo() << "P2P: Replication disabled in config";
         return;
     }
     
     if (d->replicationTimer->isActive()) {
-        qInfo() << "Replication timer already running";
+        qDebug() << "Replication timer already running";
         return;
     }
     
@@ -2461,7 +2493,7 @@ void RatsAPI::startReplication()
     d->replicationTorrentsReceived = 0;
     d->replicationTimer->start(d->replicationInterval);
     
-    qInfo() << "P2P replication started (interval:" << d->replicationInterval << "ms)";
+    qInfo() << "P2P: Replication started, interval:" << d->replicationInterval << "ms";
     emit replicationStarted();
 }
 
@@ -2473,7 +2505,7 @@ void RatsAPI::stopReplication()
     
     if (d->replicationTimer->isActive()) {
         d->replicationTimer->stop();
-        qInfo() << "P2P replication stopped (total replicated:" << d->totalReplicatedTorrents << ")";
+        qInfo() << "P2P: Replication stopped, total replicated:" << d->totalReplicatedTorrents;
         emit replicationStopped();
     }
 }
@@ -2502,11 +2534,11 @@ void RatsAPI::performReplicationCycle()
     
     int peerCount = d->p2p->getPeerCount();
     if (peerCount == 0) {
-        qInfo() << "Replication: No peers connected, skipping cycle";
+        qDebug() << "Replication: No peers connected, skipping cycle";
         return;
     }
     
-    qInfo() << "Replication cycle: requesting random torrents from" << peerCount << "peers";
+    qDebug() << "Replication cycle: requesting from" << peerCount << "peers";
     
     // Reset counter for this cycle
     d->replicationTorrentsReceived = 0;
@@ -2539,8 +2571,8 @@ void RatsAPI::performReplicationCycle()
         
         if (received > 0) {
             d->totalReplicatedTorrents += received;
-            qInfo() << "Replication: received" << received << "torrents, total:" 
-                    << d->totalReplicatedTorrents << ", next interval:" << d->replicationInterval << "ms";
+            qInfo() << "P2P: Replicated" << received << "torrents, total:" 
+                    << d->totalReplicatedTorrents << "next interval:" << d->replicationInterval << "ms";
         }
     });
 }

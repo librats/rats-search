@@ -800,6 +800,7 @@ void MainWindow::performSearch(const QString &query)
     }
     
     currentSearchQuery_ = query;
+    qInfo() << "Search started:" << query.left(50) << (query.length() > 50 ? "..." : "");
     statusBar()->showMessage("🔍 Searching...", 2000);
     
     // Switch to Search Results tab when searching
@@ -903,10 +904,12 @@ void MainWindow::updateStatusBar()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    qInfo() << "Close event received, services running:" << servicesStarted_;
+    
     // Hide to tray instead of closing if enabled
     bool closeToTray = config ? config->trayOnClose() : false;
     if (closeToTray && trayIcon && trayIcon->isVisible()) {
-        qInfo() << "Closing to tray";
+        qInfo() << "Minimizing to system tray instead of closing";
         hide();
         if (!trayNotificationShown_) {
             trayIcon->showMessage("Rats Search", 
@@ -1188,6 +1191,8 @@ void MainWindow::onMagnetLinkRequested(const QString &hash, const QString &name)
 
 void MainWindow::onDownloadRequested(const QString &hash)
 {
+    qInfo() << "Download requested for torrent:" << hash.left(16);
+    
     // Show popup menu to choose download location
     QMenu menu(this);
     menu.setStyleSheet(this->styleSheet());
@@ -1241,8 +1246,10 @@ void MainWindow::onDownloadRequested(const QString &hash)
     
     // Start the download
     if (api) {
+        qInfo() << "Starting download:" << hash.left(16) << "to:" << downloadPath;
         api->downloadAdd(hash, downloadPath, [this, hash](const ApiResponse& response) {
             if (response.success) {
+                qInfo() << "Download started successfully:" << hash.left(16);
                 statusBar()->showMessage("⬇️ Download started", 2000);
                 
                 // Update details panel to show download in progress
@@ -1250,6 +1257,7 @@ void MainWindow::onDownloadRequested(const QString &hash)
                     detailsPanel->setDownloadProgress(0.0, 0, 0, 0);
                 }
             } else {
+                qWarning() << "Download failed:" << hash.left(16) << "-" << response.error;
                 QMessageBox::warning(this, "Download Failed", response.error);
             }
         });
@@ -1408,11 +1416,14 @@ void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
 
 void MainWindow::onDarkModeChanged(bool enabled)
 {
+    qInfo() << "Theme changed to:" << (enabled ? "dark" : "light");
     applyTheme(enabled);
 }
 
 void MainWindow::onLanguageChanged(const QString& languageCode)
 {
+    qInfo() << "Language changed to:" << languageCode;
+    
     // Use TranslationManager to switch language at runtime
     auto& translationManager = TranslationManager::instance();
     translationManager.setLanguage(languageCode);
@@ -1424,10 +1435,12 @@ void MainWindow::showSettings()
 {
     if (!config) return;
     
+    qInfo() << "Opening settings dialog";
     SettingsDialog dialog(config.get(), api.get(), dataDirectory_, this);
     dialog.setStyleSheet(this->styleSheet());
     
     if (dialog.exec() == QDialog::Accepted) {
+        qInfo() << "Settings saved by user";
         // Show restart message only for settings that genuinely require restart
         if (dialog.needsRestart()) {
             QMessageBox::information(this, tr("Restart Required"), 
@@ -1516,6 +1529,8 @@ void MainWindow::showAbout()
 
 void MainWindow::addTorrentFile()
 {
+    qInfo() << "Add torrent file dialog opened";
+    
     // Open file dialog to select .torrent file
     QString filePath = QFileDialog::getOpenFileName(
         this,
@@ -1534,11 +1549,14 @@ void MainWindow::addTorrentFile()
     }
     
     api->addTorrentFile(filePath, [this, filePath](const ApiResponse& response) {
-        Q_UNUSED(filePath);
         if (response.success) {
             QJsonObject data = response.data.toObject();
             QString name = data["name"].toString();
+            QString hash = data["hash"].toString();
             bool alreadyExists = data["alreadyExists"].toBool();
+            
+            qInfo() << "Torrent file added:" << QFileInfo(filePath).fileName() 
+                    << "hash:" << hash.left(16) << (alreadyExists ? "(already existed)" : "(new)");
             
             if (alreadyExists) {
                 statusBar()->showMessage(tr("Torrent already in index: %1").arg(name), 3000);
@@ -1556,6 +1574,7 @@ void MainWindow::addTorrentFile()
                 );
             }
         } else {
+            qWarning() << "Failed to add torrent file:" << filePath << "-" << response.error;
             QMessageBox::warning(this, tr("Error"), 
                 tr("Failed to add torrent file:\n%1").arg(response.error));
         }
@@ -1564,6 +1583,8 @@ void MainWindow::addTorrentFile()
 
 void MainWindow::createTorrent()
 {
+    qInfo() << "Create torrent dialog opened";
+    
     // First ask user to select file or folder
     QMenu menu(this);
     menu.setStyleSheet(this->styleSheet());
@@ -1877,6 +1898,8 @@ void MainWindow::checkForUpdates()
 
 void MainWindow::onUpdateAvailable(const QString& version, const QString& releaseNotes)
 {
+    qInfo() << "Update available:" << version << "current:" << UpdateManager::currentVersion();
+    
     // Show update dialog
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Update Available"));
@@ -2007,6 +2030,8 @@ void MainWindow::onUpdateDownloadProgress(int percent)
 
 void MainWindow::onUpdateReady()
 {
+    qInfo() << "Update downloaded and ready to install";
+    
     QMessageBox::StandardButton reply = QMessageBox::question(this,
         tr("Install Update"),
         tr("The update has been downloaded and is ready to install.\n\n"
@@ -2016,6 +2041,8 @@ void MainWindow::onUpdateReady()
         QMessageBox::Yes);
     
     if (reply == QMessageBox::Yes) {
+        qInfo() << "User accepted update installation, preparing to restart...";
+        
         // Save settings before update
         saveSettings();
         
