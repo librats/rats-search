@@ -167,6 +167,7 @@ set(SOURCES
     src/torrentitemdelegate.cpp
     src/torrentdetailspanel.cpp
     src/torrentfileswidget.cpp
+    src/contentdetector.cpp
     # New tab widgets (migrated from legacy)
     src/toptorrentswidget.cpp
     src/feedwidget.cpp
@@ -197,6 +198,7 @@ set(HEADERS
     src/torrentitemdelegate.h
     src/torrentdetailspanel.h
     src/torrentfileswidget.h
+    src/contentdetector.h
     # New tab widgets (migrated from legacy)
     src/toptorrentswidget.h
     src/feedwidget.h

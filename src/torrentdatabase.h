@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <memory>
 
+#include "contentdetector.h"
+
 class ManticoreManager;
 class SphinxQL;
 
@@ -16,7 +18,7 @@ class SphinxQL;
  */
 struct TorrentFile {
     QString path;
-    qint64 size;
+    qint64 size = 0;
 };
 
 /**
@@ -62,38 +64,6 @@ struct TorrentInfo {
     QString contentCategoryString() const;
     void setContentTypeFromString(const QString& type);
     void setContentCategoryFromString(const QString& category);
-};
-
-/**
- * @brief Content type enumeration
- */
-enum class ContentType {
-    Unknown = 0,
-    Video = 1,
-    Audio = 2,
-    Books = 3,
-    Pictures = 4,
-    Software = 5,
-    Games = 6,
-    Archive = 7,
-    Bad = 100
-};
-
-/**
- * @brief Content category enumeration
- */
-enum class ContentCategory {
-    Unknown = 0,
-    Movie = 1,
-    Series = 2,
-    Documentary = 3,
-    Anime = 4,
-    Music = 5,
-    Ebook = 6,
-    Comics = 7,
-    Software = 8,
-    Game = 9,
-    XXX = 100
 };
 
 /**
@@ -255,18 +225,28 @@ public:
     qint64 getNextFilesId();
 
     // =========================================================================
-    // Content Type Helpers
+    // Content Type Helpers (delegated to ContentDetector)
     // =========================================================================
     
-    static int contentTypeId(const QString& type);
-    static QString contentTypeFromId(int id);
-    static int contentCategoryId(const QString& category);
-    static QString contentCategoryFromId(int id);
+    static int contentTypeId(const QString& type) { 
+        return ContentDetector::contentTypeId(type); 
+    }
+    static QString contentTypeFromId(int id) { 
+        return ContentDetector::contentTypeFromId(id); 
+    }
+    static int contentCategoryId(const QString& category) { 
+        return ContentDetector::contentCategoryId(category); 
+    }
+    static QString contentCategoryFromId(int id) { 
+        return ContentDetector::contentCategoryFromId(id); 
+    }
     
     /**
      * @brief Detect content type and category from torrent name and files
      */
-    static void detectContentType(TorrentInfo& torrent);
+    static void detectContentType(TorrentInfo& torrent) {
+        ContentDetector::detectContentType(torrent);
+    }
     
     /**
      * @brief Build search index from torrent name and info

@@ -16,6 +16,7 @@ add_library(rats_testable STATIC
     ${SRC_DIR}/torrentdatabase.cpp
     ${SRC_DIR}/sphinxql.cpp
     ${SRC_DIR}/manticoremanager.cpp
+    ${SRC_DIR}/contentdetector.cpp
     ${SRC_DIR}/api/updatemanager.cpp
     ${SRC_DIR}/api/configmanager.cpp
 )
