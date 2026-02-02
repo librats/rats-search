@@ -18,6 +18,8 @@ QColor TorrentItemDelegate::getContentTypeColor(const QString &contentType)
         {"pictures", QColor("#e31ebc")},
         {"books", QColor("#e3d91e")},
         {"application", QColor("#e3561e")},
+        {"software", QColor("#e3561e")},  // Alias for application
+        {"games", QColor("#9c27b0")},
         {"archive", QColor("#1e25e3")},
         {"disc", QColor("#1ee381")},
         {"unknown", QColor("#888888")}
