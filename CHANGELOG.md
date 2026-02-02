@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.10](https://github.com/DEgITx/rats-search/compare/v2.0.9...v2.0.10) (2026-02-02)
+
+
+### 🐛 Bug Fixes
+
+
+- **search:** Click on torrent always priority to download from remote peer([f9d8cb8](https://github.com/DEgITx/rats-search/commit/f9d8cb84166b101b0849e860a2d0634f8795cdce)) by @DEgITx
+- **replication:** Update torrent counter properly([326b048](https://github.com/DEgITx/rats-search/commit/326b048f7e9f1cba4405004b736674105a952e2f)) by @DEgITx
+- **performance:** Increase performance during replication when inserting torrent([54646ef](https://github.com/DEgITx/rats-search/commit/54646ef6b1ae306cc38f6ba4d8de030270b837d5)) by @DEgITx
+- **replication:** Fix replication for remote torrent open([74ce61a](https://github.com/DEgITx/rats-search/commit/74ce61a8747cd8dbb64c43399e546c29687d20ae)) by @DEgITx
+- **top:** Invalidate cache([b55b32a](https://github.com/DEgITx/rats-search/commit/b55b32af05d355887668f5e84986aed4304ba387)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.9([479f93b](https://github.com/DEgITx/rats-search/commit/479f93b4aaebc975f739a20d46829af84eb67589)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **log:** More log for analyze([9abebe8](https://github.com/DEgITx/rats-search/commit/9abebe807de925e270466f990e29839848e76cf3)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.9](https://github.com/DEgITx/rats-search/compare/v2.0.8...v2.0.9) (2026-02-01)
 
 
