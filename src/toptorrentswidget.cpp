@@ -172,10 +172,12 @@ void TopTorrentsWidget::onCategoryChanged(int index)
         currentCategory_ = categories_.at(index);
         
         QString key = getCacheKey(currentCategory_, currentTime_);
-        if (cache_.contains(key)) {
+        if (cache_.contains(key) && !isCacheStale(key)) {
+            // Use fresh cache
             model_->setResults(cache_[key].torrents);
             statusLabel_->setText(tr("%1 torrents").arg(cache_[key].torrents.size()));
         } else {
+            // Cache miss or stale - reload
             model_->clearResults();
             loadTopTorrents(currentCategory_, currentTime_);
         }
@@ -188,10 +190,12 @@ void TopTorrentsWidget::onTimeFilterChanged(int index)
         currentTime_ = timeFilters_.at(index);
         
         QString key = getCacheKey(currentCategory_, currentTime_);
-        if (cache_.contains(key)) {
+        if (cache_.contains(key) && !isCacheStale(key)) {
+            // Use fresh cache
             model_->setResults(cache_[key].torrents);
             statusLabel_->setText(tr("%1 torrents").arg(cache_[key].torrents.size()));
         } else {
+            // Cache miss or stale - reload
             model_->clearResults();
             loadTopTorrents(currentCategory_, currentTime_);
         }
@@ -302,6 +306,8 @@ void TopTorrentsWidget::mergeTorrents(const QVector<TorrentInfo>& torrents, cons
               });
     
     entry.page++;
+    entry.lastUpdated = QDateTime::currentDateTime();
+    entry.invalidated = false;  // Clear invalidation flag after fresh load
     
     // Update UI if this is the current view
     if (category == currentCategory_ && time == currentTime_) {
@@ -347,4 +353,58 @@ void TopTorrentsWidget::handleRemoteTopTorrents(const QJsonArray& torrents, cons
 QString TopTorrentsWidget::getCacheKey(const QString& category, const QString& time) const
 {
     return category + ":" + time;
+}
+
+bool TopTorrentsWidget::isCacheStale(const QString& key) const
+{
+    if (!cache_.contains(key)) {
+        return true;  // No cache = stale
+    }
+    
+    const CacheEntry& entry = cache_[key];
+    
+    // Check if explicitly invalidated
+    if (entry.invalidated) {
+        return true;
+    }
+    
+    // Check if never loaded
+    if (!entry.lastUpdated.isValid()) {
+        return true;
+    }
+    
+    // Check TTL expiration
+    qint64 ageSeconds = entry.lastUpdated.secsTo(QDateTime::currentDateTime());
+    return ageSeconds > cacheTTL_;
+}
+
+void TopTorrentsWidget::invalidateCache(const QString& category)
+{
+    if (category.isEmpty()) {
+        // Invalidate all cache entries
+        for (auto it = cache_.begin(); it != cache_.end(); ++it) {
+            it->invalidated = true;
+        }
+        qInfo() << "TopTorrentsWidget: All cache invalidated";
+    } else {
+        // Invalidate only entries for this category (all time filters)
+        for (const QString& time : timeFilters_) {
+            QString key = getCacheKey(category, time);
+            if (cache_.contains(key)) {
+                cache_[key].invalidated = true;
+            }
+        }
+        qInfo() << "TopTorrentsWidget: Cache invalidated for category:" << category;
+    }
+}
+
+void TopTorrentsWidget::onTabBecameVisible()
+{
+    // Check if current view's cache is stale
+    QString key = getCacheKey(currentCategory_, currentTime_);
+    
+    if (isCacheStale(key)) {
+        qInfo() << "TopTorrentsWidget: Cache stale for" << key << ", refreshing...";
+        loadTopTorrents(currentCategory_, currentTime_);
+    }
 }

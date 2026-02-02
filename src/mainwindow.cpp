@@ -774,6 +774,13 @@ void MainWindow::initializeServicesDeferred()
         // Connect remote top torrents signal
         connect(api.get(), &RatsAPI::remoteTopTorrents,
                 topTorrentsWidget, &TopTorrentsWidget::handleRemoteTopTorrents);
+        
+        // Invalidate top torrents cache when new torrents are indexed
+        // This ensures fresh data when user switches to the Top tab
+        connect(api.get(), &RatsAPI::torrentIndexed,
+                topTorrentsWidget, [this](const QString&, const QString&) {
+                    topTorrentsWidget->invalidateCache();
+                });
     }
     
     if (activityWidget) {
@@ -1147,6 +1154,8 @@ void MainWindow::onTabChanged(int index)
             selectedTorrent = searchResultModel->getTorrent(idx.row());
         }
     } else if (currentWidget == topTorrentsWidget) {
+        // Notify widget that tab became visible - triggers refresh if cache stale
+        topTorrentsWidget->onTabBecameVisible();
         selectedTorrent = topTorrentsWidget->getSelectedTorrent();
     } else if (currentWidget == feedWidget) {
         selectedTorrent = feedWidget->getSelectedTorrent();

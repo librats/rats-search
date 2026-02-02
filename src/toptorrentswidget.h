@@ -11,6 +11,7 @@
 #include <QLabel>
 #include <QHash>
 #include <QVector>
+#include <QDateTime>
 #include "searchresultmodel.h"
 
 class RatsAPI;
@@ -37,6 +38,29 @@ public:
      * @return Selected torrent or invalid TorrentInfo if none selected
      */
     TorrentInfo getSelectedTorrent() const;
+    
+    /**
+     * @brief Invalidate cache entries, forcing refresh on next view
+     * @param category If specified, only invalidate this category (empty = all)
+     */
+    void invalidateCache(const QString& category = QString());
+    
+    /**
+     * @brief Called when widget becomes visible (tab switched to)
+     * Refreshes data if cache is stale
+     */
+    void onTabBecameVisible();
+    
+    /**
+     * @brief Set cache TTL (time to live) in seconds
+     * @param seconds Cache lifetime, default 300 (5 minutes)
+     */
+    void setCacheTTL(int seconds) { cacheTTL_ = seconds; }
+    
+    /**
+     * @brief Get current cache TTL
+     */
+    int cacheTTL() const { return cacheTTL_; }
 
 signals:
     void torrentSelected(const TorrentInfo& torrent);
@@ -77,15 +101,23 @@ private:
     QStringList timeFilters_;
     QHash<QString, QString> timeLabels_;
     
-    // Cache: key = "category:time", value = {torrents, page}
+    // Cache: key = "category:time", value = {torrents, page, timestamp}
     struct CacheEntry {
         QVector<TorrentInfo> torrents;
         int page = 0;
+        QDateTime lastUpdated;
+        bool invalidated = false;  // Force refresh even if not expired
     };
     QHash<QString, CacheEntry> cache_;
     
+    /**
+     * @brief Check if cache entry is stale (expired or invalidated)
+     */
+    bool isCacheStale(const QString& key) const;
+    
     QString currentCategory_;
     QString currentTime_;
+    int cacheTTL_ = 300;  // Cache TTL in seconds (default 5 minutes)
 };
 
 #endif // TOPTORRENTSWIDGET_H
