@@ -43,11 +43,12 @@ add_rats_test(test_searchresultmodel)
 add_rats_test(test_sphinxql)
 add_rats_test(test_utils)
 add_rats_test(test_updatemanager)
+add_rats_test(test_contentdetector)
 
 # Custom target to run all tests
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager
+    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector
     COMMENT "Running all tests..."
 )
 
