@@ -7,6 +7,16 @@
 #include <cmath>
 
 // ============================================================================
+// Content Filtering Helper
+// ============================================================================
+
+// Check if content should be blocked from feed (bad or xxx content)
+static bool shouldBlockContent(const QString& contentType, const QString& contentCategory)
+{
+    return contentType.toLower() == "bad" || contentCategory.toLower() == "xxx";
+}
+
+// ============================================================================
 // TorrentFeedFile
 // ============================================================================
 
@@ -146,6 +156,11 @@ bool FeedManager::load()
         
         TorrentFeedItem item = TorrentFeedItem::fromJson(doc.object());
         if (!item.hash.isEmpty()) {
+            // Skip bad/xxx content during load (filter existing data)
+            if (shouldBlockContent(item.contentType, item.contentCategory)) {
+                qInfo() << "FeedManager: Filtering blocked content on load:" << item.hash.left(8);
+                continue;
+            }
             feed_.append(item);
         }
     }
@@ -248,6 +263,14 @@ qint64 FeedManager::feedDate() const
 
 void FeedManager::add(const TorrentFeedItem& item)
 {
+    // Block bad/xxx content from being added to feed
+    if (shouldBlockContent(item.contentType, item.contentCategory)) {
+        qInfo() << "FeedManager: Blocking item" << item.hash.left(8) 
+                << "- content type:" << item.contentType 
+                << "category:" << item.contentCategory;
+        return;
+    }
+    
     // Check if already exists
     int existingIndex = -1;
     for (int i = 0; i < feed_.size(); ++i) {
@@ -315,6 +338,14 @@ void FeedManager::addByHash(const QString& hash)
         return;
     }
     
+    // Block bad/xxx content from being added to feed
+    if (shouldBlockContent(torrent.contentTypeString(), torrent.contentCategoryString())) {
+        qInfo() << "FeedManager: Blocking torrent" << hash.left(8) 
+                << "- content type:" << torrent.contentTypeString() 
+                << "category:" << torrent.contentCategoryString();
+        return;
+    }
+    
     TorrentFeedItem item;
     item.hash = torrent.hash;
     item.name = torrent.name;
@@ -370,6 +401,11 @@ void FeedManager::fromJsonArray(const QJsonArray& array, qint64 remoteFeedDate)
         if (val.isObject()) {
             TorrentFeedItem item = TorrentFeedItem::fromJson(val.toObject());
             if (!item.hash.isEmpty()) {
+                // Skip bad/xxx content during P2P sync
+                if (shouldBlockContent(item.contentType, item.contentCategory)) {
+                    qInfo() << "FeedManager: Filtering blocked content from P2P:" << item.hash.left(8);
+                    continue;
+                }
                 feed_.append(item);
             }
         }

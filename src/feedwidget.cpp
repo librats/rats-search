@@ -173,9 +173,10 @@ void FeedWidget::loadMoreFeed()
         for (const QJsonValue& val : arr) {
             QJsonObject obj = val.toObject();
             
-            // Skip adult content like legacy does
+            // Skip adult content and bad content (illegal)
             QString category = obj["contentCategory"].toString();
-            if (category == "xxx") continue;
+            QString type = obj["contentType"].toString();
+            if (category == "xxx" || type == "bad") continue;
             
             TorrentInfo info;
             info.hash = obj["hash"].toString();
@@ -211,8 +212,10 @@ void FeedWidget::handleFeedUpdate(const QJsonArray& feed)
     for (int i = 0; i < limit; ++i) {
         QJsonObject obj = feed.at(i).toObject();
         
+        // Skip adult content and bad content (illegal)
         QString category = obj["contentCategory"].toString();
-        if (category == "xxx") continue;
+        QString type = obj["contentType"].toString();
+        if (category == "xxx" || type == "bad") continue;
         
         TorrentInfo info;
         info.hash = obj["hash"].toString();
