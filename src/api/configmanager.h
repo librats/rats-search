@@ -49,6 +49,7 @@ class ConfigManager : public QObject
     Q_PROPERTY(bool startMinimized READ startMinimized WRITE setStartMinimized NOTIFY startMinimizedChanged)
     Q_PROPERTY(bool checkUpdatesOnStartup READ checkUpdatesOnStartup WRITE setCheckUpdatesOnStartup NOTIFY checkUpdatesOnStartupChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory WRITE setDataDirectory NOTIFY dataDirectoryChanged)
+    Q_PROPERTY(bool agreementAccepted READ agreementAccepted WRITE setAgreementAccepted NOTIFY agreementAcceptedChanged)
 
 public:
     explicit ConfigManager(const QString& configPath = QString(), QObject *parent = nullptr);
@@ -221,6 +222,9 @@ public:
     QString dataDirectory() const;
     void setDataDirectory(const QString& path);
     
+    bool agreementAccepted() const;
+    void setAgreementAccepted(bool accepted);
+    
     // =========================================================================
     // Generic Access (for API)
     // =========================================================================
@@ -268,6 +272,7 @@ signals:
     void startMinimizedChanged(bool enabled);
     void checkUpdatesOnStartupChanged(bool enabled);
     void dataDirectoryChanged(const QString& path);
+    void agreementAcceptedChanged(bool accepted);
     
     // Filter signals
     void filtersMaxFilesChanged(int max);

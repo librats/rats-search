@@ -88,7 +88,10 @@ void ConfigManager::setDefaults()
         {"trayOnMinimize", true},
         {"startMinimized", false},
         {"checkUpdatesOnStartup", true},
-        {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)}
+        {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)},
+        
+        // Legal
+        {"agreementAccepted", false}
     };
 }
 
@@ -494,6 +497,14 @@ QString ConfigManager::dataDirectory() const {
 }
 void ConfigManager::setDataDirectory(const QString& path) { 
     if (setValue("dataDirectory", path)) emit dataDirectoryChanged(path);
+}
+
+bool ConfigManager::agreementAccepted() const { return config_["agreementAccepted"].toBool(false); }
+void ConfigManager::setAgreementAccepted(bool accepted) { 
+    if (setValue("agreementAccepted", accepted)) {
+        save();  // Immediately persist agreement acceptance
+        emit agreementAcceptedChanged(accepted);
+    }
 }
 
 // ============================================================================

@@ -106,6 +106,7 @@ private:
     void loadSettings();
     void saveSettings();
     void updateP2PIndicator();  // Update P2P status indicator color
+    bool showAgreementDialog(); // Show EULA on first launch, returns true if accepted
 
     // P2P Connection state for status indicator
     enum class P2PState {

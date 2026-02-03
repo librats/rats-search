@@ -81,6 +81,15 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     config->load();
     qInfo() << "Config load took:" << (startupTimer.elapsed() - configStart) << "ms";
     
+    // Check if user has accepted the agreement
+    if (!config->agreementAccepted()) {
+        if (!showAgreementDialog()) {
+            // User declined - schedule application exit
+            QTimer::singleShot(0, qApp, &QApplication::quit);
+            return;
+        }
+    }
+    
     // Apply config overrides from command line args
     if (p2pPort > 0) config->setP2pPort(p2pPort);
     if (dhtPort > 0) config->setDhtPort(dhtPort);
@@ -2112,4 +2121,159 @@ void MainWindow::saveSettings()
     windowSettings.sync();
     
     qInfo() << "Settings saved";
+}
+
+bool MainWindow::showAgreementDialog()
+{
+    qInfo() << "Showing End User License Agreement dialog";
+    
+    QDialog dialog;
+    dialog.setWindowTitle(tr("End User License Agreement"));
+    dialog.setMinimumSize(700, 600);
+    dialog.setModal(true);
+    
+    // Apply dark theme if configured
+    if (config && config->darkMode()) {
+        QString stylePath = ":/styles/styles/dark.qss";
+        QFile styleFile(stylePath);
+        if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            dialog.setStyleSheet(QString::fromUtf8(styleFile.readAll()));
+            styleFile.close();
+        }
+    }
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(16);
+    layout->setContentsMargins(24, 24, 24, 24);
+    
+    // Header with logo
+    QHBoxLayout* headerLayout = new QHBoxLayout();
+    
+    QLabel* logoLabel = new QLabel("🐀");
+    logoLabel->setObjectName("aboutLogoLabel");
+    headerLayout->addWidget(logoLabel);
+    
+    QLabel* titleLabel = new QLabel(tr("Rats Search - License Agreement"));
+    titleLabel->setObjectName("aboutTitleLabel");
+    headerLayout->addWidget(titleLabel);
+    headerLayout->addStretch();
+    layout->addLayout(headerLayout);
+    
+    // Subtitle
+    QLabel* subtitleLabel = new QLabel(
+        tr("Please read and accept the following End User License Agreement before using this software."));
+    subtitleLabel->setWordWrap(true);
+    subtitleLabel->setObjectName("subtitleLabel");
+    layout->addWidget(subtitleLabel);
+    
+    // Agreement text in scrollable area
+    QTextEdit* agreementText = new QTextEdit();
+    agreementText->setReadOnly(true);
+    agreementText->setMinimumHeight(350);
+    
+    // Load agreement from resources or file
+    QString agreementContent;
+    
+    // Try to load from resources first
+    QFile resourceFile(":/AGREEMENT.md");
+    if (resourceFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        agreementContent = QString::fromUtf8(resourceFile.readAll());
+        resourceFile.close();
+    } else {
+        // Try to load from application directory
+        QString appPath = QApplication::applicationDirPath();
+        QFile localFile(appPath + "/AGREEMENT.md");
+        if (localFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            agreementContent = QString::fromUtf8(localFile.readAll());
+            localFile.close();
+        } else {
+            // Fallback to source directory (for development)
+            QFile devFile("AGREEMENT.md");
+            if (devFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                agreementContent = QString::fromUtf8(devFile.readAll());
+                devFile.close();
+            }
+        }
+    }
+    
+    if (agreementContent.isEmpty()) {
+        // Embedded fallback agreement if file not found
+        agreementContent = R"(# END USER LICENSE AGREEMENT
+
+**IMPORTANT — READ CAREFULLY BEFORE USING THIS SOFTWARE**
+
+By using Rats Search, you acknowledge and agree that:
+
+1. **ASSUMPTION OF RISK**: You assume ALL risks associated with the use of this Software, including legal, security, and privacy risks.
+
+2. **CONTENT RESPONSIBILITY**: You are SOLELY responsible for determining the legality of any content you access, download, or share.
+
+3. **NO WARRANTIES**: The Software is provided "AS IS" without warranty of any kind.
+
+4. **NO LIABILITY**: The Developers shall not be liable for any damages arising from your use of the Software.
+
+5. **COMPLIANCE**: You agree to comply with all applicable laws and regulations.
+
+6. **INDEMNIFICATION**: You agree to indemnify and hold harmless the Developers from any claims arising from your use of the Software.
+
+**IF YOU DO NOT AGREE TO THESE TERMS, DO NOT USE THIS SOFTWARE.**
+)";
+    }
+    
+    agreementText->setMarkdown(agreementContent);
+    layout->addWidget(agreementText, 1);
+    
+    // Checkbox to confirm reading
+    QCheckBox* readCheckbox = new QCheckBox(
+        tr("I have read and understood the End User License Agreement"));
+    layout->addWidget(readCheckbox);
+    
+    // Warning label
+    QLabel* warningLabel = new QLabel(
+        tr("⚠️ By clicking 'I Accept', you acknowledge that you have read, understood, and agree to be bound by all terms and conditions of this Agreement. You accept full responsibility for your use of this Software."));
+    warningLabel->setWordWrap(true);
+    warningLabel->setObjectName("hintLabel");
+    layout->addWidget(warningLabel);
+    
+    // Buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    QPushButton* declineBtn = new QPushButton(tr("Decline && Exit"));
+    declineBtn->setObjectName("dangerButton");
+    declineBtn->setMinimumWidth(140);
+    declineBtn->setCursor(Qt::PointingHandCursor);
+    
+    QPushButton* acceptBtn = new QPushButton(tr("I Accept"));
+    acceptBtn->setObjectName("successButton");
+    acceptBtn->setMinimumWidth(140);
+    acceptBtn->setEnabled(false);  // Disabled until checkbox is checked
+    acceptBtn->setCursor(Qt::PointingHandCursor);
+    
+    buttonLayout->addWidget(declineBtn);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(acceptBtn);
+    layout->addLayout(buttonLayout);
+    
+    // Connect checkbox to enable accept button
+    connect(readCheckbox, &QCheckBox::toggled, acceptBtn, &QPushButton::setEnabled);
+    
+    // Connect buttons
+    bool accepted = false;
+    
+    connect(declineBtn, &QPushButton::clicked, &dialog, &QDialog::reject);
+    connect(acceptBtn, &QPushButton::clicked, [&dialog, &accepted]() {
+        accepted = true;
+        dialog.accept();
+    });
+    
+    dialog.exec();
+    
+    if (accepted) {
+        qInfo() << "User accepted the End User License Agreement";
+        config->setAgreementAccepted(true);
+        return true;
+    } else {
+        qInfo() << "User declined the End User License Agreement";
+        return false;
+    }
 }
