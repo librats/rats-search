@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.11](https://github.com/DEgITx/rats-search/compare/v2.0.10...v2.0.11) (2026-02-03)
+
+
+### 🐛 Bug Fixes
+
+
+- **icon:** Fix icon type display([45ae3a8](https://github.com/DEgITx/rats-search/commit/45ae3a866b3d147ee6bd104249b6d37d181ab739)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.10([ca66dcc](https://github.com/DEgITx/rats-search/commit/ca66dcce6ce91383c42b6473a29dc3e8dee95287)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **log:** Session rotation([ab69d72](https://github.com/DEgITx/rats-search/commit/ab69d72d65237ec551eb5afe04584799f5fc625c)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.10](https://github.com/DEgITx/rats-search/compare/v2.0.9...v2.0.10) (2026-02-02)
 
 
