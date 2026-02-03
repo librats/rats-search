@@ -21,6 +21,7 @@
 #include "api/apiserver.h"
 #include "api/updatemanager.h"
 #include "api/translationmanager.h"
+#include "api/migrationmanager.h"
 
 // Settings dialog
 #include "settingsdialog.h"
@@ -122,6 +123,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
     api = std::make_unique<RatsAPI>(this);
     updateManager = std::make_unique<UpdateManager>(this);
+    migrationManager = std::make_unique<MigrationManager>(dataDirectory_, this);
     qInfo() << "Object creation took:" << (startupTimer.elapsed() - objectsStart) << "ms";
     
     qInfo() << "MainWindow constructor (before deferred init):" << startupTimer.elapsed() << "ms";
@@ -634,6 +636,12 @@ void MainWindow::stopServices()
         return;
     }
     
+    // Stop migrations first (saves state for resume on next startup)
+    if (migrationManager && migrationManager->isRunning()) {
+        qInfo() << "Stopping migrations for graceful shutdown...";
+        migrationManager->requestStop();
+    }
+    
     // Save torrent session if not already saved (safety net)
     if (torrentClient && torrentClient->count() > 0) {
         QString sessionFile = dataDirectory_ + "/torrents_session.json";
@@ -755,6 +763,42 @@ void MainWindow::initializeServicesDeferred()
     qint64 servicesStart = timer.elapsed();
     startServices();
     qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
+    
+    // Initialize and run migrations after database is ready
+    if (migrationManager && torrentDatabase) {
+        qint64 migrationStart = timer.elapsed();
+        migrationManager->initialize(torrentDatabase.get(), config.get());
+        
+        // Run synchronous (blocking) migrations - these MUST complete before app can continue
+        // If sync migrations fail, the app cannot start properly
+        if (!migrationManager->runSyncMigrations()) {
+            QMessageBox::critical(this, tr("Migration Error"),
+                tr("Required database migration failed. The application may not work correctly."));
+        }
+        
+        // Connect migration progress signal for UI feedback
+        connect(migrationManager.get(), &MigrationManager::migrationProgress,
+                this, [this](const QString& migrationId, qint64 current, qint64 total) {
+                    statusBar()->showMessage(
+                        tr("Migration %1: %2/%3").arg(migrationId).arg(current).arg(total), 2000);
+                });
+        
+        connect(migrationManager.get(), &MigrationManager::migrationCompleted,
+                this, [this](const QString& migrationId) {
+                    statusBar()->showMessage(tr("Migration completed: %1").arg(migrationId), 3000);
+                });
+        
+        connect(migrationManager.get(), &MigrationManager::allMigrationsCompleted,
+                this, [this]() {
+                    qInfo() << "All migrations completed successfully";
+                });
+        
+        // Start asynchronous (background) migrations - these run in background
+        // and can be interrupted/resumed
+        migrationManager->startAsyncMigrations();
+        
+        qInfo() << "Migration setup took:" << (timer.elapsed() - migrationStart) << "ms";
+    }
     
     // Load initial torrent count for statusbar (only once at startup)
     if (api) {

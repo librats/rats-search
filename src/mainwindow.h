@@ -22,6 +22,7 @@ class RatsAPI;
 class ConfigManager;
 class ApiServer;
 class UpdateManager;
+class MigrationManager;
 
 // UI components
 class QLineEdit;
@@ -153,6 +154,7 @@ private:
     std::unique_ptr<ConfigManager> config;
     std::unique_ptr<ApiServer> apiServer;
     std::unique_ptr<UpdateManager> updateManager;
+    std::unique_ptr<MigrationManager> migrationManager;
     
     // Models and Delegates
     SearchResultModel *searchResultModel;

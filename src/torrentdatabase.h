@@ -188,6 +188,11 @@ public:
      * @brief Update torrent tracker information
      */
     bool updateTrackerInfo(const QString& hash, int seeders, int leechers, int completed);
+    
+    /**
+     * @brief Update torrent content type and category
+     */
+    bool updateTorrentContentType(const QString& hash, int contentTypeId, int contentCategoryId);
 
     // =========================================================================
     // Statistics
@@ -279,6 +284,11 @@ public:
      */
     QHash<QString, QVector<TorrentFile>> getFilesForTorrents(const QStringList& hashes);
 
+    /**
+     * @brief Get files for a single torrent
+     */
+    QVector<TorrentFile> getFilesForTorrent(const QString& hash);
+
 signals:
     void torrentAdded(const QString& hash);
     void torrentUpdated(const QString& hash);
@@ -289,7 +299,6 @@ signals:
 
 private:
     TorrentInfo rowToTorrent(const QVariantMap& row);
-    QVector<TorrentFile> getFilesForTorrent(const QString& hash);
     bool addFilesToDatabase(const TorrentInfo& torrent);
     
     QString dataDirectory_;

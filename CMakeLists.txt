@@ -182,6 +182,7 @@ set(SOURCES
     src/api/translationmanager.cpp
     src/api/p2pstoremanager.cpp
     src/api/trackerwrapper.cpp
+    src/api/migrationmanager.cpp
 )
 
 # Header files
@@ -213,6 +214,7 @@ set(HEADERS
     src/api/translationmanager.h
     src/api/p2pstoremanager.h
     src/api/trackerwrapper.h
+    src/api/migrationmanager.h
 )
 
 # Resources

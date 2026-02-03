@@ -493,6 +493,19 @@ bool TorrentDatabase::updateTrackerInfo(const QString& hash, int seeders, int le
     return sphinxQL_->updateValues("torrents", values, {{"hash", hash}});
 }
 
+bool TorrentDatabase::updateTorrentContentType(const QString& hash, int contentTypeId, int contentCategoryId)
+{
+    if (!isReady()) {
+        return false;
+    }
+    
+    QVariantMap values;
+    values["contentType"] = contentTypeId;
+    values["contentCategory"] = contentCategoryId;
+    
+    return sphinxQL_->updateValues("torrents", values, {{"hash", hash}});
+}
+
 TorrentDatabase::Statistics TorrentDatabase::getStatistics() const
 {
     // Return cached statistics (no DB query - updated incrementally)
