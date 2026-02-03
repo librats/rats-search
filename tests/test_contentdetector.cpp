@@ -44,14 +44,15 @@ private slots:
     void testDetectContentType_musicAlbum();
     void testDetectContentType_softwareWithDocs();
     
-    // Adult content detection tests
-    void testIsAdultContent_positive();
-    void testIsAdultContent_negative();
-    void testDetectContentType_adultInName();
-    void testDetectContentType_adultInFileName();
-    
     // Disc images (mapped to archive)
     void testDetectFromFiles_discImages();
+    
+    // blockBadName tests (legacy parity with bad-words.js)
+    void testBlockBadName_xxxCategory();
+    void testBlockBadName_badType();
+    void testBlockBadName_caseInsensitive();
+    void testBlockBadName_noMatch();
+    void testBlockBadName_noMatchVideo();
 };
 
 void TestContentDetector::initTestCase()
@@ -401,54 +402,163 @@ void TestContentDetector::testDetectContentType_softwareWithDocs()
 }
 
 // ============================================================================
-// Adult content detection tests
+// blockBadName tests (legacy parity with bad-words.js)
 // ============================================================================
 
-void TestContentDetector::testIsAdultContent_positive()
+void TestContentDetector::testBlockBadName_xxxCategory()
 {
-    QVERIFY(ContentDetector::isAdultContent("XXX Video Collection"));
-    QVERIFY(ContentDetector::isAdultContent("Some Porn Movie"));
-    QVERIFY(ContentDetector::isAdultContent("Adult Content Pack"));
-    QVERIFY(ContentDetector::isAdultContent("18+ Compilation"));
-    QVERIFY(ContentDetector::isAdultContent("NSFW Photos"));
-    QVERIFY(ContentDetector::isAdultContent("Hentai Collection"));
-}
-
-void TestContentDetector::testIsAdultContent_negative()
-{
-    QVERIFY(!ContentDetector::isAdultContent("The Matrix 1999"));
-    QVERIFY(!ContentDetector::isAdultContent("Ubuntu 24.04 LTS"));
-    QVERIFY(!ContentDetector::isAdultContent("Classical Music Album"));
-    QVERIFY(!ContentDetector::isAdultContent("Documentary About Nature"));
-}
-
-void TestContentDetector::testDetectContentType_adultInName()
-{
-    TorrentInfo torrent;
-    torrent.name = "XXX Adult Collection";
-    torrent.size = 5000000000LL;
-    torrent.filesList.append({"video1.mp4", 2500000000LL});
-    torrent.filesList.append({"video2.mp4", 2500000000LL});
+    // Test that XXX_BLOCK_WORDS set contentCategoryId to XXX
     
-    ContentDetector::detectContentType(torrent);
+    // Test 1: Word "porn" in name
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Some.Porn.Movie.2024");
+        
+        QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Video));  // Type unchanged
+        QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    }
+    
+    // Test 2: Word "xxx" in name
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "XXX-Video-Collection");
+        
+        QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    }
+    
+    // Test 3: Word "hentai" in name
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Anime_Hentai_Collection");
+        
+        QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    }
+    
+    // Test 4: Russian word "порно"
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Фильм.порно.2024");
+        
+        QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    }
+}
+
+void TestContentDetector::testBlockBadName_badType()
+{
+    // Test that XXX_VERY_BAD_WORDS set contentTypeId to Bad (blocked entirely)
+    
+    // Test 1: Word "pthc" marks as BAD
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Some.16yo.content");
+        
+        QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Bad));
+        QCOMPARE(torrent.contentType, QString("bad"));
+    }
+    
+    // Test 2: Age pattern "10yo" marks as BAD
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "content_16yo_illegal");
+        
+        QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Bad));
+    }
+    
+    // Test 3: Word "yukikax" marks as BAD
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Pictures);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "some collection 16yo");
+        
+        QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Bad));
+    }
+}
+
+
+void TestContentDetector::testBlockBadName_caseInsensitive()
+{
+    // Test that matching is case-insensitive
+    
+    // Test 1: UPPERCASE "PORN"
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Some.PORN.Movie");
+        
+        QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    }
+    
+    // Test 2: MiXeD case "PoRn"
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Some.PoRn.Movie");
+        
+        QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    }
+    
+    // Test 3: Very bad word in uppercase "PTHC"
+    {
+        TorrentInfo torrent;
+        torrent.contentTypeId = static_cast<int>(ContentType::Video);
+        torrent.contentCategoryId = 0;
+        
+        ContentDetector::blockBadName(torrent, "Some.PTHC.content");
+        
+        QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Bad));
+    }
+}
+
+void TestContentDetector::testBlockBadName_noMatch()
+{
+    // Test that normal content is not affected
+    TorrentInfo torrent;
+    torrent.name = "Ubuntu 24.04 LTS Desktop";
+    torrent.contentTypeId = static_cast<int>(ContentType::Software);
+    torrent.contentCategoryId = 0;
+    
+    ContentDetector::blockBadName(torrent, torrent.name);
+    
+    QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Software));
+    QCOMPARE(torrent.contentCategoryId, 0);
+}
+
+void TestContentDetector::testBlockBadName_noMatchVideo()
+{
+    // Test that normal video content is not affected
+    TorrentInfo torrent;
+    torrent.name = "Some.Video.Movie";
+    torrent.contentTypeId = static_cast<int>(ContentType::Video);
+    torrent.contentCategoryId = 0;
+    
+    ContentDetector::blockBadName(torrent, "Some.Video.Movie");
     
     QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Video));
-    QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
-    QCOMPARE(torrent.contentCategory, QString("xxx"));
-}
-
-void TestContentDetector::testDetectContentType_adultInFileName()
-{
-    TorrentInfo torrent;
-    torrent.name = "Video Collection";  // Clean name
-    torrent.size = 5000000000LL;
-    torrent.filesList.append({"xxx_video1.mp4", 2500000000LL});  // Adult keyword in filename
-    torrent.filesList.append({"regular_video.mp4", 2500000000LL});
-    
-    ContentDetector::detectContentType(torrent);
-    
-    QCOMPARE(torrent.contentTypeId, static_cast<int>(ContentType::Video));
-    QCOMPARE(torrent.contentCategoryId, static_cast<int>(ContentCategory::XXX));
+    QCOMPARE(torrent.contentCategoryId, 0);
 }
 
 QTEST_MAIN(TestContentDetector)

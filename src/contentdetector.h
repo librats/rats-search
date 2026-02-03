@@ -100,11 +100,16 @@ public:
     static int detectContentTypeFromFiles(const QVector<TorrentFile>& files);
     
     /**
-     * @brief Check if torrent name contains adult keywords
-     * @param name Torrent name to check
-     * @return true if adult content detected
+     * @brief Block bad name based on word matching (ported from legacy blockBadName)
+     * 
+     * Splits name by delimiters and checks each word:
+     * - If word matches XXX_VERY_BAD_WORDS → sets contentTypeId to Bad
+     * - If word matches XXX_BLOCK_WORDS → sets contentCategoryId to XXX
+     * 
+     * @param torrent TorrentInfo to update
+     * @param name Name to check (torrent name or file path)
      */
-    static bool isAdultContent(const QString& name);
+    static void blockBadName(TorrentInfo& torrent, const QString& name);
 };
 
 #endif // CONTENTDETECTOR_H

@@ -1,8 +1,10 @@
 #include "contentdetector.h"
 #include "torrentdatabase.h"
+#include "badwords.h"
 #include <QMap>
 #include <QHash>
 #include <QFileInfo>
+#include <QRegularExpression>
 
 // ============================================================================
 // Extension to content type mapping (from legacy content.js)
@@ -234,30 +236,43 @@ int ContentDetector::detectContentTypeFromFiles(const QVector<TorrentFile>& file
 }
 
 // ============================================================================
-// Adult Content Detection
+// Adult Content Detection (ported from legacy blockBadName in content.js)
 // ============================================================================
 
-bool ContentDetector::isAdultContent(const QString& name)
+// Static regex for splitting names by delimiters (like legacy: split(/[`~!@#$%^&*()\]\[{}.,+?/\\;:\-_' "|]/))
+static const QRegularExpression& nameDelimiterRegex()
 {
-    QString nameLower = name.toLower();
+    static QRegularExpression regex(R"([`~!@#$%^&*()\]\[{}.,+?/\\;:\-_' "|]+)");
+    return regex;
+}
+
+void ContentDetector::blockBadName(TorrentInfo& torrent, const QString& name)
+{
+    // Split name by delimiters (like legacy: name.split(/[`~!@#$%^&*()\]\[{}.,+?/\\;:\-_' "|]/))
+    QStringList words = name.toLower().split(nameDelimiterRegex(), Qt::SkipEmptyParts);
     
-    // Simple keyword check (full bad word checking is separate)
-    static QStringList adultKeywords = {
-        "xxx", "porn", "sex", "adult", "18+", "nsfw", "hentai",
-        "erotic", "milf", "anal", "orgasm", "cumshot"
-    };
+    const QSet<QString>& veryBadWords = BadWords::xxxVeryBadWords();
+    const QSet<QString>& blockWords = BadWords::xxxBlockWords();
     
-    for (const QString& keyword : adultKeywords) {
-        if (nameLower.contains(keyword)) {
-            return true;
+    for (const QString& word : words) {
+        // Check for very bad words first → mark as BAD type
+        if (veryBadWords.contains(word)) {
+            torrent.contentTypeId = static_cast<int>(ContentType::Bad);
+            torrent.contentType = contentTypeFromId(torrent.contentTypeId);
+            return; // Stop if marked as bad
+        }
+        
+        // Check for block words → mark as XXX category
+        if (blockWords.contains(word)) {
+            torrent.contentCategoryId = static_cast<int>(ContentCategory::XXX);
+            torrent.contentCategory = contentCategoryFromId(torrent.contentCategoryId);
+            // Don't return - continue checking for very bad words
         }
     }
-    
-    return false;
 }
 
 // ============================================================================
-// Main Detection Entry Point (from legacy content.js: torrentTypeDetect)
+// Main Detection Entry Point (from legacy content.js: torrentTypeDetect + detectSubCategory)
 // ============================================================================
 
 void ContentDetector::detectContentType(TorrentInfo& torrent)
@@ -268,33 +283,37 @@ void ContentDetector::detectContentType(TorrentInfo& torrent)
     // Set string representation
     torrent.contentType = contentTypeFromId(torrent.contentTypeId);
     
-    // Check for adult content in name
-    if (isAdultContent(torrent.name)) {
-        torrent.contentCategoryId = static_cast<int>(ContentCategory::XXX);
-    }
-    
-    // Also check file names for adult content (like legacy detectSubCategory)
+    // =========================================================================
+    // detectSubCategory logic (from legacy content.js)
     // Only for video, pictures, and archive types
-    if (torrent.contentCategoryId != static_cast<int>(ContentCategory::XXX)) {
-        if (torrent.contentTypeId == static_cast<int>(ContentType::Video) ||
-            torrent.contentTypeId == static_cast<int>(ContentType::Pictures) ||
-            torrent.contentTypeId == static_cast<int>(ContentType::Archive)) {
-            
+    // =========================================================================
+    if (torrent.contentTypeId == static_cast<int>(ContentType::Video) ||
+        torrent.contentTypeId == static_cast<int>(ContentType::Pictures) ||
+        torrent.contentTypeId == static_cast<int>(ContentType::Archive)) {
+        
+        // Check torrent name for bad words
+        blockBadName(torrent, torrent.name);
+        
+        // If not marked as bad, check file names
+        if (torrent.contentTypeId != static_cast<int>(ContentType::Bad)) {
             for (const TorrentFile& file : torrent.filesList) {
-                // Remove extension and check filename
-                QString filePath = file.path.toLower();
+                // Remove extension and check filename (like legacy: fileCheck.pop())
+                QString filePath = file.path;
                 int dotPos = filePath.lastIndexOf('.');
                 if (dotPos > 0) {
                     filePath = filePath.left(dotPos);
                 }
                 
-                if (isAdultContent(filePath)) {
-                    torrent.contentCategoryId = static_cast<int>(ContentCategory::XXX);
+                blockBadName(torrent, filePath);
+                
+                // Stop if marked as bad
+                if (torrent.contentTypeId == static_cast<int>(ContentType::Bad)) {
                     break;
                 }
             }
         }
     }
     
+    // Ensure category string is set
     torrent.contentCategory = contentCategoryFromId(torrent.contentCategoryId);
 }
