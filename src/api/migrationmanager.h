@@ -5,6 +5,7 @@
 #include <QString>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QVersionNumber>
 #include <memory>
 #include <functional>
 
@@ -113,7 +114,8 @@ private:
     // Internal migration state
     struct MigrationState {
         QString migrationId;
-        QString version;
+        QString minVersion;
+        QString maxVersion;
         qint64 lastProcessedId = 0;
         qint64 totalItems = 0;
         bool completed = false;

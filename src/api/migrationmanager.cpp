@@ -17,6 +17,7 @@
 #include <QFutureWatcher>
 #include <QDateTime>
 #include <QDebug>
+#include <QVersionNumber>
 
 // ============================================================================
 // Private Implementation
@@ -48,11 +49,35 @@ public:
     // Migration definitions
     struct MigrationDef {
         QString id;
-        QString version;      // Minimum version that requires this migration
+        QString minVersion;   // Minimum app version for which this migration applies (inclusive)
+        QString maxVersion;   // Maximum app version for which this migration applies (inclusive, empty = no limit)
         QString description;
         bool isSync;          // true = blocking, false = background
     };
     QVector<MigrationDef> registeredMigrations;
+    
+    // Check if migration should run for current app version
+    bool shouldRunMigration(const MigrationDef& migration) const {
+        QVersionNumber currentVer = QVersionNumber::fromString(RATSSEARCH_VERSION_STRING);
+        
+        // Check minimum version (migration applies to apps >= minVersion)
+        if (!migration.minVersion.isEmpty()) {
+            QVersionNumber minVer = QVersionNumber::fromString(migration.minVersion);
+            if (currentVer < minVer) {
+                return false;  // Current version is below minimum
+            }
+        }
+        
+        // Check maximum version (migration applies to apps <= maxVersion)
+        if (!migration.maxVersion.isEmpty()) {
+            QVersionNumber maxVer = QVersionNumber::fromString(migration.maxVersion);
+            if (currentVer > maxVer) {
+                return false;  // Current version is above maximum
+            }
+        }
+        
+        return true;
+    }
     
     // Background worker
     QFuture<void> asyncFuture;
@@ -184,7 +209,8 @@ void MigrationManager::loadState()
     if (d->stateJson.contains("inProgress")) {
         QJsonObject inProgress = d->stateJson["inProgress"].toObject();
         d->inProgressMigration.migrationId = inProgress["migrationId"].toString();
-        d->inProgressMigration.version = inProgress["version"].toString();
+        d->inProgressMigration.minVersion = inProgress["minVersion"].toString();
+        d->inProgressMigration.maxVersion = inProgress["maxVersion"].toString();
         d->inProgressMigration.lastProcessedId = inProgress["lastProcessedId"].toVariant().toLongLong();
         d->inProgressMigration.totalItems = inProgress["totalItems"].toVariant().toLongLong();
         d->inProgressMigration.startedAt = inProgress["startedAt"].toVariant().toLongLong();
@@ -215,7 +241,8 @@ void MigrationManager::saveState()
     if (!d->inProgressMigration.migrationId.isEmpty() && !d->inProgressMigration.completed) {
         QJsonObject inProgress;
         inProgress["migrationId"] = d->inProgressMigration.migrationId;
-        inProgress["version"] = d->inProgressMigration.version;
+        inProgress["minVersion"] = d->inProgressMigration.minVersion;
+        inProgress["maxVersion"] = d->inProgressMigration.maxVersion;
         inProgress["lastProcessedId"] = d->inProgressMigration.lastProcessedId;
         inProgress["totalItems"] = d->inProgressMigration.totalItems;
         inProgress["startedAt"] = d->inProgressMigration.startedAt;
@@ -272,19 +299,27 @@ void MigrationManager::registerMigrations()
 {
     // Register all known migrations here
     // They will be run in order if not already completed
+    // 
+    // Migration format: {id, minVersion, maxVersion, description, isSync}
+    // - minVersion: Minimum app version for which this migration applies (inclusive)
+    // - maxVersion: Maximum app version for which this migration applies (inclusive, empty = no limit)
+    // - isSync: true = blocking (must complete before app starts), false = background (resumable)
     
-    // v2.0.1 - Recategorize all torrents (background, resumable)
+    // v2.0.12 - Recategorize all torrents (background, resumable)
+    // Applies to versions 2.0.0 and above (no upper limit)
     d->registeredMigrations.append({
         "v2.0.12_recategorize_torrents",
-        "2.0.0",
+        "2.0.0",   // minVersion
+        "",        // maxVersion (empty = no limit)
         "Recategorize all torrents with improved content detection",
-        false  // async/background
+        false      // async/background
     });
     
     // Add future migrations here:
     // d->registeredMigrations.append({
     //     "v2.1.0_some_migration",
-    //     "2.1.0",
+    //     "2.1.0",   // minVersion
+    //     "2.2.0",   // maxVersion (or empty for no limit)
     //     "Description of migration",
     //     true/false  // sync/async
     // });
@@ -313,6 +348,14 @@ bool MigrationManager::runSyncMigrations()
         
         if (isMigrationCompleted(migration.id)) {
             qInfo() << "Sync migration already completed:" << migration.id;
+            continue;
+        }
+        
+        // Check if migration applies to current app version
+        if (!d->shouldRunMigration(migration)) {
+            qInfo() << "Sync migration skipped (version mismatch):" << migration.id
+                    << "minVersion:" << migration.minVersion
+                    << "maxVersion:" << migration.maxVersion;
             continue;
         }
         
@@ -387,6 +430,14 @@ void MigrationManager::startAsyncMigrations()
             continue;
         }
         
+        // Check if migration applies to current app version
+        if (!d->shouldRunMigration(migration)) {
+            qInfo() << "Async migration skipped (version mismatch):" << migration.id
+                    << "minVersion:" << migration.minVersion
+                    << "maxVersion:" << migration.maxVersion;
+            continue;
+        }
+        
         pendingMigrations.append(migration);
     }
     
@@ -414,7 +465,8 @@ void MigrationManager::startAsyncMigrations()
             if (d->inProgressMigration.migrationId != migration.id) {
                 QMutexLocker locker(&d->stateMutex);
                 d->inProgressMigration.migrationId = migration.id;
-                d->inProgressMigration.version = migration.version;
+                d->inProgressMigration.minVersion = migration.minVersion;
+                d->inProgressMigration.maxVersion = migration.maxVersion;
                 d->inProgressMigration.lastProcessedId = 0;
                 d->inProgressMigration.totalItems = 0;
                 d->inProgressMigration.startedAt = QDateTime::currentMSecsSinceEpoch();
