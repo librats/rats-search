@@ -606,6 +606,11 @@ void MigrationManager::migration_v2_0_12_recategorize_torrents()
                 
                 // Re-detect content type
                 TorrentDatabase::detectContentType(torrent);
+
+                qDebug() << "Migration: Torrent" << torrent.name << "hash:" << torrent.hash
+                        << "content type:" 
+                        << torrent.contentType << "(old:" << oldTypeId << ")" 
+                        << "category:" << torrent.contentCategory << "(old:" << oldCategoryId << ")";
                 
                 // Update if changed
                 if (torrent.contentTypeId != oldTypeId || torrent.contentCategoryId != oldCategoryId) {
