@@ -458,6 +458,8 @@ int main(int argc, char *argv[])
         QString logFilePath = dataDir + "/rats-search.log";
         logger.set_log_file_path(logFilePath.toStdString());
         logger.set_log_rotation_size(0);  // No rotation
+        logger.set_log_retention_count(2); // Keep 3 log files
+        logger.set_rotate_on_startup(true); // Improtant to call before set_file_logging_enabled()
         logger.set_file_logging_enabled(true);
 #ifdef NDEBUG
         logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
@@ -532,6 +534,8 @@ int main(int argc, char *argv[])
         QString logFilePath = dataDir + "/rats-search.log";
         logger.set_log_file_path(logFilePath.toStdString());
         logger.set_log_rotation_size(0);  // No rotation
+        logger.set_log_retention_count(2); // Keep 3 log files
+        logger.set_rotate_on_startup(true); // Improtant to call before set_file_logging_enabled()
         logger.set_file_logging_enabled(true);
 #ifdef NDEBUG
         logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
