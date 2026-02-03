@@ -6,6 +6,7 @@
         <file>images/checkmark-dark.svg</file>
         <file>icon.ico</file>
         <file alias="AGREEMENT.md">../AGREEMENT.md</file>
+        <file alias="CHANGELOG.md">../CHANGELOG.md</file>
     </qresource>
     <qresource prefix="/styles">
         <file>styles/dark.qss</file>

@@ -413,6 +413,9 @@ void MainWindow::setupMenuBar()
     QAction *checkUpdateAction = helpMenu->addAction(tr("Check for &Updates..."));
     connect(checkUpdateAction, &QAction::triggered, this, &MainWindow::checkForUpdates);
     
+    QAction *changelogAction = helpMenu->addAction(tr("📋 &Changelog"));
+    connect(changelogAction, &QAction::triggered, this, &MainWindow::showChangelog);
+    
     helpMenu->addSeparator();
     
     QAction *aboutAction = helpMenu->addAction(tr("&About"));
@@ -1556,6 +1559,96 @@ void MainWindow::showAbout()
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
     buttonLayout->addStretch();
+    layout->addLayout(buttonLayout);
+    
+    dialog.exec();
+}
+
+void MainWindow::showChangelog()
+{
+    qInfo() << "Showing changelog dialog";
+    
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Changelog - What's New"));
+    dialog.setMinimumSize(650, 550);
+    dialog.setStyleSheet(this->styleSheet());
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(16);
+    layout->setContentsMargins(24, 24, 24, 24);
+    
+    // Header
+    QHBoxLayout* headerLayout = new QHBoxLayout();
+    
+    QLabel* iconLabel = new QLabel("📋");
+    iconLabel->setObjectName("aboutLogoLabel");
+    headerLayout->addWidget(iconLabel);
+    
+    QLabel* titleLabel = new QLabel(tr("Changelog"));
+    titleLabel->setObjectName("aboutTitleLabel");
+    headerLayout->addWidget(titleLabel);
+    
+    headerLayout->addStretch();
+    
+    // Current version label
+    QLabel* versionLabel = new QLabel(QString("v%1").arg(RATSSEARCH_VERSION_STRING));
+    versionLabel->setObjectName("subtitleLabel");
+    headerLayout->addWidget(versionLabel);
+    
+    layout->addLayout(headerLayout);
+    
+    // Subtitle
+    QLabel* subtitleLabel = new QLabel(tr("Recent changes and updates to Rats Search"));
+    subtitleLabel->setObjectName("hintLabel");
+    layout->addWidget(subtitleLabel);
+    
+    // Changelog content
+    QTextEdit* changelogText = new QTextEdit();
+    changelogText->setReadOnly(true);
+    changelogText->setMinimumHeight(350);
+    
+    // Load changelog from resources or file
+    QString changelogContent;
+    
+    // Try to load from resources first
+    QFile resourceFile(":/CHANGELOG.md");
+    if (resourceFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        changelogContent = QString::fromUtf8(resourceFile.readAll());
+        resourceFile.close();
+    } else {
+        // Try to load from application directory
+        QString appPath = QApplication::applicationDirPath();
+        QFile localFile(appPath + "/CHANGELOG.md");
+        if (localFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            changelogContent = QString::fromUtf8(localFile.readAll());
+            localFile.close();
+        } else {
+            // Fallback to source directory (for development)
+            QFile devFile("CHANGELOG.md");
+            if (devFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                changelogContent = QString::fromUtf8(devFile.readAll());
+                devFile.close();
+            }
+        }
+    }
+    
+    if (changelogContent.isEmpty()) {
+        changelogContent = tr("# Changelog\n\nNo changelog available.");
+    }
+    
+    changelogText->setMarkdown(changelogContent);
+    layout->addWidget(changelogText, 1);
+    
+    // Buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->addStretch();
+    
+    QPushButton* closeBtn = new QPushButton(tr("Close"));
+    closeBtn->setMinimumWidth(100);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
+    
+    buttonLayout->addWidget(closeBtn);
     layout->addLayout(buttonLayout);
     
     dialog.exec();

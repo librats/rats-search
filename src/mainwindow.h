@@ -68,6 +68,7 @@ private slots:
     void onDownloadRequested(const QString &hash);
     void showSettings();
     void showAbout();
+    void showChangelog();
     void showTorrentContextMenu(const QPoint &pos);
     void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
     void toggleWindowVisibility();
