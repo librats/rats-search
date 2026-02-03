@@ -1515,6 +1515,7 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
             
             for (const QVariantMap& row : rows) {
                 // Convert to TorrentInfo
+                // Note: Manticore returns all field names in lowercase!
                 TorrentInfo torrent;
                 torrent.id = row["id"].toLongLong();
                 torrent.hash = row["hash"].toString();
@@ -1522,8 +1523,8 @@ void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
                 torrent.size = row["size"].toLongLong();
                 torrent.files = row["files"].toInt();
                 torrent.piecelength = row["piecelength"].toInt();
-                torrent.contentTypeId = row["contentType"].toInt();
-                torrent.contentCategoryId = row["contentCategory"].toInt();
+                torrent.contentTypeId = row["contenttype"].toInt();      // lowercase!
+                torrent.contentCategoryId = row["contentcategory"].toInt(); // lowercase!
                 
                 lastId = torrent.id;
                 checked++;

@@ -34,7 +34,9 @@ QString TorrentItemDelegate::getContentTypeName(const QString &contentType)
         {"audio", "Audio"},
         {"pictures", "Pictures"},
         {"books", "Books"},
-        {"application", "Application"},
+        {"software", "Software"},
+        {"application", "Application"},  // Alias
+        {"games", "Games"},
         {"archive", "Archive"},
         {"disc", "Disc Image"},
         {"unknown", "Unknown"}

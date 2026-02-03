@@ -521,6 +521,7 @@ TorrentInfo TorrentDatabase::rowToTorrent(const QVariantMap& row)
 {
     TorrentInfo info;
     
+    // Note: Manticore returns all field names in lowercase!
     info.id = row.value("id").toLongLong();
     info.hash = row.value("hash").toString();
     info.name = row.value("name").toString();
@@ -530,15 +531,15 @@ TorrentInfo TorrentDatabase::rowToTorrent(const QVariantMap& row)
     info.added = QDateTime::fromSecsSinceEpoch(row.value("added").toLongLong());
     info.ipv4 = row.value("ipv4").toString();
     info.port = row.value("port").toInt();
-    info.contentTypeId = row.value("contentType").toInt();
-    info.contentCategoryId = row.value("contentCategory").toInt();
+    info.contentTypeId = row.value("contenttype").toInt();        // lowercase!
+    info.contentCategoryId = row.value("contentcategory").toInt(); // lowercase!
     info.contentType = contentTypeFromId(info.contentTypeId);
     info.contentCategory = contentCategoryFromId(info.contentCategoryId);
     info.seeders = row.value("seeders").toInt();
     info.leechers = row.value("leechers").toInt();
     info.completed = row.value("completed").toInt();
     
-    qint64 trackersChecked = row.value("trackersChecked").toLongLong();
+    qint64 trackersChecked = row.value("trackerschecked").toLongLong(); // lowercase!
     if (trackersChecked > 0) {
         info.trackersChecked = QDateTime::fromSecsSinceEpoch(trackersChecked);
     }
