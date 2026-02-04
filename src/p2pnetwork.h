@@ -118,13 +118,7 @@ public:
     // =========================================================================
     // Bootstrap Peers
     // =========================================================================
-    
-    /**
-     * @brief Load bootstrap peers from a remote server
-     * @param url URL to fetch bootstrap data from
-     */
-    void loadBootstrapPeers(const QString& url);
-    
+
     /**
      * @brief Connect to a specific peer address
      * @param address Multiaddr-style address
