@@ -18,6 +18,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QVersionNumber>
+#include <QStandardPaths>
 
 // ============================================================================
 // Private Implementation
@@ -305,6 +306,15 @@ void MigrationManager::registerMigrations()
     // - maxVersion: Maximum app version for which this migration applies (inclusive, empty = no limit)
     // - isSync: true = blocking (must complete before app starts), false = background (resumable)
     
+    // v2.0.12 - Cleanup feed storage (blocking)
+    d->registeredMigrations.append({
+        "v2.0.12_sync_cleanup_feed_storage",
+        "2.0.0",   // minVersion
+        "",        // maxVersion (empty = no limit)
+        "Cleanup feed storage",
+        true      // sync/blocking
+    });
+
     // v2.0.12 - Recategorize all torrents (background, resumable)
     // Applies to versions 2.0.0 and above (no upper limit)
     d->registeredMigrations.append({
@@ -324,15 +334,6 @@ void MigrationManager::registerMigrations()
         "Remove torrents with Unknown content type",
         false      // async/background
     });
-    
-    // Add future migrations here:
-    // d->registeredMigrations.append({
-    //     "v2.1.0_some_migration",
-    //     "2.1.0",   // minVersion
-    //     "2.2.0",   // maxVersion (or empty for no limit)
-    //     "Description of migration",
-    //     true/false  // sync/async
-    // });
 }
 
 // ============================================================================
@@ -374,8 +375,8 @@ bool MigrationManager::runSyncMigrations()
         bool success = false;
         
         // Dispatch to specific migration implementation
-        if (migration.id == "v2.0.12_sync_placeholder") {
-            success = migration_v2_0_12_sync_placeholder();
+        if (migration.id == "v2.0.12_sync_cleanup_feed_storage") {
+            success = migration_v2_0_12_sync_cleanup_feed_storage();
         }
         // Add more sync migrations here
         
@@ -396,10 +397,43 @@ bool MigrationManager::runSyncMigrations()
     return allSuccess;
 }
 
-bool MigrationManager::migration_v2_0_12_sync_placeholder()
+bool MigrationManager::migration_v2_0_12_sync_cleanup_feed_storage()
 {
-    // Placeholder for sync migration - always succeeds
-    // Add actual sync migration logic here when needed
+    if (!d->database) {
+        qWarning() << "Migration: Database not available";
+        return false;
+    }
+
+    qInfo() << "Migration v2.0.12: Starting cleanup...";
+    
+    // =========================================================================
+    // Step 1: Clear the feed table
+    // =========================================================================
+    qInfo() << "Migration: Clearing feed table...";
+    SphinxQL* sphinxQL = d->database->sphinxQL();
+    if (sphinxQL) {
+        sphinxQL->query("TRUNCATE TABLE feed");
+        qInfo() << "Migration: Feed table cleared";
+    }
+    
+    // =========================================================================
+    // Step 2: Delete the storage folder (P2P distributed storage)
+    // =========================================================================
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString storagePath = dataPath + "/storage";
+    
+    QDir storageDir(storagePath);
+    if (storageDir.exists()) {
+        qInfo() << "Migration: Removing storage folder:" << storagePath;
+        if (storageDir.removeRecursively()) {
+            qInfo() << "Migration: Storage folder removed successfully";
+        } else {
+            qWarning() << "Migration: Failed to remove storage folder";
+        }
+    } else {
+        qInfo() << "Migration: Storage folder does not exist, skipping";
+    }
+    
     return true;
 }
 
@@ -688,7 +722,7 @@ void MigrationManager::migration_v2_0_12_remove_unknown_torrents()
         qWarning() << "Migration: Database not available";
         return;
     }
-    
+
     qInfo() << "Migration: Starting removal of Unknown type torrents...";
     
     // Get starting point (for resume support)

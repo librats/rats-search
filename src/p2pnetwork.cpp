@@ -58,7 +58,7 @@ bool P2PNetwork::start()
 
         // Set protocol name for rats-search
         ratsClient_->set_protocol_name("rats-search");
-        ratsClient_->set_protocol_version("2.0");
+        ratsClient_->set_protocol_version("2.0.1");
 
         // Set data directory
         std::string dataDir = dataDirectory_.toStdString();
