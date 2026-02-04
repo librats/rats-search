@@ -137,6 +137,9 @@ private:
     // Async migrations (background, resumable)
     void migration_v2_0_12_recategorize_torrents();
     void recategorizeTorrentsBatch(qint64 startId, int batchSize);
+    
+    // v2.0.13 - Remove unknown type torrents
+    void migration_v2_0_12_remove_unknown_torrents();
 
     class Private;
     std::unique_ptr<Private> d;

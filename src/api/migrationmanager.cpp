@@ -315,6 +315,16 @@ void MigrationManager::registerMigrations()
         false      // async/background
     });
     
+    // v2.0.12 - Remove all torrents with Unknown content type (background, resumable)
+    // These torrents failed content detection and are likely low quality
+    d->registeredMigrations.append({
+        "v2.0.12_remove_unknown_torrents",
+        "2.0.0",   // minVersion
+        "",        // maxVersion (empty = no limit)
+        "Remove torrents with Unknown content type",
+        false      // async/background
+    });
+    
     // Add future migrations here:
     // d->registeredMigrations.append({
     //     "v2.1.0_some_migration",
@@ -481,6 +491,8 @@ void MigrationManager::startAsyncMigrations()
             // Dispatch to specific migration implementation
             if (migration.id == "v2.0.12_recategorize_torrents") {
                 migration_v2_0_12_recategorize_torrents();
+            } else if (migration.id == "v2.0.12_remove_unknown_torrents") {
+                migration_v2_0_12_remove_unknown_torrents();
             }
             // Add more async migrations here
             
@@ -664,4 +676,109 @@ void MigrationManager::recategorizeTorrentsBatch(qint64 startId, int batchSize)
     Q_UNUSED(startId);
     Q_UNUSED(batchSize);
     // This method is available for future use if we need to expose batch processing
+}
+
+// ============================================================================
+// Migration: Remove Unknown Type Torrents
+// ============================================================================
+
+void MigrationManager::migration_v2_0_12_remove_unknown_torrents()
+{
+    if (!d->database) {
+        qWarning() << "Migration: Database not available";
+        return;
+    }
+    
+    qInfo() << "Migration: Starting removal of Unknown type torrents...";
+    
+    // Get starting point (for resume support)
+    qint64 startId = d->inProgressMigration.lastProcessedId;
+    
+    // Get total count for progress (only on fresh start)
+    // ContentType::Unknown = 0
+    if (d->inProgressMigration.totalItems == 0) {
+        SphinxQL::Results countResult = d->database->sphinxQL()->query(
+            "SELECT COUNT(*) as cnt FROM torrents WHERE contenttype = 0");
+        
+        if (!countResult.isEmpty()) {
+            d->inProgressMigration.totalItems = countResult.first()["cnt"].toLongLong();
+        }
+        
+        qInfo() << "Migration: Total Unknown type torrents to remove:" << d->inProgressMigration.totalItems;
+        
+        if (d->inProgressMigration.totalItems == 0) {
+            qInfo() << "Migration: No Unknown type torrents found, nothing to remove";
+            return;
+        }
+    }
+    
+    const int batchSize = 100;  // Process in batches
+    qint64 removedCount = 0;
+    qint64 lastId = startId;
+    
+    while (!d->stopRequested) {
+        // Query batch of Unknown type torrents
+        // contenttype = 0 is ContentType::Unknown
+        QString querySql = QString(
+            "SELECT id, hash, name FROM torrents "
+            "WHERE contenttype = 0 AND id > %1 ORDER BY id ASC LIMIT %2")
+            .arg(lastId).arg(batchSize);
+        
+        SphinxQL::Results rows = d->database->sphinxQL()->query(querySql);
+        
+        if (rows.isEmpty()) {
+            qInfo() << "Migration: No more Unknown type torrents to remove";
+            break;
+        }
+        
+        for (const QVariantMap& row : rows) {
+            if (d->stopRequested) {
+                break;
+            }
+            
+            qint64 id = row["id"].toLongLong();
+            QString hash = row["hash"].toString();
+            QString name = row["name"].toString();
+            
+            // Remove torrent and its files
+            if (d->database->removeTorrent(hash)) {
+                removedCount++;
+                
+                if (removedCount % 100 == 0) {
+                    qInfo() << "Migration: Removed" << removedCount << "Unknown type torrents so far";
+                }
+            } else {
+                qWarning() << "Migration: Failed to remove torrent" << hash.left(16) << name.left(40);
+            }
+            
+            lastId = id;
+            
+            // Update progress
+            {
+                QMutexLocker locker(&d->stateMutex);
+                d->inProgressMigration.lastProcessedId = lastId;
+                d->currentProgress.current = removedCount;
+                d->currentProgress.total = d->inProgressMigration.totalItems;
+            }
+        }
+        
+        // Emit progress update
+        emit migrationProgress(d->inProgressMigration.migrationId, 
+                               removedCount, d->inProgressMigration.totalItems);
+        
+        // Small delay to avoid overwhelming the system
+        if (!d->stopRequested) {
+            QThread::msleep(10);
+        }
+        
+        // Note: We don't check rows.size() < batchSize here because removing items
+        // affects the query results. Instead we continue until no more Unknown torrents found.
+    }
+    
+    if (!d->stopRequested) {
+        qInfo() << "Migration: Removal complete. Removed" << removedCount 
+                << "Unknown type torrents (including their files)";
+    } else {
+        qInfo() << "Migration: Stopped at ID" << lastId << ". Will resume on next startup.";
+    }
 }

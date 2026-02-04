@@ -188,6 +188,7 @@ set(SOURCES
 # Header files
 set(HEADERS
     src/mainwindow.h
+    src/utils.h
     src/settingsdialog.h
     src/torrentdatabase.h
     src/torrentspider.h

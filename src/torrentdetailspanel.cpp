@@ -13,6 +13,7 @@
 #include <QFrame>
 #include <QTimer>
 #include <QStyle>
+#include "utils.h"
 
 TorrentDetailsPanel::TorrentDetailsPanel(QWidget *parent)
     : QWidget(parent)
@@ -344,7 +345,14 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     sizeLabel_->setText(formatBytes(torrent.size));
     filesLabel_->setText(tr("%1 files").arg(torrent.files));
     dateLabel_->setText(torrent.added.isValid() ? torrent.added.toString("MMMM d, yyyy") : "-");
-    categoryLabel_->setText(torrent.contentCategory.isEmpty() ? tr("General") : torrent.contentCategory);
+    // Actually better to display type here
+    categoryLabel_->setText(
+        torrent.contentType.isEmpty() ? tr("Unknown") : 
+        capitalizeFirst(torrent.contentType) + (
+            torrent.contentCategory.isEmpty() || torrent.contentCategory == "unknown" ? 
+                "" : 
+                " (" + capitalizeFirst(torrent.contentCategory) + ")"
+        ));
     
     // Hash - use makeBreakable for long hash strings
     hashLabel_->setText(makeBreakable(torrent.hash));

@@ -22,9 +22,10 @@ QColor TorrentItemDelegate::getContentTypeColor(const QString &contentType)
         {"games", QColor("#9c27b0")},
         {"archive", QColor("#1e25e3")},
         {"disc", QColor("#1ee381")},
-        {"unknown", QColor("#888888")}
+        {"bad", QColor("#888888")},
+        {"unknown", QColor("#000000")}
     };
-    return colors.value(contentType.toLower(), QColor("#888888"));
+    return colors.value(contentType.toLower(), QColor("#000000"));
 }
 
 QString TorrentItemDelegate::getContentTypeName(const QString &contentType)
