@@ -7,12 +7,50 @@
 #include <QTimer>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QHash>
+#include <QMutex>
 #include <memory>
 #include <functional>
 
 namespace librats {
     class RatsClient;
 }
+
+/**
+ * @brief Information about a connected peer
+ * 
+ * Holds client statistics exchanged between rats-search clients.
+ */
+struct PeerInfo {
+    QString clientVersion;       ///< Client software version
+    qint64 torrentsCount = 0;    ///< Number of torrents in peer's database
+    qint64 filesCount = 0;       ///< Number of files in peer's database
+    qint64 totalSize = 0;        ///< Total size of torrents in bytes
+    int peersConnected = 0;      ///< Number of peers connected to this peer
+    qint64 connectedAt = 0;      ///< Timestamp when connected (ms since epoch)
+    
+    QJsonObject toJson() const {
+        QJsonObject obj;
+        obj["clientVersion"] = clientVersion;
+        obj["torrentsCount"] = torrentsCount;
+        obj["filesCount"] = filesCount;
+        obj["totalSize"] = totalSize;
+        obj["peersConnected"] = peersConnected;
+        obj["connectedAt"] = connectedAt;
+        return obj;
+    }
+    
+    static PeerInfo fromJson(const QJsonObject& obj) {
+        PeerInfo info;
+        info.clientVersion = obj["clientVersion"].toString();
+        info.torrentsCount = obj["torrentsCount"].toVariant().toLongLong();
+        info.filesCount = obj["filesCount"].toVariant().toLongLong();
+        info.totalSize = obj["totalSize"].toVariant().toLongLong();
+        info.peersConnected = obj["peersConnected"].toInt();
+        info.connectedAt = obj["connectedAt"].toVariant().toLongLong();
+        return info;
+    }
+};
 
 /**
  * @brief P2PNetwork - Transport layer for P2P communication
@@ -49,6 +87,34 @@ public:
     QString getOurPeerId() const;
     size_t getDhtNodeCount() const;
     bool isDhtRunning() const;
+    
+    /**
+     * @brief Get information about all connected peers with their stats
+     * @return Map of peerId -> PeerInfo
+     */
+    QHash<QString, PeerInfo> getConnectedPeersInfo() const;
+    
+    /**
+     * @brief Get information about a specific peer
+     * @param peerId The peer ID to look up
+     * @return PeerInfo if found, empty PeerInfo otherwise
+     */
+    PeerInfo getPeerInfo(const QString& peerId) const;
+    
+    // =========================================================================
+    // Our Client Info (to send to peers)
+    // =========================================================================
+    
+    /**
+     * @brief Set our client version to advertise to peers
+     */
+    void setClientVersion(const QString& version);
+    
+    /**
+     * @brief Update our statistics to share with peers
+     * Call this when database stats change significantly
+     */
+    void updateOurStats(qint64 torrents, qint64 files, qint64 totalSize);
     
     // =========================================================================
     // Message Sending (Transport Layer)
@@ -137,6 +203,13 @@ signals:
     void peerConnected(const QString& peerId);
     void peerDisconnected(const QString& peerId);
     
+    /**
+     * @brief Emitted when a peer's info is received
+     * @param peerId The peer ID
+     * @param info The peer's information
+     */
+    void peerInfoReceived(const QString& peerId, const PeerInfo& info);
+    
     // Generic message signal (for messages without registered handlers)
     void messageReceived(const QString& peerId, const QString& messageType, const QJsonObject& data);
 
@@ -146,6 +219,10 @@ private slots:
 private:
     void setupLibratsCallbacks();
     void setupGossipSub();
+    void setupClientInfoHandler();
+    void sendClientInfo(const QString& peerId);
+    void handleClientInfo(const QString& peerId, const QJsonObject& data);
+    QJsonObject buildOurInfo() const;
     
     std::unique_ptr<librats::RatsClient> ratsClient_;
     int port_;
@@ -156,6 +233,16 @@ private:
     
     // Registered message handlers
     QHash<QString, MessageHandler> messageHandlers_;
+    
+    // Connected peer information
+    mutable QMutex peerInfoMutex_;
+    QHash<QString, PeerInfo> peerInfoMap_;
+    
+    // Our client info to share with peers
+    QString clientVersion_;
+    qint64 ourTorrentsCount_ = 0;
+    qint64 ourFilesCount_ = 0;
+    qint64 ourTotalSize_ = 0;
     
     QTimer *updateTimer_;
 };

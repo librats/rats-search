@@ -120,6 +120,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     torrentDatabase = std::make_unique<TorrentDatabase>(dataDirectory_);
     torrentClient = std::make_unique<TorrentClient>(this);
     p2pNetwork = std::make_unique<P2PNetwork>(config->p2pPort(), config->dhtPort(), dataDirectory_);
+    p2pNetwork->setClientVersion(RATSSEARCH_VERSION_STRING);
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
     api = std::make_unique<RatsAPI>(this);
     updateManager = std::make_unique<UpdateManager>(this);
@@ -800,13 +801,21 @@ void MainWindow::initializeServicesDeferred()
         qInfo() << "Migration setup took:" << (timer.elapsed() - migrationStart) << "ms";
     }
     
-    // Load initial torrent count for statusbar (only once at startup)
+    // Load initial torrent count for statusbar and update P2P client info
     if (api) {
         api->getStatistics([this](const ApiResponse& response) {
             if (response.success) {
                 QJsonObject stats = response.data.toObject();
                 cachedTorrentCount_ = stats["torrents"].toVariant().toLongLong();
                 updateStatusBar();
+                
+                // Update P2P network with our database stats
+                if (p2pNetwork) {
+                    qint64 torrents = stats["torrents"].toVariant().toLongLong();
+                    qint64 files = stats["files"].toVariant().toLongLong();
+                    qint64 size = stats["size"].toVariant().toLongLong();
+                    p2pNetwork->updateOurStats(torrents, files, size);
+                }
             }
         });
     }

@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDateTime>
+#include <QMutexLocker>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -195,6 +196,31 @@ bool P2PNetwork::isDhtRunning() const
     return ratsClient_->is_dht_running();
 }
 
+QHash<QString, PeerInfo> P2PNetwork::getConnectedPeersInfo() const
+{
+    QMutexLocker locker(&peerInfoMutex_);
+    return peerInfoMap_;
+}
+
+PeerInfo P2PNetwork::getPeerInfo(const QString& peerId) const
+{
+    QMutexLocker locker(&peerInfoMutex_);
+    return peerInfoMap_.value(peerId);
+}
+
+void P2PNetwork::setClientVersion(const QString& version)
+{
+    clientVersion_ = version;
+}
+
+void P2PNetwork::updateOurStats(qint64 torrents, qint64 files, qint64 totalSize)
+{
+    ourTorrentsCount_ = torrents;
+    ourFilesCount_ = files;
+    ourTotalSize_ = totalSize;
+}
+
+
 // =========================================================================
 // Message Sending (Transport Layer)
 // =========================================================================
@@ -325,21 +351,36 @@ void P2PNetwork::setupLibratsCallbacks()
         return;
     }
     
-    // Connection callback
+    // Connection callback - send our client info
     ratsClient_->set_connection_callback([this](socket_t socket, const std::string& peer_id) {
         Q_UNUSED(socket);
-        qInfo() << "Peer connected:" << QString::fromStdString(peer_id).left(8);
-        emit peerConnected(QString::fromStdString(peer_id));
+        QString peerId = QString::fromStdString(peer_id);
+        qInfo() << "Peer connected:" << peerId.left(8);
+        
+        emit peerConnected(peerId);
+        emit peerCountChanged(ratsClient_->get_peer_count());
+        
+        // Send our client info to the new peer
+        sendClientInfo(peerId);
+    });
+    
+    // Disconnection callback - remove peer info
+    ratsClient_->set_disconnect_callback([this](socket_t socket, const std::string& peer_id) {
+        Q_UNUSED(socket);
+        QString peerId = QString::fromStdString(peer_id);
+        qInfo() << "Peer disconnected:" << peerId.left(8);
+        
+        {
+            QMutexLocker locker(&peerInfoMutex_);
+            peerInfoMap_.remove(peerId);
+        }
+        
+        emit peerDisconnected(peerId);
         emit peerCountChanged(ratsClient_->get_peer_count());
     });
     
-    // Disconnection callback
-    ratsClient_->set_disconnect_callback([this](socket_t socket, const std::string& peer_id) {
-        Q_UNUSED(socket);
-        qInfo() << "Peer disconnected:" << QString::fromStdString(peer_id).left(8);
-        emit peerDisconnected(QString::fromStdString(peer_id));
-        emit peerCountChanged(ratsClient_->get_peer_count());
-    });
+    // Setup client info handler
+    setupClientInfoHandler();
     
     // Re-register any handlers that were added before start()
     for (auto it = messageHandlers_.begin(); it != messageHandlers_.end(); ++it) {
@@ -488,4 +529,65 @@ bool P2PNetwork::connectToPeer(const QString& address)
     }
     
     return false;
+}
+
+// =========================================================================
+// Client Info Exchange
+// =========================================================================
+
+void P2PNetwork::setupClientInfoHandler()
+{
+    if (!ratsClient_) {
+        return;
+    }
+    
+    ratsClient_->on("client_info",
+        [this](const std::string& peer_id, const nlohmann::json& data) {
+            QString peerId = QString::fromStdString(peer_id);
+            QJsonObject jsonData = nlohmannToQt(data);
+            handleClientInfo(peerId, jsonData);
+        });
+}
+
+void P2PNetwork::sendClientInfo(const QString& peerId)
+{
+    if (!isRunning()) {
+        return;
+    }
+    
+    sendMessage(peerId, "client_info", buildOurInfo());
+}
+
+void P2PNetwork::handleClientInfo(const QString& peerId, const QJsonObject& data)
+{
+    PeerInfo info;
+    info.clientVersion = data["clientVersion"].toString();
+    info.torrentsCount = data["torrentsCount"].toVariant().toLongLong();
+    info.filesCount = data["filesCount"].toVariant().toLongLong();
+    info.totalSize = data["totalSize"].toVariant().toLongLong();
+    info.peersConnected = data["peersConnected"].toInt();
+    info.connectedAt = QDateTime::currentMSecsSinceEpoch();
+    
+    {
+        QMutexLocker locker(&peerInfoMutex_);
+        peerInfoMap_[peerId] = info;
+    }
+    
+    qInfo() << "Peer" << peerId.left(8) << "info: v" << info.clientVersion
+            << "torrents:" << info.torrentsCount << "files:" << info.filesCount
+            << "totalSize:" << info.totalSize << "peersConnected:" << info.peersConnected;
+    
+    emit peerInfoReceived(peerId, info);
+}
+
+QJsonObject P2PNetwork::buildOurInfo() const
+{
+    QJsonObject info;
+    info["clientVersion"] = clientVersion_.isEmpty() ? "2.0.0" : clientVersion_;
+    info["torrentsCount"] = ourTorrentsCount_;
+    info["filesCount"] = ourFilesCount_;
+    info["totalSize"] = ourTotalSize_;
+    info["peersConnected"] = getPeerCount();
+    
+    return info;
 }
