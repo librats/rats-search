@@ -7,41 +7,28 @@
 [![Documentation](https://img.shields.io/badge/docs-faq-brightgreen.svg)](https://github.com/DEgITx/rats-search/blob/master/docs/MANUAL.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A high-performance BitTorrent search program for desktop. It collects and indexes torrents from the DHT network, allowing powerful full-text search through torrent statistics and categories. Works over a P2P network and supports Windows, Linux, and macOS platforms.
-
-## 🚀 Version 2.0 — Now Available!
-
-Rats Search 2.0 is a **complete rewrite in C++/Qt**, delivering a native desktop application with significantly improved performance and efficiency.
-
-### What's New in 2.0
-
-* **Native C++/Qt Application** — Fast, responsive, and lightweight desktop client
-* **Powered by [librats](https://github.com/DEgITx/librats)** — High-performance P2P networking core library
-* **Improved Resource Efficiency** — Lower memory footprint and CPU usage compared to Electron
-* **Modern Dark UI** — Beautiful, modern interface with smooth animations
-* **Full-Text Search** — Powered by Manticore Search for blazing-fast queries
-* **REST/WebSocket API** — Built-in API server for integrations and custom clients
-* **Cross-Platform** — Native builds for Windows, Linux, and macOS
-
-### Legacy Version (1.x)
-
-The previous Electron/Node.js version is available in the `legacy` folder and can still be used for the web interface. See [Legacy Version](#legacy-version-1x-electronnodejs) section below.
+A high-performance BitTorrent search program for desktop and server. It collects and indexes torrents from the DHT network, allowing powerful full-text search through torrent statistics and categories. Works over an encrypted P2P network and supports Windows, Linux, and macOS platforms.
 
 ## Features
 
 ### Core Search & Indexing
 * Works over P2P torrent network, doesn't require any trackers
 * DHT crawling and automatic torrent indexing
-* Full-text search over torrent collection (powered by Manticore)
+* Full-text search over torrent collection (powered by Manticore Search)
 * Torrent and files search
 * Search filters (size ranges, files, seeders, etc.)
 * Collection filters (regex filters, adult filters)
 * Tracker peers scan support
 * Collects only statistical information and doesn't save any internal torrent data
 
-### P2P Network
+### P2P Network & Security
 * Supports its own P2P protocol for additional data transfer (search between Rats clients, descriptions/votes transfer, etc.)
-* P2P Search protocol: Search in other Rats clients
+* **End-to-end encryption** with Noise Protocol (Curve25519 + ChaCha20-Poly1305)
+* P2P Search protocol: Search in other Rats clients with encrypted communication
+* BitTorrent Mainline DHT compatible (millions of nodes)
+* mDNS Discovery for automatic local network peer discovery
+* NAT Traversal with STUN/ICE support for connecting through firewalls
+* GossipSub messaging for scalable publish-subscribe protocol
 * Supports torrent rating (voting)
 * Description association from trackers
 * Top list (most common and popular torrents)
@@ -53,14 +40,24 @@ The previous Electron/Node.js version is available in the `legacy` folder and ca
 * Torrent generation and automatic adding to search database
 
 ### User Experience
+* Native C++/Qt application — fast, responsive, and lightweight
+* Modern dark UI with customizable settings
 * System tray support with minimize/close to tray
 * Translations: English, Russian, Ukrainian, Chinese, Spanish, French, German, Japanese, Portuguese, Italian, Hindi
-* Modern dark UI with customizable settings
-* [REST & WebSocket API for custom clients and integrations](docs/API.md)
+* Console mode for headless server operation
+* REST & WebSocket API for custom clients and integrations
 
-## Powered by librats
+## Screenshots
 
-Rats Search 2.0 is built on **[librats](https://github.com/DEgITx/librats)** — a high-performance P2P networking library. Key capabilities inherited from librats:
+![Rats Search](docs/img/rats_2_1.png)
+
+![Old Version](docs/img/screen_1.png)
+
+## Architecture
+
+![Basic Architecture](docs/img/ratsarch.png)
+
+Rats Search is built on **[librats](https://github.com/DEgITx/librats)** — a high-performance P2P networking library providing:
 
 | Feature | Description |
 |---------|-------------|
@@ -70,11 +67,6 @@ Rats Search 2.0 is built on **[librats](https://github.com/DEgITx/librats)** —
 | **Noise Protocol Encryption** | End-to-end encryption with Curve25519 + ChaCha20-Poly1305 |
 | **GossipSub Messaging** | Scalable publish-subscribe protocol for P2P communication |
 | **Thread-safe Design** | Modern C++17 concurrency with minimal overhead |
-
-For more details, see the [librats documentation](https://github.com/DEgITx/librats).
-
-## Architecture
-![Basic Architecture](docs/img/ratsarch.png)
 
 ## Download
 
@@ -121,6 +113,67 @@ The executable will be in `build/bin/`.
 | `RATS_SEARCH_BUILD_TESTS` | ON | Build unit tests |
 | `RATS_SEARCH_USE_SYSTEM_LIBRATS` | OFF | Use system-installed librats |
 
+## Running
+
+### GUI Mode (Default)
+
+Simply run the executable:
+
+```bash
+./RatsSearch
+```
+
+Command line options:
+
+| Option | Description |
+|--------|-------------|
+| `-p, --port <port>` | P2P listen port (overrides config setting) |
+| `-d, --dht-port <port>` | DHT port (overrides config setting) |
+| `--data-dir <path>` | Data directory for database and config |
+| `-h, --help` | Display help |
+| `-v, --version` | Display version |
+
+### Console Mode (Headless/Server)
+
+For servers without a display, use console mode:
+
+```bash
+./RatsSearch --console
+```
+
+Console mode options:
+
+| Option | Description |
+|--------|-------------|
+| `-c, --console` | Run in console mode (no GUI) |
+| `-p, --port <port>` | P2P listen port (overrides config setting) |
+| `-d, --dht-port <port>` | DHT port (overrides config setting) |
+| `--data-dir <path>` | Data directory for database and config |
+| `-s, --spider` | Enable torrent spider (disabled by default in console mode) |
+
+Interactive commands in console mode:
+
+| Command | Description |
+|---------|-------------|
+| `stats` | Show statistics (torrents, files, peers, DHT nodes) |
+| `search <query>` | Search torrents by name |
+| `recent [n]` | Show n recent torrents (default: 10) |
+| `top [type]` | Show top torrents by type |
+| `spider start` | Start the DHT spider |
+| `spider stop` | Stop the DHT spider |
+| `help` | Show available commands |
+| `quit` / `exit` | Exit the application |
+
+Example console session:
+
+```bash
+# Start with spider enabled
+./RatsSearch --console --spider --data-dir /var/lib/rats-search
+
+# Or start with custom ports
+./RatsSearch -c -p 4445 -d 4446 -s
+```
+
 ## Configuration
 
 After first launch, a configuration file `rats.json` will be created in the data directory:
@@ -146,7 +199,7 @@ After first launch, a configuration file `rats.json` will be created in the data
 
 ## API
 
-Rats Search 2.0 includes a built-in REST API server for integrations and custom clients.
+Rats Search includes a built-in REST API server for integrations and custom clients.
 
 [📖 API Documentation](docs/API.md)
 
@@ -190,11 +243,6 @@ docker run -p 8095:8095 rats-search:legacy
 
 [Server Compatibility Notes](docs/SERVER_COMPATIBILITY.md)
 
----
-
-## Screenshots
-
-![Main Window](docs/img/screen_1.png)
 
 ## Support & Donation
 
