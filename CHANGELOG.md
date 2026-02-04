@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.12](https://github.com/DEgITx/rats-search/compare/v2.0.11...v2.0.12) (2026-02-04)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Improved peer search logic on low number of peers([1d85ceb](https://github.com/DEgITx/rats-search/commit/1d85ceb9dc405f41da6a801f54a59f99661324e1)) by @DEgITx
+- **detector:** Fix content detection on some cases according to v1([7b2b4cd](https://github.com/DEgITx/rats-search/commit/7b2b4cdc3a733a920120ec3791387a37fda06938)) by @DEgITx
+- **feed:** Legal feed([451cf34](https://github.com/DEgITx/rats-search/commit/451cf349c68ba19d8c5af1d0e784b045bc032eb3)) by @DEgITx
+- **migrator:** Fix migration version bounds([d4b15c3](https://github.com/DEgITx/rats-search/commit/d4b15c37ab8e113abd439a3e2c9452be1672c881)) by @DEgITx
+- **migration:** Cleanup empty one one-time([e21abc7](https://github.com/DEgITx/rats-search/commit/e21abc7cc57e46f977c69b9b0b7c8f44b56daccb)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.11([307c3f3](https://github.com/DEgITx/rats-search/commit/307c3f37543a53db169a8031b035f65e489f8b5a)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **agreement:** User agreement([80291b8](https://github.com/DEgITx/rats-search/commit/80291b81b61f20be1a725d357dd9c4bf2ec8c513)) by @DEgITx
+- **changelog:** Dialog for changelog like in old version([fa5ea8f](https://github.com/DEgITx/rats-search/commit/fa5ea8fa9984b571492fe665efdc04041797c68e)) by @DEgITx
+- **migration:** Restored migration module([a40f189](https://github.com/DEgITx/rats-search/commit/a40f18964cb8c6d3242ca0cd9610c02a65343ae9)) by @DEgITx
+- **formats:** New formats support([cb3e8e3](https://github.com/DEgITx/rats-search/commit/cb3e8e33d0ec1aa21e2d565d8561fc54153f78f7)) by @DEgITx
+- **p2p:** Our peer information for other clients([0a37815](https://github.com/DEgITx/rats-search/commit/0a37815ec28a7726635e0da9990d92ae9c8669f9)) by @DEgITx
+- **p2p:** Protocol bump([6798557](https://github.com/DEgITx/rats-search/commit/6798557d840fb657219befb9423a9bef1d8690e7)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 11 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.11](https://github.com/DEgITx/rats-search/compare/v2.0.10...v2.0.11) (2026-02-03)
 
 
