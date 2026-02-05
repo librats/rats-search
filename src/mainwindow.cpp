@@ -668,15 +668,21 @@ void MainWindow::initializeServicesDeferred()
     
     qInfo() << "Starting deferred initialization...";
     
-    // Initialize RatsAPI with all dependencies
+    // Connect signals first (before starting services)
+    connectSignals();
+    
+    // Start heavy services (database, P2P, spider) - MUST happen before API init
+    // Database must be initialized before RatsAPI (FeedManager needs it)
+    qint64 servicesStart = timer.elapsed();
+    startServices();
+    qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
+    
+    // Initialize RatsAPI with all dependencies (after database is ready)
     // RatsAPI::initialize() automatically sets up P2P message handlers
     // All P2P API logic is centralized in RatsAPI (like legacy api.js)
     qint64 apiStart = timer.elapsed();
     api->initialize(torrentDatabase.get(), p2pNetwork.get(), torrentClient.get(), config.get());
     qInfo() << "RatsAPI initialize took:" << (timer.elapsed() - apiStart) << "ms";
-    
-    // Connect signals before starting services
-    connectSignals();
     
     // Connect RatsAPI remote search results to UI
     // When RatsAPI receives search results from other peers, update UI
@@ -759,11 +765,6 @@ void MainWindow::initializeServicesDeferred()
         apiServer = std::make_unique<ApiServer>(api.get());
         apiServer->start(config->httpPort());
     }
-    
-    // Start heavy services (database, P2P, spider)
-    qint64 servicesStart = timer.elapsed();
-    startServices();
-    qInfo() << "startServices took:" << (timer.elapsed() - servicesStart) << "ms";
     
     // Initialize and run migrations after database is ready
     if (migrationManager && torrentDatabase) {
