@@ -315,6 +315,7 @@ void TorrentSpider::onAnnounce(const std::array<uint8_t, 20>& infoHash,
     {
         std::lock_guard<std::mutex> lock(recentHashesMutex_);
         if (recentHashes_.count(hashHex) > 0) {
+            qDebug() << "Already seen hash:" << hashHex << " - ignoring";
             return;  // Already seen
         }
         
