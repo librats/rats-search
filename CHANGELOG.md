@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.13](https://github.com/DEgITx/rats-search/compare/v2.0.12...v2.0.13) (2026-02-08)
+
+
+### 🐛 Bug Fixes
+
+
+- **linux:** Better comparability for older repos([4d3296f](https://github.com/DEgITx/rats-search/commit/4d3296fd3b69e3ef48fb7138c85dedc0c60648c0)) by @DEgITx
+- **feed:** Fix initialization order([1cdf27f](https://github.com/DEgITx/rats-search/commit/1cdf27f5722861f9c9dd55e57b4bcd7ca20cde4a)) by @DEgITx
+- **p2p:** Some cleanup for connections([2c5b417](https://github.com/DEgITx/rats-search/commit/2c5b417edec28e25151476312a1f69e00012cb78)) by @DEgITx
+- **network:** Small improvements([bad2e03](https://github.com/DEgITx/rats-search/commit/bad2e030cdcb54cc404368017e22f0e923401c24)) by @DEgITx
+- **scan:** Use only target ip for metdata getting([e3d5b22](https://github.com/DEgITx/rats-search/commit/e3d5b2202dff1e370266d3ca3fd20bb808b70a27)) by @DEgITx
+- **torrent:** Fix incorrect port during announce scanning([592695d](https://github.com/DEgITx/rats-search/commit/592695d6d9d27a9d16575dd2102ebd4601247db0)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.12([73f3ba0](https://github.com/DEgITx/rats-search/commit/73f3ba0d41d34cdb066ed663603116d3aa7f603f)) by @github-actions[bot]
+- **readme:** Readme update([117cc13](https://github.com/DEgITx/rats-search/commit/117cc13d001d7b6d3a158d133c56db51561b1317)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **torrent:** Increase speed of metadata getting([36d27b2](https://github.com/DEgITx/rats-search/commit/36d27b2f52e6da91de20512e27b06759c3cf5054)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.12](https://github.com/DEgITx/rats-search/compare/v2.0.11...v2.0.12) (2026-02-04)
 
 
