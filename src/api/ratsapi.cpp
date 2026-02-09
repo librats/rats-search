@@ -1475,7 +1475,7 @@ void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
             }
             
             qInfo() << "Tracker check for" << hash.left(8) << "- seeders:" << result.seeders 
-                    << "leechers:" << result.leechers;
+                    << "leechers:" << result.leechers << "completed:" << result.completed;
         } else {
             response["status"] = "failed";
             response["error"] = result.error.isEmpty() ? "No tracker responded" : result.error;

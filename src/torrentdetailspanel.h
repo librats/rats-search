@@ -42,6 +42,9 @@ public:
     QString currentHash() const { return currentHash_; }
     TorrentInfo currentTorrent() const { return currentTorrent_; }
     
+    // Update tracker stats (seeders/leechers/completed) after background check
+    void updateTrackerStats(int seeders, int leechers, int completed);
+    
     // Download progress
     void setDownloadProgress(double progress, qint64 downloaded, qint64 total, int speed);
     void setDownloadCompleted();
@@ -115,6 +118,10 @@ private:
     QPushButton *downloadButton_;
     QPushButton *copyHashButton_;
     QPushButton *closeButton_;
+    
+    // Background tracker refresh
+    void refreshTrackersInBackground();
+    QHash<QString, qint64> trackerCheckTimestamps_;  // hash -> epoch ms of last check
     
     // Current torrent data
     QString currentHash_;

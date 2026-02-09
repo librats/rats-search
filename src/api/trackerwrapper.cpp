@@ -101,6 +101,7 @@ void TrackerWrapper::scrapeMultiple(const QString& hash,
     // Check if we can start immediately or need to queue
     {
         QMutexLocker locker(&queueMutex_);
+        qInfo() << "TrackerWrapper: requesting scrape multiple for" << hash << "activeRequests:" << activeRequests_;
         if (activeRequests_ >= maxConcurrent_) {
             // Queue the request
             PendingRequest req;

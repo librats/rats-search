@@ -8,6 +8,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QDateTime>
+#include <QDebug>
 #include <QFont>
 #include <QScrollArea>
 #include <QFrame>
@@ -376,6 +377,9 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     }
     
     setVisible(true);
+    
+    // Refresh seeder/leecher info from trackers in background
+    refreshTrackersInBackground();
 }
 
 void TorrentDetailsPanel::clear()
@@ -651,4 +655,53 @@ QString TorrentDetailsPanel::makeBreakable(const QString& text) const
     }
     
     return result;
+}
+
+void TorrentDetailsPanel::updateTrackerStats(int seeders, int leechers, int completed)
+{
+    currentTorrent_.seeders = seeders;
+    currentTorrent_.leechers = leechers;
+    currentTorrent_.completed = completed;
+    
+    seedersLabel_->setText(QString::number(seeders));
+    leechersLabel_->setText(QString::number(leechers));
+    completedLabel_->setText(QString::number(completed));
+}
+
+void TorrentDetailsPanel::refreshTrackersInBackground()
+{
+    if (!api_ || currentHash_.isEmpty()) {
+        return;
+    }
+    
+    // Rate-limit: skip if we checked this hash within the last 10 minutes
+    constexpr qint64 cooldownMs = 10 * 60 * 1000;  // 10 minutes
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    
+    auto it = trackerCheckTimestamps_.find(currentHash_);
+    if (it != trackerCheckTimestamps_.end() && (now - it.value()) < cooldownMs) {
+        return;  // Already checked recently
+    }
+    
+    // Record the check time
+    trackerCheckTimestamps_[currentHash_] = now;
+    
+    QString hash = currentHash_;
+    api_->checkTrackers(hash, [this, hash](const ApiResponse& response) {
+        if (!response.success) return;
+        
+        QJsonObject data = response.data.toObject();
+        if (data["status"].toString() != "success") return;
+        
+        // Only update if the details panel is still showing this torrent
+        if (currentHash_ != hash) return;
+        
+        int seeders = data["seeders"].toInt();
+        int leechers = data["leechers"].toInt();
+        int completed = data["completed"].toInt();
+        
+        updateTrackerStats(seeders, leechers, completed);
+        qInfo() << "Tracker info refreshed for" << hash.left(8)
+                << "- seeders:" << seeders << "leechers:" << leechers;
+    });
 }
