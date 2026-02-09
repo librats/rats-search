@@ -208,6 +208,16 @@ PeerInfo P2PNetwork::getPeerInfo(const QString& peerId) const
     return peerInfoMap_.value(peerId);
 }
 
+qint64 P2PNetwork::getRemoteTorrentsCount() const
+{
+    QMutexLocker locker(&peerInfoMutex_);
+    qint64 total = 0;
+    for (auto it = peerInfoMap_.constBegin(); it != peerInfoMap_.constEnd(); ++it) {
+        total += it.value().torrentsCount;
+    }
+    return total;
+}
+
 void P2PNetwork::setClientVersion(const QString& version)
 {
     clientVersion_ = version;

@@ -101,6 +101,12 @@ public:
      */
     PeerInfo getPeerInfo(const QString& peerId) const;
     
+    /**
+     * @brief Get total torrents count from all connected peers
+     * @return Sum of torrentsCount from all peers' handshake info
+     */
+    qint64 getRemoteTorrentsCount() const;
+    
     // =========================================================================
     // Our Client Info (to send to peers)
     // =========================================================================

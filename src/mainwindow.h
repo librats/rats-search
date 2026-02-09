@@ -167,6 +167,7 @@ private:
     bool servicesStarted_;
     QString currentSearchQuery_;
     qint64 cachedTorrentCount_ = 0;  // Cached torrent count for statusbar
+    qint64 cachedRemoteTorrentCount_ = 0;  // Sum of torrents from connected peers (from handshake)
     
     // System Tray
     QSystemTrayIcon *trayIcon;

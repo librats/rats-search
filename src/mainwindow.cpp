@@ -498,6 +498,18 @@ void MainWindow::connectSignals()
     connect(p2pNetwork.get(), &P2PNetwork::statusChanged, this, &MainWindow::onP2PStatusChanged);
     connect(p2pNetwork.get(), &P2PNetwork::peerCountChanged, this, &MainWindow::onPeerCountChanged);
     
+    // Update remote torrent count when peer info is received (from handshake)
+    connect(p2pNetwork.get(), &P2PNetwork::peerInfoReceived, this, [this](const QString&, const PeerInfo&) {
+        cachedRemoteTorrentCount_ = p2pNetwork->getRemoteTorrentsCount();
+        updateStatusBar();
+    });
+    
+    // Update remote torrent count when a peer disconnects
+    connect(p2pNetwork.get(), &P2PNetwork::peerDisconnected, this, [this](const QString&) {
+        cachedRemoteTorrentCount_ = p2pNetwork->getRemoteTorrentsCount();
+        updateStatusBar();
+    });
+    
     // Spider signals
     connect(torrentSpider.get(), &TorrentSpider::statusChanged, this, &MainWindow::onSpiderStatusChanged);
     connect(torrentSpider.get(), &TorrentSpider::torrentIndexed, this, &MainWindow::onTorrentIndexed);
@@ -988,7 +1000,11 @@ void MainWindow::performSearch(const QString &query)
 
 void MainWindow::updateStatusBar()
 {
-    torrentCountLabel->setText(tr("📦 Torrents: %1").arg(cachedTorrentCount_));
+    if (cachedRemoteTorrentCount_ > 0) {
+        torrentCountLabel->setText(tr("📦 Torrents: %1 + %2").arg(cachedTorrentCount_).arg(cachedRemoteTorrentCount_));
+    } else {
+        torrentCountLabel->setText(tr("📦 Torrents: %1").arg(cachedTorrentCount_));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
