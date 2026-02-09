@@ -4,6 +4,7 @@
 #include "sphinxql.h"
 #include <QDebug>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QRegularExpression>
 
 TorrentDatabase::TorrentDatabase(const QString& dataDirectory, QObject *parent)
@@ -489,6 +490,55 @@ bool TorrentDatabase::updateTrackerInfo(const QString& hash, int seeders, int le
     values["leechers"] = leechers;
     values["completed"] = completed;
     values["trackersChecked"] = QDateTime::currentSecsSinceEpoch();
+    
+    return sphinxQL_->updateValues("torrents", values, {{"hash", hash}});
+}
+
+bool TorrentDatabase::updateTorrentInfoField(const QString& hash, const QJsonObject& info)
+{
+    if (!isReady() || hash.isEmpty() || info.isEmpty()) {
+        return false;
+    }
+    
+    // First, get existing info to merge with
+    auto results = sphinxQL_->query("SELECT info FROM torrents WHERE hash = ?", {hash});
+    if (results.isEmpty()) {
+        return false;
+    }
+    
+    QJsonObject existingInfo;
+    QString infoStr = results[0]["info"].toString();
+    if (!infoStr.isEmpty()) {
+        QJsonDocument doc = QJsonDocument::fromJson(infoStr.toUtf8());
+        if (doc.isObject()) {
+            existingInfo = doc.object();
+        }
+    }
+    
+    // Merge: new values overwrite existing, but arrays (like trackers) are merged
+    for (auto it = info.begin(); it != info.end(); ++it) {
+        if (it.key() == "trackers" && existingInfo.contains("trackers")) {
+            // Merge tracker arrays (deduplicate)
+            QJsonArray existingTrackers = existingInfo["trackers"].toArray();
+            QJsonArray newTrackers = it.value().toArray();
+            QSet<QString> existing;
+            for (const QJsonValue& v : existingTrackers) {
+                existing.insert(v.toString());
+            }
+            for (const QJsonValue& v : newTrackers) {
+                if (!existing.contains(v.toString())) {
+                    existingTrackers.append(v);
+                }
+            }
+            existingInfo["trackers"] = existingTrackers;
+        } else {
+            existingInfo[it.key()] = it.value();
+        }
+    }
+    
+    QVariantMap values;
+    QJsonDocument doc(existingInfo);
+    values["info"] = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
     
     return sphinxQL_->updateValues("torrents", values, {{"hash", hash}});
 }

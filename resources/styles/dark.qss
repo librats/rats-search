@@ -1372,6 +1372,68 @@ QPushButton#badVoteButton:disabled {
     color: #666666;
 }
 
+/* Tracker info section (poster, description, links) */
+QWidget#trackerInfoWidget {
+    background-color: transparent;
+}
+
+QLabel#trackerLoadingLabel {
+    font-size: 10px;
+    color: #888888;
+    font-style: italic;
+    padding: 4px 0;
+}
+
+QLabel#posterLabel {
+    background-color: #1e1e1e;
+    border: 1px solid #353535;
+    border-radius: 6px;
+    padding: 4px;
+}
+
+QLabel#descriptionLabel {
+    font-size: 11px;
+    color: #c0c0c0;
+    line-height: 1.4;
+    padding: 8px;
+    background-color: #1e1e1e;
+    border: 1px solid #353535;
+    border-radius: 6px;
+}
+
+QPushButton#descriptionToggle {
+    font-size: 10px;
+    color: #4a9eff;
+    border: none;
+    padding: 2px 0;
+    background: transparent;
+    text-align: left;
+}
+
+QPushButton#descriptionToggle:hover {
+    color: #66b2ff;
+}
+
+QPushButton#trackerLinkButton {
+    background-color: #2d3748;
+    color: #e0e0e0;
+    border: 1px solid #4a5568;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+QPushButton#trackerLinkButton:hover {
+    background-color: #3d4a5c;
+    border-color: #4a9eff;
+    color: #4a9eff;
+}
+
+QPushButton#trackerLinkButton:pressed {
+    background-color: #2a3444;
+}
+
 /* Download progress widget */
 QWidget#downloadProgressWidget {
     background-color: #2d2d2d;
