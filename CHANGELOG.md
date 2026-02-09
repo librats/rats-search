@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.14](https://github.com/DEgITx/rats-search/compare/v2.0.13...v2.0.14) (2026-02-09)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix port initialization when ports are bust([257fc9d](https://github.com/DEgITx/rats-search/commit/257fc9d5db7da33838d7f8c5303626842c996d0c)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.13([7312089](https://github.com/DEgITx/rats-search/commit/7312089d6b078d579508e74fc61e3f7df8db4b0b)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **p2p:** Info about peer torrents([cab1cb5](https://github.com/DEgITx/rats-search/commit/cab1cb5bc2185cf08c09f855e91b0557ce96cd26)) by @DEgITx
+- **trackers:** Auto-update tracker info on click([c4dc2a9](https://github.com/DEgITx/rats-search/commit/c4dc2a935c8686fddb2377cc36827a89f60f8887)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.13](https://github.com/DEgITx/rats-search/compare/v2.0.12...v2.0.13) (2026-02-08)
 
 
