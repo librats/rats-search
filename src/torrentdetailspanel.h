@@ -10,6 +10,7 @@
 #include <QScrollArea>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QNetworkAccessManager>
 #include "torrentdatabase.h"
 
 // Forward declarations
@@ -122,6 +123,24 @@ private:
     // Background tracker refresh
     void refreshTrackersInBackground();
     QHash<QString, qint64> trackerCheckTimestamps_;  // hash -> epoch ms of last check
+    
+    // Tracker info scraping (descriptions/posters from tracker websites)
+    void scrapeTrackerInfoInBackground();
+    void onTrackerInfoUpdated(const QString& hash, const QJsonObject& info);
+    void updateTrackerInfoDisplay(const QJsonObject& info);
+    void loadPosterImage(const QString& url);
+    
+    // Tracker info UI elements
+    QWidget* trackerInfoWidget_;      // Container for all tracker info
+    QLabel* trackerInfoLoadingLabel_; // "Loading tracker info..." indicator
+    QLabel* posterLabel_;             // Poster/cover image
+    QLabel* descriptionLabel_;        // Description text (expandable)
+    QPushButton* descriptionToggle_;  // "Show more / Show less" button
+    QWidget* trackerLinksWidget_;     // Container for tracker link buttons
+    QHBoxLayout* trackerLinksLayout_; // Layout for tracker link buttons
+    bool descriptionExpanded_ = false;
+    QString fullDescription_;         // Full description text
+    QNetworkAccessManager* posterNetworkManager_;
     
     // Current torrent data
     QString currentHash_;

@@ -17,6 +17,7 @@ class TorrentClient;
 class ConfigManager;
 class FeedManager;
 class P2PStoreManager;
+class TrackerInfoScraper;
 
 // librats forward declarations (only when RATS_SEARCH_FEATURES enabled)
 #ifdef RATS_SEARCH_FEATURES
@@ -329,6 +330,23 @@ public:
     void checkTrackers(const QString& hash, ApiCallback callback);
     
     /**
+     * @brief Scrape tracker websites for torrent details
+     * 
+     * Queries tracker websites (RuTracker, Nyaa) for additional info about
+     * a torrent: description, poster image, content category, tracker links.
+     * Results are stored in the torrent's `info` JSON field.
+     * 
+     * @param hash Torrent info hash
+     * @param callback Called with updated info. data contains the merged info JSON.
+     */
+    void scrapeTrackerInfo(const QString& hash, ApiCallback callback);
+    
+    /**
+     * @brief Get the tracker info scraper
+     */
+    TrackerInfoScraper* trackerInfoScraper() const;
+    
+    /**
      * @brief Remove torrents matching filters
      * @param checkOnly If true, only count matching torrents
      */
@@ -459,6 +477,13 @@ signals:
      * @brief Emitted when config changes
      */
     void configChanged(const QJsonObject& config);
+    
+    /**
+     * @brief Emitted when tracker info is scraped for a torrent
+     * @param hash Torrent info hash
+     * @param info Merged tracker info JSON (poster, description, trackers, etc.)
+     */
+    void trackerInfoUpdated(const QString& hash, const QJsonObject& info);
     
     /**
      * @brief Emitted when votes are updated

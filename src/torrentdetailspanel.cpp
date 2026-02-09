@@ -3,6 +3,7 @@
 #include "torrentclient.h"
 #include "api/ratsapi.h"
 #include "api/p2pstoremanager.h"
+#include "api/trackerinfoscraper.h"
 #include <QClipboard>
 #include <QApplication>
 #include <QDesktopServices>
@@ -14,6 +15,9 @@
 #include <QFrame>
 #include <QTimer>
 #include <QStyle>
+#include <QNetworkReply>
+#include <QPixmap>
+#include <QJsonArray>
 #include "utils.h"
 
 TorrentDetailsPanel::TorrentDetailsPanel(QWidget *parent)
@@ -170,6 +174,82 @@ void TorrentDetailsPanel::setupUi()
     votingLayout->addWidget(votesLabel_);
     
     mainLayout->addLayout(votingLayout);
+    
+    // Tracker info section (poster, description, links from tracker websites)
+    trackerInfoWidget_ = new QWidget();
+    trackerInfoWidget_->setObjectName("trackerInfoWidget");
+    QVBoxLayout *trackerInfoLayout = new QVBoxLayout(trackerInfoWidget_);
+    trackerInfoLayout->setContentsMargins(0, 0, 0, 0);
+    trackerInfoLayout->setSpacing(8);
+    
+    QFrame *sepTracker = new QFrame();
+    sepTracker->setFrameShape(QFrame::HLine);
+    sepTracker->setObjectName("detailsSeparator");
+    sepTracker->setFixedHeight(1);
+    trackerInfoLayout->addWidget(sepTracker);
+    
+    QLabel *trackerInfoTitle = new QLabel(tr("Tracker Info"));
+    trackerInfoTitle->setObjectName("sectionTitle");
+    trackerInfoLayout->addWidget(trackerInfoTitle);
+    
+    // Loading indicator
+    trackerInfoLoadingLabel_ = new QLabel(tr("🔍 Loading tracker info..."));
+    trackerInfoLoadingLabel_->setObjectName("trackerLoadingLabel");
+    trackerInfoLoadingLabel_->hide();
+    trackerInfoLayout->addWidget(trackerInfoLoadingLabel_);
+    
+    // Poster image
+    posterLabel_ = new QLabel();
+    posterLabel_->setObjectName("posterLabel");
+    posterLabel_->setAlignment(Qt::AlignCenter);
+    posterLabel_->setMaximumHeight(300);
+    posterLabel_->setScaledContents(false);
+    posterLabel_->hide();
+    trackerInfoLayout->addWidget(posterLabel_);
+    
+    // Description
+    descriptionLabel_ = new QLabel();
+    descriptionLabel_->setObjectName("descriptionLabel");
+    descriptionLabel_->setWordWrap(true);
+    descriptionLabel_->setTextFormat(Qt::PlainText);
+    descriptionLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    descriptionLabel_->hide();
+    trackerInfoLayout->addWidget(descriptionLabel_);
+    
+    // Show more/less toggle
+    descriptionToggle_ = new QPushButton(tr("Show more ▼"));
+    descriptionToggle_->setObjectName("descriptionToggle");
+    descriptionToggle_->setCursor(Qt::PointingHandCursor);
+    descriptionToggle_->setFlat(true);
+    descriptionToggle_->hide();
+    connect(descriptionToggle_, &QPushButton::clicked, this, [this]() {
+        descriptionExpanded_ = !descriptionExpanded_;
+        if (descriptionExpanded_) {
+            descriptionLabel_->setText(fullDescription_);
+            descriptionToggle_->setText(tr("Show less ▲"));
+        } else {
+            // Show first ~300 chars
+            QString preview = fullDescription_.left(300);
+            if (fullDescription_.length() > 300) preview += "...";
+            descriptionLabel_->setText(preview);
+            descriptionToggle_->setText(tr("Show more ▼"));
+        }
+    });
+    trackerInfoLayout->addWidget(descriptionToggle_);
+    
+    // Tracker links
+    trackerLinksWidget_ = new QWidget();
+    trackerLinksLayout_ = new QHBoxLayout(trackerLinksWidget_);
+    trackerLinksLayout_->setContentsMargins(0, 4, 0, 0);
+    trackerLinksLayout_->setSpacing(8);
+    trackerLinksLayout_->addStretch();
+    trackerLinksWidget_->hide();
+    trackerInfoLayout->addWidget(trackerLinksWidget_);
+    
+    trackerInfoWidget_->hide();
+    mainLayout->addWidget(trackerInfoWidget_);
+    
+    posterNetworkManager_ = new QNetworkAccessManager(this);
     
     // Download progress section (hidden by default)
     downloadProgressWidget_ = new QWidget();
@@ -376,10 +456,28 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
         resetDownloadState();
     }
     
+    // Show existing tracker info from database if available
+    if (!torrent.info.isEmpty() && torrent.info.contains("trackers")) {
+        updateTrackerInfoDisplay(torrent.info);
+    } else {
+        // Reset tracker info UI
+        trackerInfoWidget_->hide();
+        posterLabel_->hide();
+        descriptionLabel_->hide();
+        descriptionToggle_->hide();
+        trackerLinksWidget_->hide();
+        trackerInfoLoadingLabel_->hide();
+        fullDescription_.clear();
+        descriptionExpanded_ = false;
+    }
+    
     setVisible(true);
     
     // Refresh seeder/leecher info from trackers in background
     refreshTrackersInBackground();
+    
+    // Scrape tracker websites for descriptions/posters
+    scrapeTrackerInfoInBackground();
 }
 
 void TorrentDetailsPanel::clear()
@@ -407,6 +505,27 @@ void TorrentDetailsPanel::clear()
     ratingBar_->setValue(0);
     ratingLabel_->setText("N/A");
     votesLabel_->setText(tr("No votes yet"));
+    
+    // Clear tracker info
+    trackerInfoWidget_->hide();
+    posterLabel_->hide();
+    posterLabel_->clear();
+    descriptionLabel_->hide();
+    descriptionLabel_->clear();
+    descriptionToggle_->hide();
+    trackerLinksWidget_->hide();
+    trackerInfoLoadingLabel_->hide();
+    fullDescription_.clear();
+    descriptionExpanded_ = false;
+    
+    // Remove old tracker link buttons
+    while (trackerLinksLayout_->count() > 1) { // keep the stretch
+        QLayoutItem* item = trackerLinksLayout_->takeAt(0);
+        if (item->widget()) {
+            delete item->widget();
+        }
+        delete item;
+    }
 }
 
 void TorrentDetailsPanel::updateRatingDisplay()
@@ -499,6 +618,7 @@ void TorrentDetailsPanel::setApi(RatsAPI* api)
     api_ = api;
     if (api_) {
         connect(api_, &RatsAPI::votesUpdated, this, &TorrentDetailsPanel::onVotesUpdated);
+        connect(api_, &RatsAPI::trackerInfoUpdated, this, &TorrentDetailsPanel::onTrackerInfoUpdated);
     }
 }
 
@@ -666,6 +786,187 @@ void TorrentDetailsPanel::updateTrackerStats(int seeders, int leechers, int comp
     seedersLabel_->setText(QString::number(seeders));
     leechersLabel_->setText(QString::number(leechers));
     completedLabel_->setText(QString::number(completed));
+}
+
+// ============================================================================
+// Tracker Info Scraping (descriptions/posters from tracker websites)
+// ============================================================================
+
+void TorrentDetailsPanel::scrapeTrackerInfoInBackground()
+{
+    if (!api_ || currentHash_.isEmpty()) {
+        return;
+    }
+    
+    // Don't scrape if we already have tracker info
+    if (!currentTorrent_.info.isEmpty() && currentTorrent_.info.contains("trackers")) {
+        QJsonArray trackers = currentTorrent_.info["trackers"].toArray();
+        if (!trackers.isEmpty()) {
+            return; // Already have info
+        }
+    }
+    
+    // Show loading indicator
+    trackerInfoWidget_->show();
+    trackerInfoLoadingLabel_->show();
+    
+    QString hash = currentHash_;
+    api_->scrapeTrackerInfo(hash, [this, hash](const ApiResponse& response) {
+        // Only update if still showing this torrent
+        if (currentHash_ != hash) return;
+        
+        trackerInfoLoadingLabel_->hide();
+        
+        if (response.success) {
+            QJsonObject info = response.data.toObject();
+            if (info.contains("trackers")) {
+                updateTrackerInfoDisplay(info);
+            } else {
+                trackerInfoWidget_->hide();
+            }
+        } else {
+            trackerInfoWidget_->hide();
+        }
+    });
+}
+
+void TorrentDetailsPanel::onTrackerInfoUpdated(const QString& hash, const QJsonObject& info)
+{
+    if (hash != currentHash_) return;
+    
+    trackerInfoLoadingLabel_->hide();
+    updateTrackerInfoDisplay(info);
+}
+
+void TorrentDetailsPanel::updateTrackerInfoDisplay(const QJsonObject& info)
+{
+    trackerInfoWidget_->show();
+    trackerInfoLoadingLabel_->hide();
+    
+    // Poster image
+    QString posterUrl = info["poster"].toString();
+    if (!posterUrl.isEmpty()) {
+        loadPosterImage(posterUrl);
+    } else {
+        posterLabel_->hide();
+    }
+    
+    // Description
+    QString description = info["description"].toString();
+    if (!description.isEmpty()) {
+        fullDescription_ = description;
+        descriptionExpanded_ = false;
+        
+        if (description.length() > 300) {
+            descriptionLabel_->setText(description.left(300) + "...");
+            descriptionToggle_->show();
+            descriptionToggle_->setText(tr("Show more ▼"));
+        } else {
+            descriptionLabel_->setText(description);
+            descriptionToggle_->hide();
+        }
+        descriptionLabel_->show();
+    } else {
+        descriptionLabel_->hide();
+        descriptionToggle_->hide();
+    }
+    
+    // Tracker links - remove old buttons first (keep the stretch at end)
+    while (trackerLinksLayout_->count() > 1) {
+        QLayoutItem* item = trackerLinksLayout_->takeAt(0);
+        if (item->widget()) {
+            delete item->widget();
+        }
+        delete item;
+    }
+    
+    bool hasLinks = false;
+    
+    // RuTracker link
+    int rutrackerThreadId = info["rutrackerThreadId"].toInt();
+    if (rutrackerThreadId > 0) {
+        QPushButton* rtBtn = new QPushButton(tr("🔗 RuTracker"));
+        rtBtn->setObjectName("trackerLinkButton");
+        rtBtn->setCursor(Qt::PointingHandCursor);
+        rtBtn->setToolTip(QString("https://rutracker.org/forum/viewtopic.php?t=%1").arg(rutrackerThreadId));
+        connect(rtBtn, &QPushButton::clicked, this, [rutrackerThreadId]() {
+            QDesktopServices::openUrl(QUrl(
+                QString("https://rutracker.org/forum/viewtopic.php?t=%1").arg(rutrackerThreadId)));
+        });
+        trackerLinksLayout_->insertWidget(trackerLinksLayout_->count() - 1, rtBtn);
+        hasLinks = true;
+    }
+    
+    // Nyaa link
+    int nyaaThreadId = info["nyaaThreadId"].toInt();
+    if (nyaaThreadId > 0) {
+        QPushButton* nyaaBtn = new QPushButton(tr("🔗 Nyaa"));
+        nyaaBtn->setObjectName("trackerLinkButton");
+        nyaaBtn->setCursor(Qt::PointingHandCursor);
+        nyaaBtn->setToolTip(QString("https://nyaa.si/view/%1").arg(nyaaThreadId));
+        connect(nyaaBtn, &QPushButton::clicked, this, [nyaaThreadId]() {
+            QDesktopServices::openUrl(QUrl(
+                QString("https://nyaa.si/view/%1").arg(nyaaThreadId)));
+        });
+        trackerLinksLayout_->insertWidget(trackerLinksLayout_->count() - 1, nyaaBtn);
+        hasLinks = true;
+    }
+    
+    // Content category from tracker
+    QString trackerCategory = info["contentCategory"].toString();
+    if (!trackerCategory.isEmpty()) {
+        categoryLabel_->setText(trackerCategory);
+    }
+    
+    trackerLinksWidget_->setVisible(hasLinks);
+}
+
+void TorrentDetailsPanel::loadPosterImage(const QString& url)
+{
+    if (url.isEmpty()) {
+        posterLabel_->hide();
+        return;
+    }
+    
+    posterLabel_->setText(tr("Loading image..."));
+    posterLabel_->show();
+    
+    QUrl imageUrl(url);
+    QNetworkRequest request{imageUrl};
+    request.setHeader(QNetworkRequest::UserAgentHeader,
+        QStringLiteral("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
+    request.setTransferTimeout(15000);
+    
+    QNetworkReply* reply = posterNetworkManager_->get(request);
+    QString hash = currentHash_;
+    
+    connect(reply, &QNetworkReply::finished, this, [this, reply, hash]() {
+        reply->deleteLater();
+        
+        // Only update if still showing this torrent
+        if (currentHash_ != hash) return;
+        
+        if (reply->error() != QNetworkReply::NoError) {
+            posterLabel_->hide();
+            return;
+        }
+        
+        QByteArray imageData = reply->readAll();
+        QPixmap pixmap;
+        if (pixmap.loadFromData(imageData)) {
+            // Scale to fit panel width, max 300px height
+            int maxWidth = this->width() - 40;
+            if (maxWidth < 100) maxWidth = 250;
+            
+            if (pixmap.width() > maxWidth || pixmap.height() > 300) {
+                pixmap = pixmap.scaled(maxWidth, 300, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
+            posterLabel_->setPixmap(pixmap);
+            posterLabel_->show();
+        } else {
+            posterLabel_->hide();
+        }
+    });
 }
 
 void TorrentDetailsPanel::refreshTrackersInBackground()

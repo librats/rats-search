@@ -190,6 +190,17 @@ public:
     bool updateTrackerInfo(const QString& hash, int seeders, int leechers, int completed);
     
     /**
+     * @brief Update torrent info JSON field (tracker strategy data)
+     * 
+     * Merges the provided info object with existing info data.
+     * Used by TrackerInfoScraper to store strategy results (poster, description, etc.)
+     * 
+     * @param hash Torrent info hash
+     * @param info JSON object to merge into existing info field
+     */
+    bool updateTorrentInfoField(const QString& hash, const QJsonObject& info);
+    
+    /**
      * @brief Update torrent content type and category
      */
     bool updateTorrentContentType(const QString& hash, int contentTypeId, int contentCategoryId);

@@ -3,6 +3,7 @@
 #include "feedmanager.h"
 #include "p2pstoremanager.h"
 #include "trackerwrapper.h"
+#include "trackerinfoscraper.h"
 #include "../torrentdatabase.h"
 #include "../sphinxql.h"
 #include "../p2pnetwork.h"
@@ -68,6 +69,7 @@ public:
     std::unique_ptr<FeedManager> feedManager;
     std::unique_ptr<P2PStoreManager> p2pStore;
     std::unique_ptr<TrackerWrapper> trackerWrapper;
+    std::unique_ptr<TrackerInfoScraper> trackerInfoScraper;
     
     // Top torrents cache (protected by mutex for thread-safety)
     mutable QMutex topCacheMutex;
@@ -351,6 +353,20 @@ void RatsAPI::initialize(TorrentDatabase* database,
         qInfo() << "TrackerWrapper initialized (using librats tracker implementation)";
     }
     
+    // Initialize tracker info scraper (website scraping for descriptions/posters)
+    d->trackerInfoScraper = std::make_unique<TrackerInfoScraper>(this);
+    
+    // When scrape completes, store results in database and emit signal
+    connect(d->trackerInfoScraper.get(), &TrackerInfoScraper::scrapeCompleted,
+            this, [this](const QString& hash, const QJsonObject& mergedInfo) {
+        if (d->database && !mergedInfo.isEmpty()) {
+            d->database->updateTorrentInfoField(hash, mergedInfo);
+        }
+        emit trackerInfoUpdated(hash, mergedInfo);
+    });
+    
+    qInfo() << "TrackerInfoScraper initialized (rutracker + nyaa strategies)";
+    
     // Forward config changes
     if (config) {
         connect(config, &ConfigManager::configChanged,
@@ -625,6 +641,9 @@ void RatsAPI::registerMethods()
     };
     methods_["torrent.checkTrackers"] = [this](const QJsonObject& params, ApiCallback cb) {
         checkTrackers(params["hash"].toString(), cb);
+    };
+    methods_["torrent.scrapeTrackerInfo"] = [this](const QJsonObject& params, ApiCallback cb) {
+        scrapeTrackerInfo(params["hash"].toString(), cb);
     };
     methods_["torrent.remove"] = [this](const QJsonObject& params, ApiCallback cb) {
         removeTorrents(params["checkOnly"].toBool(false), cb);
@@ -1483,6 +1502,42 @@ void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
         
         if (callback) callback(ApiResponse::ok(response));
     });
+}
+
+// ============================================================================
+// Tracker Info Scraping (website scraping for descriptions/posters)
+// ============================================================================
+
+void RatsAPI::scrapeTrackerInfo(const QString& hash, ApiCallback callback)
+{
+    if (hash.length() != 40) {
+        if (callback) callback(ApiResponse::fail("Invalid hash"));
+        return;
+    }
+    
+    if (!d->trackerInfoScraper) {
+        if (callback) callback(ApiResponse::fail("Tracker info scraper not initialized"));
+        return;
+    }
+    
+    // Get existing info from database to merge with
+    QJsonObject existingInfo;
+    if (d->database) {
+        TorrentInfo torrent = d->database->getTorrent(hash);
+        existingInfo = torrent.info;
+    }
+    
+    d->trackerInfoScraper->scrapeAll(hash, existingInfo,
+        [callback](const QString& /*hash*/, const QJsonObject& mergedInfo) {
+            if (callback) {
+                callback(ApiResponse::ok(mergedInfo));
+            }
+        });
+}
+
+TrackerInfoScraper* RatsAPI::trackerInfoScraper() const
+{
+    return d->trackerInfoScraper.get();
 }
 
 void RatsAPI::removeTorrents(bool checkOnly, ApiCallback callback)
