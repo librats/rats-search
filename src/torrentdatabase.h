@@ -64,6 +64,11 @@ struct TorrentInfo {
     QString contentCategoryString() const;
     void setContentTypeFromString(const QString& type);
     void setContentCategoryFromString(const QString& category);
+    
+    /// Parse TorrentInfo from a JSON object (P2P messages, API responses, etc.)
+    static TorrentInfo fromJson(const QJsonObject& obj);
+    /// Build a magnet link URI for this torrent
+    QString magnetLink() const;
 };
 
 /**

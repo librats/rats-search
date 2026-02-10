@@ -38,6 +38,8 @@ class DownloadsWidget;
 class TorrentFilesWidget;
 class ActivityWidget;
 
+struct TorrentInfo;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -65,7 +67,6 @@ private slots:
     void updateNetworkStatus();  // Timer-based status update
     void onTorrentIndexed(const QString &infoHash, const QString &name);
     void onDetailsPanelCloseRequested();
-    void onMagnetLinkRequested(const QString &hash, const QString &name);
     void onDownloadRequested(const QString &hash);
     void showSettings();
     void showAbout();
@@ -99,6 +100,10 @@ private:
     void setupMenuBar();
     void setupStatusBar();
     void connectSignals();
+    void connectSearchSignals();
+    void connectTabSignals();
+    void connectDetailsSignals();
+    void connectP2PSignals();
     void startServices();
     void stopServices();
     void performSearch(const QString &query);
@@ -108,7 +113,12 @@ private:
     void loadSettings();
     void saveSettings();
     void updateP2PIndicator();  // Update P2P status indicator color
+    void updateP2PState();      // Recalculate P2P connection state
     bool showAgreementDialog(); // Show EULA on first launch, returns true if accepted
+    
+    // Torrent detail / action helpers (used by multiple tabs)
+    void showTorrentDetails(const TorrentInfo& torrent);
+    void openMagnetLink(const TorrentInfo& torrent);
 
     // P2P Connection state for status indicator
     enum class P2PState {

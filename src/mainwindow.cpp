@@ -255,106 +255,23 @@ void MainWindow::setupUi()
     resultsTableView->setColumnWidth(3, 80);   // Leechers
     resultsTableView->setColumnWidth(4, 120);  // Date
     
-    // Empty state message
-    QLabel *emptyLabel = new QLabel("🔍 Enter a search query to find torrents");
-    emptyLabel->setAlignment(Qt::AlignCenter);
-    emptyLabel->setObjectName("emptyStateLabel");
-    
     searchTabLayout->addWidget(resultsTableView);
     tabWidget->addTab(searchTab, tr("Search Results"));
     
-    // Top Torrents tab (migrated from legacy/app/top-page.js)
+    // Top Torrents tab
     topTorrentsWidget = new TopTorrentsWidget(this);
-    connect(topTorrentsWidget, &TopTorrentsWidget::torrentSelected,
-            this, [this](const TorrentInfo& torrent) {
-                detailsPanel->setTorrent(torrent);
-                detailsPanel->show();
-                // Fetch files for bottom panel (use remote peer if available)
-                if (api) {
-                    api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
-                        if (response.success) {
-                            QJsonObject data = response.data.toObject();
-                            QJsonArray files = data["filesList"].toArray();
-                            if (!files.isEmpty()) {
-                                filesWidget->setFiles(torrent.hash, torrent.name, files);
-                                filesWidget->show();
-                                verticalSplitter->setSizes({600, 200});
-                            }
-                        }
-                    });
-                }
-            });
-    connect(topTorrentsWidget, &TopTorrentsWidget::torrentDoubleClicked,
-            this, [this](const TorrentInfo& torrent) {
-                QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-                    .arg(torrent.hash)
-                    .arg(QUrl::toPercentEncoding(torrent.name));
-                QDesktopServices::openUrl(QUrl(magnetLink));
-            });
     tabWidget->addTab(topTorrentsWidget, tr("🔥 Top"));
     
-    // Feed tab (migrated from legacy/app/feed-page.js)
+    // Feed tab
     feedWidget = new FeedWidget(this);
-    connect(feedWidget, &FeedWidget::torrentSelected,
-            this, [this](const TorrentInfo& torrent) {
-                detailsPanel->setTorrent(torrent);
-                detailsPanel->show();
-                // Fetch files for bottom panel (use remote peer if available)
-                if (api) {
-                    api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
-                        if (response.success) {
-                            QJsonObject data = response.data.toObject();
-                            QJsonArray files = data["filesList"].toArray();
-                            if (!files.isEmpty()) {
-                                filesWidget->setFiles(torrent.hash, torrent.name, files);
-                                filesWidget->show();
-                                verticalSplitter->setSizes({600, 200});
-                            }
-                        }
-                    });
-                }
-            });
-    connect(feedWidget, &FeedWidget::torrentDoubleClicked,
-            this, [this](const TorrentInfo& torrent) {
-                QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-                    .arg(torrent.hash)
-                    .arg(QUrl::toPercentEncoding(torrent.name));
-                QDesktopServices::openUrl(QUrl(magnetLink));
-            });
     tabWidget->addTab(feedWidget, tr("📰 Feed"));
     
-    // Downloads tab (migrated from legacy/app/download-page.js)
+    // Downloads tab
     downloadsWidget = new DownloadsWidget(this);
     tabWidget->addTab(downloadsWidget, tr("📥 Downloads"));
     
-    // Activity tab (migrated from legacy/app/activity-page.js)
+    // Activity tab
     activityWidget = new ActivityWidget(this);
-    connect(activityWidget, &ActivityWidget::torrentSelected,
-            this, [this](const TorrentInfo& torrent) {
-                detailsPanel->setTorrent(torrent);
-                detailsPanel->show();
-                // Fetch files for bottom panel (use remote peer if available)
-                if (api) {
-                    api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
-                        if (response.success) {
-                            QJsonObject data = response.data.toObject();
-                            QJsonArray files = data["filesList"].toArray();
-                            if (!files.isEmpty()) {
-                                filesWidget->setFiles(torrent.hash, torrent.name, files);
-                                filesWidget->show();
-                                verticalSplitter->setSizes({600, 200});
-                            }
-                        }
-                    });
-                }
-            });
-    connect(activityWidget, &ActivityWidget::torrentDoubleClicked,
-            this, [this](const TorrentInfo& torrent) {
-                QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-                    .arg(torrent.hash)
-                    .arg(QUrl::toPercentEncoding(torrent.name));
-                QDesktopServices::openUrl(QUrl(magnetLink));
-            });
     tabWidget->addTab(activityWidget, tr("⚡ Activity"));
     
     mainSplitter->addWidget(tabWidget);
@@ -454,123 +371,119 @@ void MainWindow::setupStatusBar()
 
 void MainWindow::connectSignals()
 {
-    // Search signals
+    connectSearchSignals();
+    connectTabSignals();
+    connectDetailsSignals();
+    connectP2PSignals();
+    
+    // ConfigManager signals - for immediate settings application
+    if (config) {
+        connect(config.get(), &ConfigManager::darkModeChanged, this, &MainWindow::onDarkModeChanged);
+        connect(config.get(), &ConfigManager::languageChanged, this, &MainWindow::onLanguageChanged);
+    }
+}
+
+void MainWindow::connectSearchSignals()
+{
     connect(searchButton, &QPushButton::clicked, this, &MainWindow::onSearchButtonClicked);
     connect(searchLineEdit, &QLineEdit::returnPressed, this, &MainWindow::onSearchButtonClicked);
     connect(searchLineEdit, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
-    connect(sortComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+    connect(sortComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MainWindow::onSortOrderChanged);
     
-    // Tab change signal - update details panel when switching tabs
-    connect(tabWidget, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
-    
-    // Table view signals
+    // Table view signals (search results tab)
     connect(resultsTableView->selectionModel(), &QItemSelectionModel::currentRowChanged,
             this, [this](const QModelIndex &current, const QModelIndex &) {
                 onTorrentSelected(current);
             });
     connect(resultsTableView, &QTableView::doubleClicked, this, &MainWindow::onTorrentDoubleClicked);
-    connect(resultsTableView, &QTableView::customContextMenuRequested, 
+    connect(resultsTableView, &QTableView::customContextMenuRequested,
             this, &MainWindow::showTorrentContextMenu);
+}
+
+void MainWindow::connectTabSignals()
+{
+    connect(tabWidget, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
     
-    // Details panel signals
-    connect(detailsPanel, &TorrentDetailsPanel::closeRequested, 
+    // All tab widgets share the same selected / double-clicked behaviour
+    connect(topTorrentsWidget, &TopTorrentsWidget::torrentSelected,
+            this, &MainWindow::showTorrentDetails);
+    connect(topTorrentsWidget, &TopTorrentsWidget::torrentDoubleClicked,
+            this, &MainWindow::openMagnetLink);
+    
+    connect(feedWidget, &FeedWidget::torrentSelected,
+            this, &MainWindow::showTorrentDetails);
+    connect(feedWidget, &FeedWidget::torrentDoubleClicked,
+            this, &MainWindow::openMagnetLink);
+    
+    connect(activityWidget, &ActivityWidget::torrentSelected,
+            this, &MainWindow::showTorrentDetails);
+    connect(activityWidget, &ActivityWidget::torrentDoubleClicked,
+            this, &MainWindow::openMagnetLink);
+}
+
+void MainWindow::connectDetailsSignals()
+{
+    connect(detailsPanel, &TorrentDetailsPanel::closeRequested,
             this, &MainWindow::onDetailsPanelCloseRequested);
-    connect(detailsPanel, &TorrentDetailsPanel::magnetLinkRequested,
-            this, &MainWindow::onMagnetLinkRequested);
     connect(detailsPanel, &TorrentDetailsPanel::downloadRequested,
             this, &MainWindow::onDownloadRequested);
     connect(detailsPanel, &TorrentDetailsPanel::goToDownloadsRequested,
             this, [this]() {
-                // Switch to Downloads tab (index 5)
                 tabWidget->setCurrentWidget(downloadsWidget);
             });
     connect(detailsPanel, &TorrentDetailsPanel::downloadCancelRequested,
             this, [this](const QString& hash) {
-                // Cancel the download via TorrentClient
                 if (torrentClient) {
                     torrentClient->stopTorrent(hash);
                     statusBar()->showMessage(tr("Download cancelled"), 2000);
                 }
             });
-    
-    // P2P Network signals
+}
+
+void MainWindow::connectP2PSignals()
+{
+    // P2P Network
     connect(p2pNetwork.get(), &P2PNetwork::statusChanged, this, &MainWindow::onP2PStatusChanged);
     connect(p2pNetwork.get(), &P2PNetwork::peerCountChanged, this, &MainWindow::onPeerCountChanged);
     
-    // Update remote torrent count when peer info is received (from handshake)
     connect(p2pNetwork.get(), &P2PNetwork::peerInfoReceived, this, [this](const QString&, const PeerInfo&) {
         cachedRemoteTorrentCount_ = p2pNetwork->getRemoteTorrentsCount();
         updateStatusBar();
     });
-    
-    // Update remote torrent count when a peer disconnects
     connect(p2pNetwork.get(), &P2PNetwork::peerDisconnected, this, [this](const QString&) {
         cachedRemoteTorrentCount_ = p2pNetwork->getRemoteTorrentsCount();
         updateStatusBar();
     });
     
-    // Spider signals
+    // Spider
     connect(torrentSpider.get(), &TorrentSpider::statusChanged, this, &MainWindow::onSpiderStatusChanged);
     connect(torrentSpider.get(), &TorrentSpider::torrentIndexed, this, &MainWindow::onTorrentIndexed);
     
-    // RatsAPI signals - for torrents indexed via DHT metadata, P2P, .torrent import
+    // RatsAPI remote results
     if (api) {
         connect(api.get(), &RatsAPI::torrentIndexed, this, &MainWindow::onTorrentIndexed);
         
-        // Update torrent counter when torrents are replicated from peers
-        connect(api.get(), &RatsAPI::replicationProgress, this, 
+        connect(api.get(), &RatsAPI::replicationProgress, this,
             [this](int replicated, qint64 /*total*/) {
                 cachedTorrentCount_ += replicated;
                 updateStatusBar();
             });
         
-        // Handle remote file search results from P2P peers
-        connect(api.get(), &RatsAPI::remoteFileSearchResults, this, 
+        connect(api.get(), &RatsAPI::remoteFileSearchResults, this,
             [this](const QString& searchId, const QJsonArray& torrents) {
-                // Only process if this matches our current search
                 if (searchId.isEmpty() || currentSearchQuery_.isEmpty()) {
                     return;
                 }
-                
-                // Convert and add to model
                 for (const QJsonValue& val : torrents) {
-                    QJsonObject obj = val.toObject();
-                    TorrentInfo info;
-                    info.hash = obj["hash"].toString();
-                    info.name = obj["name"].toString();
-                    info.size = obj["size"].toVariant().toLongLong();
-                    info.files = obj["files"].toInt();
-                    info.seeders = obj["seeders"].toInt();
-                    info.leechers = obj["leechers"].toInt();
-                    info.completed = obj["completed"].toInt();
-                    info.added = QDateTime::fromMSecsSinceEpoch(obj["added"].toVariant().toLongLong());
-                    info.contentType = obj["contentType"].toString();
-                    info.contentCategory = obj["contentCategory"].toString();
-                    info.good = obj["good"].toInt();
-                    info.bad = obj["bad"].toInt();
-                    info.isFileMatch = obj["isFileMatch"].toBool(true);
-                    
-                    // Track source peer for remote fetch (priority over DHT)
-                    info.sourcePeerId = obj["peer"].toString();
-                    info.isRemoteResult = obj["remote"].toBool(false) || !info.sourcePeerId.isEmpty();
-                    
-                    // Get matching paths
-                    if (obj.contains("matchingPaths")) {
-                        QJsonArray paths = obj["matchingPaths"].toArray();
-                        for (const QJsonValue& pathVal : paths) {
-                            info.matchingPaths.append(pathVal.toString());
-                        }
-                    }
-                    
+                    TorrentInfo info = TorrentInfo::fromJson(val.toObject());
+                    info.isFileMatch = true;  // Always file-match in this handler
                     searchResultModel->addFileResult(info);
                 }
             });
         
-        // Handle torrent response from remote peers (for getTorrent with remote peer)
         connect(api.get(), &RatsAPI::remoteTorrentReceived, this,
             [this](const QString& hash, const QJsonObject& torrentData) {
-                // Update files widget if this torrent is currently selected
                 if (filesWidget && !hash.isEmpty()) {
                     QJsonArray files = torrentData["filesList"].toArray();
                     if (!files.isEmpty()) {
@@ -582,12 +495,6 @@ void MainWindow::connectSignals()
                     }
                 }
             });
-    }
-    
-    // ConfigManager signals - for immediate settings application
-    if (config) {
-        connect(config.get(), &ConfigManager::darkModeChanged, this, &MainWindow::onDarkModeChanged);
-        connect(config.get(), &ConfigManager::languageChanged, this, &MainWindow::onLanguageChanged);
     }
 }
 
@@ -697,26 +604,10 @@ void MainWindow::initializeServicesDeferred()
     qInfo() << "RatsAPI initialize took:" << (timer.elapsed() - apiStart) << "ms";
     
     // Connect RatsAPI remote search results to UI
-    // When RatsAPI receives search results from other peers, update UI
     connect(api.get(), &RatsAPI::remoteSearchResults,
             this, [this](const QString& /*searchId*/, const QJsonArray& torrents) {
-        // Add remote results to current search
         for (const QJsonValue& val : torrents) {
-            QJsonObject obj = val.toObject();
-            TorrentInfo info;
-            info.hash = obj["hash"].toString();
-            if (info.hash.isEmpty()) {
-                info.hash = obj["info_hash"].toString();
-            }
-            info.name = obj["name"].toString();
-            info.size = obj["size"].toVariant().toLongLong();
-            info.seeders = obj["seeders"].toInt();
-            info.leechers = obj["leechers"].toInt();
-            
-            // Track source peer for remote fetch (priority over DHT)
-            info.sourcePeerId = obj["peer"].toString();
-            info.isRemoteResult = obj["remote"].toBool(false) || !info.sourcePeerId.isEmpty();
-            
+            TorrentInfo info = TorrentInfo::fromJson(val.toObject());
             if (info.isValid()) {
                 searchResultModel->addResult(info);
             }
@@ -929,46 +820,18 @@ void MainWindow::performSearch(const QString &query)
     // Clear previous results
     searchResultModel->clearResults();
     
-    // Helper to convert JSON to TorrentInfo
-    auto jsonToTorrentInfo = [](const QJsonObject& obj, bool isFileMatch = false) -> TorrentInfo {
-        TorrentInfo info;
-        info.hash = obj["hash"].toString();
-        info.name = obj["name"].toString();
-        info.size = obj["size"].toVariant().toLongLong();
-        info.files = obj["files"].toInt();
-        info.seeders = obj["seeders"].toInt();
-        info.leechers = obj["leechers"].toInt();
-        info.completed = obj["completed"].toInt();
-        info.added = QDateTime::fromMSecsSinceEpoch(obj["added"].toVariant().toLongLong());
-        info.contentType = obj["contentType"].toString();
-        info.contentCategory = obj["contentCategory"].toString();
-        info.good = obj["good"].toInt();
-        info.bad = obj["bad"].toInt();
-        info.isFileMatch = isFileMatch || obj["isFileMatch"].toBool(false);
-        
-        // Get matching paths for file search results
-        if (obj.contains("matchingPaths")) {
-            QJsonArray paths = obj["matchingPaths"].toArray();
-            for (const QJsonValue& pathVal : paths) {
-                info.matchingPaths.append(pathVal.toString());
-            }
-        }
-        
-        return info;
-    };
-    
     // Search torrents by name
-    api->searchTorrents(query, options, [this, query, jsonToTorrentInfo](const ApiResponse& response) {
+    api->searchTorrents(query, options, [this](const ApiResponse& response) {
         if (!response.success) {
             statusBar()->showMessage(QString("❌ Torrent search failed: %1").arg(response.error), 3000);
             return;
         }
         
-        // Convert JSON to TorrentInfo for model
         QJsonArray torrents = response.data.toArray();
         QVector<TorrentInfo> results;
+        results.reserve(torrents.size());
         for (const QJsonValue& val : torrents) {
-            results.append(jsonToTorrentInfo(val.toObject(), false));
+            results.append(TorrentInfo::fromJson(val.toObject()));
         }
         
         searchResultModel->addResults(results);
@@ -976,21 +839,21 @@ void MainWindow::performSearch(const QString &query)
     });
     
     // Also search files within torrents
-    api->searchFiles(query, options, [this, query, jsonToTorrentInfo](const ApiResponse& response) {
+    api->searchFiles(query, options, [this](const ApiResponse& response) {
         if (!response.success) {
-            // File search may fail for short queries, that's OK
             return;
         }
         
-        // Convert JSON to TorrentInfo for model
         QJsonArray torrents = response.data.toArray();
         QVector<TorrentInfo> results;
+        results.reserve(torrents.size());
         for (const QJsonValue& val : torrents) {
-            results.append(jsonToTorrentInfo(val.toObject(), true));
+            TorrentInfo info = TorrentInfo::fromJson(val.toObject());
+            info.isFileMatch = true;
+            results.append(info);
         }
         
         if (!results.isEmpty()) {
-            // Add file results - will be merged with existing if same hash
             searchResultModel->addFileResults(results);
             int total = searchResultModel->resultCount();
             statusBar()->showMessage(QString("✅ Found %1 total results (incl. file matches)").arg(total), 3000);
@@ -1114,30 +977,23 @@ void MainWindow::dropEvent(QDropEvent *event)
     
     event->acceptProposedAction();
     
-    // Add each torrent file using the same method as menu action
-    int addedCount = 0;
-    int alreadyExistsCount = 0;
-    int failedCount = 0;
-    
     for (const QString& filePath : torrentFiles) {
         if (!api) {
             continue;
         }
         
-        api->addTorrentFile(filePath, [this, filePath, &addedCount, &alreadyExistsCount, &failedCount, 
-                                        torrentFilesCount = torrentFiles.size()](const ApiResponse& response) {
-            Q_UNUSED(this);
+        api->addTorrentFile(filePath, [this, filePath](const ApiResponse& response) {
             if (response.success) {
                 QJsonObject data = response.data.toObject();
+                QString name = data["name"].toString();
                 bool alreadyExists = data["alreadyExists"].toBool();
-                
                 if (alreadyExists) {
-                    alreadyExistsCount++;
+                    statusBar()->showMessage(tr("Already indexed: %1").arg(name), 2000);
                 } else {
-                    addedCount++;
+                    statusBar()->showMessage(tr("Added: %1").arg(name), 2000);
                 }
             } else {
-                failedCount++;
+                qWarning() << "Failed to add torrent file:" << filePath << "-" << response.error;
             }
         });
     }
@@ -1166,29 +1022,7 @@ void MainWindow::onTorrentSelected(const QModelIndex &index)
     
     TorrentInfo torrent = searchResultModel->getTorrent(index.row());
     if (torrent.isValid()) {
-        detailsPanel->setTorrent(torrent);
-        detailsPanel->show();
-        
-        // Clear files widget while loading
-        filesWidget->clear();
-        
-        // Fetch full details with files from remote peer (priority) or database/DHT
-        // If torrent came from P2P search, use sourcePeerId for faster direct fetch
-        if (api) {
-            api->getTorrent(torrent.hash, true, torrent.sourcePeerId, [this, torrent](const ApiResponse& response) {
-                if (response.success) {
-                    QJsonObject data = response.data.toObject();
-                    QJsonArray files = data["filesList"].toArray();
-                    if (!files.isEmpty()) {
-                        // Update files in bottom panel and show it
-                        filesWidget->setFiles(torrent.hash, torrent.name, files);
-                        filesWidget->show();
-                        // Set splitter sizes after showing
-                        verticalSplitter->setSizes({600, 200});
-                    }
-                }
-            });
-        }
+        showTorrentDetails(torrent);
     }
 }
 
@@ -1198,13 +1032,9 @@ void MainWindow::onTorrentDoubleClicked(const QModelIndex &index)
         return;
     }
     
-    // Open magnet link on double click
     TorrentInfo torrent = searchResultModel->getTorrent(index.row());
     if (torrent.isValid()) {
-        QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-            .arg(torrent.hash)
-            .arg(QUrl::toPercentEncoding(torrent.name));
-        QDesktopServices::openUrl(QUrl(magnetLink));
+        openMagnetLink(torrent);
     }
 }
 
@@ -1254,28 +1084,8 @@ void MainWindow::onTabChanged(int index)
     
     // Update details panel with the selected torrent from new tab
     if (selectedTorrent.isValid()) {
-        detailsPanel->setTorrent(selectedTorrent);
-        detailsPanel->show();
-        
-        // Fetch files for bottom panel (use remote peer if available)
-        if (api) {
-            api->getTorrent(selectedTorrent.hash, true, selectedTorrent.sourcePeerId, [this, selectedTorrent](const ApiResponse& response) {
-                if (response.success) {
-                    QJsonObject data = response.data.toObject();
-                    QJsonArray files = data["filesList"].toArray();
-                    if (!files.isEmpty()) {
-                        filesWidget->setFiles(selectedTorrent.hash, selectedTorrent.name, files);
-                        filesWidget->show();
-                        verticalSplitter->setSizes({600, 200});
-                    } else {
-                        filesWidget->clear();
-                        filesWidget->hide();
-                    }
-                }
-            });
-        }
+        showTorrentDetails(selectedTorrent);
     } else {
-        // No selection in the new tab - hide details
         detailsPanel->hide();
         filesWidget->clear();
         filesWidget->hide();
@@ -1290,10 +1100,34 @@ void MainWindow::onDetailsPanelCloseRequested()
     resultsTableView->clearSelection();
 }
 
-void MainWindow::onMagnetLinkRequested(const QString &hash, const QString &name)
+void MainWindow::showTorrentDetails(const TorrentInfo& torrent)
 {
-    Q_UNUSED(hash);
-    Q_UNUSED(name);
+    detailsPanel->setTorrent(torrent);
+    detailsPanel->show();
+    filesWidget->clear();
+    
+    if (api) {
+        api->getTorrent(torrent.hash, true, torrent.sourcePeerId,
+            [this, hash = torrent.hash, name = torrent.name](const ApiResponse& response) {
+                if (response.success) {
+                    QJsonObject data = response.data.toObject();
+                    QJsonArray files = data["filesList"].toArray();
+                    if (!files.isEmpty()) {
+                        filesWidget->setFiles(hash, name, files);
+                        filesWidget->show();
+                        verticalSplitter->setSizes({600, 200});
+                    } else {
+                        filesWidget->clear();
+                        filesWidget->hide();
+                    }
+                }
+            });
+    }
+}
+
+void MainWindow::openMagnetLink(const TorrentInfo& torrent)
+{
+    QDesktopServices::openUrl(QUrl(torrent.magnetLink()));
 }
 
 void MainWindow::onDownloadRequested(const QString &hash)
@@ -1386,11 +1220,8 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
     QMenu contextMenu(this);
     
     QAction *magnetAction = contextMenu.addAction(tr("Open Magnet Link"));
-    connect(magnetAction, &QAction::triggered, [torrent]() {
-        QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-            .arg(torrent.hash)
-            .arg(QUrl::toPercentEncoding(torrent.name));
-        QDesktopServices::openUrl(QUrl(magnetLink));
+    connect(magnetAction, &QAction::triggered, [this, torrent]() {
+        openMagnetLink(torrent);
     });
     
     QAction *copyHashAction = contextMenu.addAction(tr("Copy Info Hash"));
@@ -1401,10 +1232,7 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
     
     QAction *copyMagnetAction = contextMenu.addAction(tr("Copy Magnet Link"));
     connect(copyMagnetAction, &QAction::triggered, [this, torrent]() {
-        QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-            .arg(torrent.hash)
-            .arg(QUrl::toPercentEncoding(torrent.name));
-        QApplication::clipboard()->setText(magnetLink);
+        QApplication::clipboard()->setText(torrent.magnetLink());
         statusBar()->showMessage(tr("Magnet link copied to clipboard"), 2000);
     });
     
@@ -1421,8 +1249,17 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
 void MainWindow::onP2PStatusChanged(const QString &status)
 {
     Q_UNUSED(status);
-    
-    // Determine P2P state based on network status
+    updateP2PState();
+}
+
+void MainWindow::onPeerCountChanged(int count)
+{
+    peerCountLabel->setText(tr("👥 Peers: %1").arg(count));
+    updateP2PState();
+}
+
+void MainWindow::updateP2PState()
+{
     if (!p2pNetwork || !p2pNetwork->isRunning()) {
         p2pState_ = P2PState::NotStarted;
     } else if (p2pNetwork->getPeerCount() > 0) {
@@ -1430,23 +1267,6 @@ void MainWindow::onP2PStatusChanged(const QString &status)
     } else {
         p2pState_ = P2PState::NoConnection;
     }
-    
-    updateP2PIndicator();
-}
-
-void MainWindow::onPeerCountChanged(int count)
-{
-    peerCountLabel->setText(tr("👥 Peers: %1").arg(count));
-    
-    // Update P2P state based on peer count
-    if (!p2pNetwork || !p2pNetwork->isRunning()) {
-        p2pState_ = P2PState::NotStarted;
-    } else if (count > 0) {
-        p2pState_ = P2PState::Connected;
-    } else {
-        p2pState_ = P2PState::NoConnection;
-    }
-    
     updateP2PIndicator();
 }
 

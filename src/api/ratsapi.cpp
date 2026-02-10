@@ -137,59 +137,7 @@ TorrentInfo RatsAPI::createTorrentFromLibrats(const QString& hash,
 
 TorrentInfo RatsAPI::createTorrentFromJson(const QJsonObject& data)
 {
-    TorrentInfo torrent;
-    
-    torrent.hash = data["hash"].toString().toLower();
-    torrent.name = data["name"].toString();
-    torrent.size = data["size"].toVariant().toLongLong();
-    torrent.files = data["files"].toInt();
-    torrent.piecelength = data["piecelength"].toInt();
-    torrent.seeders = data["seeders"].toInt();
-    torrent.leechers = data["leechers"].toInt();
-    torrent.completed = data["completed"].toInt();
-    torrent.good = data["good"].toInt();
-    torrent.bad = data["bad"].toInt();
-    
-    // Parse added timestamp
-    if (data.contains("added")) {
-        qint64 addedMs = data["added"].toVariant().toLongLong();
-        if (addedMs > 0) {
-            torrent.added = QDateTime::fromMSecsSinceEpoch(addedMs);
-        }
-    }
-    if (!torrent.added.isValid()) {
-        torrent.added = QDateTime::currentDateTime();
-    }
-    
-    // Parse content type/category
-    QString contentType = data["contentType"].toString();
-    if (!contentType.isEmpty()) {
-        torrent.setContentTypeFromString(contentType);
-    }
-    
-    QString contentCategory = data["contentCategory"].toString();
-    if (!contentCategory.isEmpty()) {
-        torrent.setContentCategoryFromString(contentCategory);
-    }
-    
-    // Parse filesList (critical for P2P replication)
-    if (data.contains("filesList")) {
-        QJsonArray filesArray = data["filesList"].toArray();
-        for (const QJsonValue& fileVal : filesArray) {
-            QJsonObject fileObj = fileVal.toObject();
-            TorrentFile tf;
-            tf.path = fileObj["path"].toString();
-            tf.size = fileObj["size"].toVariant().toLongLong();
-            torrent.filesList.append(tf);
-        }
-        
-        // Update files count if not set
-        if (torrent.files == 0 && !torrent.filesList.isEmpty()) {
-            torrent.files = torrent.filesList.size();
-        }
-    }
-    
-    return torrent;
+    return TorrentInfo::fromJson(data);
 }
 
 RatsAPI::InsertResult RatsAPI::processAndInsertTorrent(TorrentInfo& torrent,

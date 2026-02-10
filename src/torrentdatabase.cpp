@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QRegularExpression>
+#include <QUrl>
 
 TorrentDatabase::TorrentDatabase(const QString& dataDirectory, QObject *parent)
     : QObject(parent)
@@ -747,6 +748,82 @@ void TorrentInfo::setContentCategoryFromString(const QString& category)
 {
     contentCategoryId = ContentDetector::contentCategoryId(category);
     contentCategory = category;
+}
+
+TorrentInfo TorrentInfo::fromJson(const QJsonObject& obj)
+{
+    TorrentInfo info;
+    
+    info.hash = obj["hash"].toString().toLower();
+    if (info.hash.isEmpty()) {
+        info.hash = obj["info_hash"].toString().toLower();
+    }
+    info.name = obj["name"].toString();
+    info.size = obj["size"].toVariant().toLongLong();
+    info.files = obj["files"].toInt();
+    info.piecelength = obj["piecelength"].toInt();
+    info.seeders = obj["seeders"].toInt();
+    info.leechers = obj["leechers"].toInt();
+    info.completed = obj["completed"].toInt();
+    info.good = obj["good"].toInt();
+    info.bad = obj["bad"].toInt();
+    
+    // Parse added timestamp (milliseconds since epoch)
+    if (obj.contains("added")) {
+        qint64 addedMs = obj["added"].toVariant().toLongLong();
+        if (addedMs > 0) {
+            info.added = QDateTime::fromMSecsSinceEpoch(addedMs);
+        }
+    }
+    if (!info.added.isValid()) {
+        info.added = QDateTime::currentDateTime();
+    }
+    
+    // Content type / category from strings
+    QString contentType = obj["contentType"].toString();
+    if (!contentType.isEmpty()) {
+        info.setContentTypeFromString(contentType);
+    }
+    QString contentCategory = obj["contentCategory"].toString();
+    if (!contentCategory.isEmpty()) {
+        info.setContentCategoryFromString(contentCategory);
+    }
+    
+    // P2P source tracking
+    info.sourcePeerId = obj["peer"].toString();
+    info.isRemoteResult = obj["remote"].toBool(false) || !info.sourcePeerId.isEmpty();
+    
+    // File search result metadata
+    info.isFileMatch = obj["isFileMatch"].toBool(false);
+    if (obj.contains("matchingPaths")) {
+        QJsonArray paths = obj["matchingPaths"].toArray();
+        for (const QJsonValue& pathVal : paths) {
+            info.matchingPaths.append(pathVal.toString());
+        }
+    }
+    
+    // File list (used by P2P replication and detail views)
+    if (obj.contains("filesList")) {
+        QJsonArray filesArray = obj["filesList"].toArray();
+        for (const QJsonValue& fileVal : filesArray) {
+            QJsonObject fileObj = fileVal.toObject();
+            TorrentFile tf;
+            tf.path = fileObj["path"].toString();
+            tf.size = fileObj["size"].toVariant().toLongLong();
+            info.filesList.append(tf);
+        }
+        if (info.files == 0 && !info.filesList.isEmpty()) {
+            info.files = info.filesList.size();
+        }
+    }
+    
+    return info;
+}
+
+QString TorrentInfo::magnetLink() const
+{
+    return QString("magnet:?xt=urn:btih:%1&dn=%2")
+        .arg(hash, QString::fromLatin1(QUrl::toPercentEncoding(name)));
 }
 
 QVector<TorrentInfo> TorrentDatabase::getRandomTorrents(int limit, bool includeFiles)
