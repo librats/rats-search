@@ -37,28 +37,21 @@ SphinxQL::Results SphinxQL::query(const QString& sql, const QVariantList& params
         return results;
     }
     
-    QSqlQuery q(db);
-    
-    // Prepare and bind parameters
+    // Build final SQL - replace ? placeholders with escaped values.
+    // Manticore's SphinxQL does NOT support MySQL prepared statements, and the
+    // QMYSQL driver escapes quotes by doubling ('') which SphinxQL doesn't understand.
+    // We must build raw SQL with backslash-escaped values instead.
+    QString finalSql = sql;
     if (!params.isEmpty()) {
-        q.prepare(sql);
-        for (int i = 0; i < params.size(); ++i) {
-            q.addBindValue(convertValue(params[i]));
-        }
-        
-        if (!q.exec()) {
-            lastError_ = q.lastError().text();
-            emit queryError(lastError_);
-            qWarning() << "SphinxQL error:" << lastError_ << "| SQL:" << sql << "| params:" << params;
-            return results;
-        }
-    } else {
-        if (!q.exec(sql)) {
-            lastError_ = q.lastError().text();
-            emit queryError(lastError_);
-            qWarning() << "SphinxQL error:" << lastError_ << "| SQL:" << sql;
-            return results;
-        }
+        finalSql = buildRawSql(sql, params);
+    }
+    
+    QSqlQuery q(db);
+    if (!q.exec(finalSql)) {
+        lastError_ = q.lastError().text();
+        emit queryError(lastError_);
+        qWarning() << "SphinxQL error:" << lastError_ << "| SQL:" << finalSql.left(200);
+        return results;
     }
     
     qint64 execTime = timer.elapsed();
@@ -98,12 +91,16 @@ bool SphinxQL::insertValues(const QString& table, const QVariantMap& values)
     QElapsedTimer timer;
     timer.start();
     
-    QString sql = buildInsertSql(table, values, false);
+    QStringList columns;
+    QStringList sqlValues;
     
-    QVariantList params;
     for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        params << convertValue(it.value());
+        columns << it.key();
+        sqlValues << formatSqlValue(it.value());
     }
+    
+    QString sql = QString("INSERT INTO %1 (%2) VALUES (%3)")
+        .arg(table, columns.join(", "), sqlValues.join(", "));
     
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
@@ -114,15 +111,10 @@ bool SphinxQL::insertValues(const QString& table, const QVariantMap& values)
     }
     
     QSqlQuery q(db);
-    q.prepare(sql);
-    for (const QVariant& param : params) {
-        q.addBindValue(param);
-    }
-    
-    if (!q.exec()) {
+    if (!q.exec(sql)) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL insert error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
+        qWarning() << "SphinxQL insert error:" << lastError_ << "SQL:" << sql.left(200) << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -137,12 +129,16 @@ bool SphinxQL::replaceValues(const QString& table, const QVariantMap& values)
     QElapsedTimer timer;
     timer.start();
     
-    QString sql = buildInsertSql(table, values, true);
+    QStringList columns;
+    QStringList sqlValues;
     
-    QVariantList params;
     for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        params << convertValue(it.value());
+        columns << it.key();
+        sqlValues << formatSqlValue(it.value());
     }
+    
+    QString sql = QString("REPLACE INTO %1 (%2) VALUES (%3)")
+        .arg(table, columns.join(", "), sqlValues.join(", "));
     
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
@@ -153,15 +149,10 @@ bool SphinxQL::replaceValues(const QString& table, const QVariantMap& values)
     }
     
     QSqlQuery q(db);
-    q.prepare(sql);
-    for (const QVariant& param : params) {
-        q.addBindValue(param);
-    }
-    
-    if (!q.exec()) {
+    if (!q.exec(sql)) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL replace error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
+        qWarning() << "SphinxQL replace error:" << lastError_ << "SQL:" << sql.left(200) << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -176,15 +167,18 @@ bool SphinxQL::updateValues(const QString& table, const QVariantMap& values, con
     QElapsedTimer timer;
     timer.start();
     
-    QString sql = buildUpdateSql(table, values, where);
-    
-    QVariantList params;
+    QStringList setParts;
     for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        params << convertValue(it.value());
+        setParts << QString("%1 = %2").arg(it.key(), formatSqlValue(it.value()));
     }
+    
+    QStringList whereParts;
     for (auto it = where.constBegin(); it != where.constEnd(); ++it) {
-        params << convertValue(it.value());
+        whereParts << QString("%1 = %2").arg(it.key(), formatSqlValue(it.value()));
     }
+    
+    QString sql = QString("UPDATE %1 SET %2 WHERE %3")
+        .arg(table, setParts.join(", "), whereParts.join(" AND "));
     
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
@@ -195,15 +189,10 @@ bool SphinxQL::updateValues(const QString& table, const QVariantMap& values, con
     }
     
     QSqlQuery q(db);
-    q.prepare(sql);
-    for (const QVariant& param : params) {
-        q.addBindValue(param);
-    }
-    
-    if (!q.exec()) {
+    if (!q.exec(sql)) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL update error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
+        qWarning() << "SphinxQL update error:" << lastError_ << "SQL:" << sql.left(200) << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -218,13 +207,13 @@ bool SphinxQL::deleteFrom(const QString& table, const QVariantMap& where)
     QElapsedTimer timer;
     timer.start();
     
-    QString whereSql = buildWhereSql(where);
-    QString sql = QString("DELETE FROM %1 WHERE %2").arg(table, whereSql);
-    
-    QVariantList params;
+    QStringList whereParts;
     for (auto it = where.constBegin(); it != where.constEnd(); ++it) {
-        params << convertValue(it.value());
+        whereParts << QString("%1 = %2").arg(it.key(), formatSqlValue(it.value()));
     }
+    
+    QString sql = QString("DELETE FROM %1 WHERE %2")
+        .arg(table, whereParts.join(" AND "));
     
     QSqlDatabase db = getDb();
     if (!db.isOpen() && !db.open()) {
@@ -235,15 +224,10 @@ bool SphinxQL::deleteFrom(const QString& table, const QVariantMap& where)
     }
     
     QSqlQuery q(db);
-    q.prepare(sql);
-    for (const QVariant& param : params) {
-        q.addBindValue(param);
-    }
-    
-    if (!q.exec()) {
+    if (!q.exec(sql)) {
         lastError_ = q.lastError().text();
         emit queryError(lastError_);
-        qWarning() << "SphinxQL delete error:" << lastError_ << "SQL:" << sql << "(took" << timer.elapsed() << "ms)";
+        qWarning() << "SphinxQL delete error:" << lastError_ << "SQL:" << sql.left(200) << "(took" << timer.elapsed() << "ms)";
         return false;
     }
     
@@ -338,41 +322,45 @@ bool SphinxQL::flushRamchunk(const QString& table)
     return exec(QString("FLUSH RAMCHUNK %1").arg(table));
 }
 
-QString SphinxQL::buildInsertSql(const QString& table, const QVariantMap& values, bool replace)
+QString SphinxQL::formatSqlValue(const QVariant& value)
 {
-    QStringList columns;
-    QStringList placeholders;
+    QVariant converted = convertValue(value);
     
-    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        columns << it.key();
-        placeholders << "?";
+    // Handle numeric types - no quoting needed
+    switch (converted.typeId()) {
+    case QMetaType::Int:
+    case QMetaType::UInt:
+    case QMetaType::Long:
+    case QMetaType::ULong:
+    case QMetaType::LongLong:
+    case QMetaType::ULongLong:
+    case QMetaType::Double:
+    case QMetaType::Float:
+        return converted.toString();
+    default:
+        break;
     }
     
-    QString verb = replace ? "REPLACE" : "INSERT";
-    return QString("%1 INTO %2 (%3) VALUES (%4)")
-        .arg(verb, table, columns.join(", "), placeholders.join(", "));
+    // Everything else is treated as a string - escape with backslash notation and quote
+    return escapeString(converted.toString());
 }
 
-QString SphinxQL::buildUpdateSql(const QString& table, const QVariantMap& values, const QVariantMap& where)
+QString SphinxQL::buildRawSql(const QString& sql, const QVariantList& params)
 {
-    QStringList setParts;
-    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
-        setParts << QString("%1 = ?").arg(it.key());
+    QString result;
+    result.reserve(sql.size() + params.size() * 32);  // Pre-allocate reasonable size
+    int paramIndex = 0;
+    
+    for (int i = 0; i < sql.length(); ++i) {
+        if (sql[i] == QLatin1Char('?') && paramIndex < params.size()) {
+            result += formatSqlValue(params[paramIndex]);
+            ++paramIndex;
+        } else {
+            result += sql[i];
+        }
     }
     
-    QString whereSql = buildWhereSql(where);
-    
-    return QString("UPDATE %1 SET %2 WHERE %3")
-        .arg(table, setParts.join(", "), whereSql);
-}
-
-QString SphinxQL::buildWhereSql(const QVariantMap& where)
-{
-    QStringList parts;
-    for (auto it = where.constBegin(); it != where.constEnd(); ++it) {
-        parts << QString("%1 = ?").arg(it.key());
-    }
-    return parts.join(" AND ");
+    return result;
 }
 
 QVariant SphinxQL::convertValue(const QVariant& value)
@@ -400,4 +388,3 @@ QVariant SphinxQL::convertValue(const QVariant& value)
     
     return value;
 }
-

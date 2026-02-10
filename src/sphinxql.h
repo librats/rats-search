@@ -114,11 +114,24 @@ signals:
     void queryCompleted(int affectedRows);
 
 private:
+    friend class TestSphinxQL;
+    
     QSqlDatabase getDb();
-    QString buildInsertSql(const QString& table, const QVariantMap& values, bool replace = false);
-    QString buildUpdateSql(const QString& table, const QVariantMap& values, const QVariantMap& where);
-    QString buildWhereSql(const QVariantMap& where);
     QVariant convertValue(const QVariant& value);
+    
+    /**
+     * @brief Format a QVariant as a SphinxQL literal (escaped and quoted for strings)
+     * 
+     * Manticore's SphinxQL does NOT support MySQL prepared statements and uses
+     * backslash escaping for quotes (not doubled quotes). We must build raw SQL
+     * with properly escaped values instead of using prepare()/addBindValue().
+     */
+    QString formatSqlValue(const QVariant& value);
+    
+    /**
+     * @brief Replace ? placeholders in SQL with formatted values
+     */
+    QString buildRawSql(const QString& sql, const QVariantList& params);
 
     ManticoreManager* manager_;
     QString lastError_;
