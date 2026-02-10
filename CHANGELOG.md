@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.15](https://github.com/DEgITx/rats-search/compare/v2.0.14...v2.0.15) (2026-02-10)
+
+
+### 🐛 Bug Fixes
+
+
+- **encoding:** Fix description encoding([3e566b7](https://github.com/DEgITx/rats-search/commit/3e566b77691d132cf403169e3867996b773cbda0)) by @DEgITx
+- **cleanup:** More clean window (refactoring)([d76c880](https://github.com/DEgITx/rats-search/commit/d76c88085025d6ec9a2cf9f510a88cdefce1c29e)) by @DEgITx
+- **db:** Fixed insert of some torrents([35987eb](https://github.com/DEgITx/rats-search/commit/35987ebae832778e37d1dd4ecd9a825b389a77be)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.14([9d59f5a](https://github.com/DEgITx/rats-search/commit/9d59f5af57f45be61646d6d83a95f6324f80258f)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **scape:** Restored torrent scraper([cf7f5e0](https://github.com/DEgITx/rats-search/commit/cf7f5e030c021a32b25cb5665b96194256abcdfa)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.14](https://github.com/DEgITx/rats-search/compare/v2.0.13...v2.0.14) (2026-02-09)
 
 
