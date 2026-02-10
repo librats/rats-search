@@ -156,6 +156,12 @@ private:
      */
     static QString stripHtml(const QString& html);
     
+    /**
+     * @brief Decode Windows-1251 encoded bytes to QString
+     * Manual implementation since Qt6 without ICU doesn't support this encoding.
+     */
+    static QString decodeWindows1251(const QByteArray& data);
+    
     QNetworkAccessManager* networkManager_;
     bool enabled_ = true;
     int timeoutMs_ = 20000;      // 20 seconds
