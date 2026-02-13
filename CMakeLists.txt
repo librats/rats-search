@@ -155,6 +155,7 @@ endif()
 # Source files
 set(SOURCES
     src/main.cpp
+    src/legacymigration.cpp
     src/mainwindow.cpp
     src/settingsdialog.cpp
     src/torrentdatabase.cpp

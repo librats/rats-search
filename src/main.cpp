@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QSocketNotifier>
+#include "legacymigration.h"
 #include <iostream>
 #include <csignal>
 
@@ -453,6 +454,9 @@ int main(int argc, char *argv[])
             return 1;
         }
         
+        // Migrate legacy v1.x database if this is first run of v2.0
+        migrateLegacyDatabase(dataDir);
+        
         // Enable file logging
         auto& logger = librats::Logger::getInstance();
         QString logFilePath = dataDir + "/rats-search.log";
@@ -528,6 +532,9 @@ int main(int argc, char *argv[])
             qCritical() << "Failed to create data directory:" << dataDir;
             return 1;
         }
+        
+        // Migrate legacy v1.x database if this is first run of v2.0
+        migrateLegacyDatabase(dataDir);
         
         // Enable file logging
         auto& logger = librats::Logger::getInstance();
