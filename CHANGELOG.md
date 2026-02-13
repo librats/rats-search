@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.16](https://github.com/DEgITx/rats-search/compare/v2.0.15...v2.0.16) (2026-02-13)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix stale problem during connection to p2p([e04ee39](https://github.com/DEgITx/rats-search/commit/e04ee39a5bf118e2a88b914013764623a82a2fe7)) by @DEgITx
+- **p2p:** Fix program stuck at data sending between peers([9796c33](https://github.com/DEgITx/rats-search/commit/9796c332f327c1a761a56159e9b3776ad81fb61d)) by @DEgITx
+- **p2p:** Fix memory leak on p2p disconnects([2677ff2](https://github.com/DEgITx/rats-search/commit/2677ff2a2c88159235e77ee5aa9bd5380a8569ba)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.15([ac798f7](https://github.com/DEgITx/rats-search/commit/ac798f7271cdd25b9336fcad2538b8707c3e5101)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **migration:** Add legacy migrator for database([b5db97d](https://github.com/DEgITx/rats-search/commit/b5db97d0006f2d45775fe831466441f21d12c2a9)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.15](https://github.com/DEgITx/rats-search/compare/v2.0.14...v2.0.15) (2026-02-10)
 
 
