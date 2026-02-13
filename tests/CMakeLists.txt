@@ -45,10 +45,26 @@ add_rats_test(test_utils)
 add_rats_test(test_updatemanager)
 add_rats_test(test_contentdetector)
 
+# Integration test: starts real Manticore and verifies all query patterns
+add_rats_test(test_manticore_queries)
+
+# Copy libmysql.dll next to test executables so the QMYSQL driver can load
+if(WIN32)
+    set(LIBMYSQL_PATH "${CMAKE_SOURCE_DIR}/imports/win/x64/libmysql.dll")
+    if(EXISTS "${LIBMYSQL_PATH}")
+        add_custom_command(TARGET test_manticore_queries POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${LIBMYSQL_PATH}"
+                "$<TARGET_FILE_DIR:test_manticore_queries>"
+            COMMENT "Copying libmysql.dll for integration tests..."
+        )
+    endif()
+endif()
+
 # Custom target to run all tests
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector
+    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector test_manticore_queries
     COMMENT "Running all tests..."
 )
 
