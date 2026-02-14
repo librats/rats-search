@@ -78,6 +78,8 @@ private slots:
     // ========================================================================
     // Data integrity verification (from legacy speed.txt tests)
     // ========================================================================
+    // Internal of fields
+    void testIsFieldReady();
     void testInsertFilesAndVerifyFields();
     void testSearchFilesAndVerifyFields();
     void testBulkInsertFeedAndCount();
@@ -128,11 +130,33 @@ private:
     
     // Helper to insert a test file record
     bool insertTestFiles(qint64 id, const QString& hash, const QString& path, const QString& sizeStr);
+    SphinxQL::Results queryUntilFieldReady(
+        const QString& sql, const QVariantList& params,
+        const QString& field, int maxRetries = 10, int delayMs = 10);
 
     QTemporaryDir *tempDir_ = nullptr;
     ManticoreManager *manager_ = nullptr;
     SphinxQL *sphinxql_ = nullptr;
 };
+
+SphinxQL::Results TestManticoreQueries::queryUntilFieldReady(
+    const QString& sql, const QVariantList& params,
+    const QString& field, int maxRetries, int delayMs)
+{
+    for (int attempt = 0; attempt < maxRetries; ++attempt) {
+        auto results = sphinxql_->query(sql, params);
+        if (!results.isEmpty() && results[0].contains(field)
+            && results[0][field].isValid() && !results[0][field].toString().isEmpty()) {
+            if (attempt > 0)
+                qInfo() << "RT attribute" << field << "became ready after" << attempt
+                        << "retries (" << (attempt * delayMs) << "ms)";
+            return results;
+        }
+        QThread::msleep(delayMs);
+    }
+    // Return last attempt even if still empty — test will fail with clear assertion
+    return sphinxql_->query(sql, params);
+}
 
 void TestManticoreQueries::initTestCase()
 {
@@ -230,6 +254,28 @@ void TestManticoreQueries::testShowStatus()
 void TestManticoreQueries::testIsConnected()
 {
     QVERIFY(sphinxql_->isConnected());
+}
+
+// ============================================================================
+// Internal of fields
+// ============================================================================
+void TestManticoreQueries::testIsFieldReady()
+{
+    // DESCRIBE returns one row per field with columns: Field, Type, Properties
+    auto results = sphinxql_->query("DESCRIBE files");
+    QVERIFY2(!results.isEmpty(), "DESCRIBE files returned no results");
+    
+    // Collect all field names
+    QStringList fields;
+    for (const auto& row : results) {
+        fields << row["Field"].toString();
+    }
+    qInfo() << "files fields:" << fields;
+    
+    QVERIFY2(fields.contains("hash"), "Table should contain 'hash' field");
+    QVERIFY2(fields.contains("path"), "Table should contain 'path' field");
+    QVERIFY2(fields.contains("size"), "Table should contain 'size' field");
+    QVERIFY2(fields.contains("id"), "Table should contain 'id' field");
 }
 
 // ============================================================================
@@ -596,8 +642,8 @@ void TestManticoreQueries::testInsertFilesAndVerifyFields()
     // Legacy test: insert into files, then select by hash and verify field values
     insertTestFiles(100, "dddddddddddddddddddddddddddddddddddddd", "bashaa", "50");
     insertTestFiles(101, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "biotu", "30");
-    
-    sphinxql_->flushRamchunk("files");
+
+    // sphinxql_->flushRamchunk("files");
     
     auto results = sphinxql_->query("SELECT * FROM files WHERE hash = ?",
                                     {QString("dddddddddddddddddddddddddddddddddddddd")});
@@ -658,7 +704,7 @@ void TestManticoreQueries::testInsertFeedJsonAndVerifyReadback()
     
     sphinxql_->flushRamchunk("feed");
     
-    auto results = sphinxql_->query("SELECT * FROM feed WHERE id = 3");
+    auto results = queryUntilFieldReady("SELECT * FROM feed WHERE id = 3", {}, "data");
     QVERIFY2(!results.isEmpty(), "Should find inserted feed record");
     
     QString storedData = results[0]["data"].toString();
@@ -760,8 +806,9 @@ void TestManticoreQueries::testUpdateInfoField()
     QVERIFY2(ok, qPrintable("UPDATE info field failed: " + sphinxql_->lastError()));
     
     // Verify the JSON was stored correctly
-    auto results = sphinxql_->query("SELECT info FROM torrents WHERE hash = ?",
-                                    {QString("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")});
+    auto results = queryUntilFieldReady("SELECT info FROM torrents WHERE hash = ?",
+                                    {QString("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")},
+                                    "info");
     QVERIFY(!results.isEmpty());
     QString storedInfo = results[0]["info"].toString();
     QVERIFY(!storedInfo.isEmpty());
