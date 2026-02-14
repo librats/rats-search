@@ -32,6 +32,11 @@ private slots:
     void testIsConnected();
 
     // ========================================================================
+    // Internal of fields
+    // ========================================================================
+    void testIsFieldReady();
+
+    // ========================================================================
     // INSERT operations (torrents, files, feed, version, store)
     // ========================================================================
     void testInsertTorrent();
@@ -78,8 +83,6 @@ private slots:
     // ========================================================================
     // Data integrity verification (from legacy speed.txt tests)
     // ========================================================================
-    // Internal of fields
-    void testIsFieldReady();
     void testInsertFilesAndVerifyFields();
     void testSearchFilesAndVerifyFields();
     void testBulkInsertFeedAndCount();
@@ -643,7 +646,8 @@ void TestManticoreQueries::testInsertFilesAndVerifyFields()
     insertTestFiles(100, "dddddddddddddddddddddddddddddddddddddd", "bashaa", "50");
     insertTestFiles(101, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "biotu", "30");
 
-    // sphinxql_->flushRamchunk("files");
+    // Increase test stability by waiting for the index to be updated
+    sphinxql_->query("DESCRIBE files");
     
     auto results = sphinxql_->query("SELECT * FROM files WHERE hash = ?",
                                     {QString("dddddddddddddddddddddddddddddddddddddd")});
