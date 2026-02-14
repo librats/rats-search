@@ -30,6 +30,11 @@ bool TorrentDatabase::initialize()
         emit databaseError(msg);
     });
     
+    // Log all Manticore output to application log
+    connect(manager_.get(), &ManticoreManager::logMessage, this, [](const QString& msg) {
+        qInfo() << "[Manticore]" << msg;
+    });
+    
     // Start Manticore
     if (!manager_->start()) {
         qCritical() << "Failed to start Manticore Search";
