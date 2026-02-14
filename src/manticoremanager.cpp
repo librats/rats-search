@@ -145,6 +145,20 @@ bool ManticoreManager::start()
         return false;
     }
     qInfo() << "Config generation took:" << (startupTimer.elapsed() - configStart) << "ms";
+
+    // Verify QMYSQL driver is available before waiting
+    if (!QSqlDatabase::isDriverAvailable("QMYSQL")) {
+        qCritical() << "QMYSQL driver not available!";
+        qCritical() << "Available SQL drivers:" << QSqlDatabase::drivers();
+        emit error("QMYSQL driver not available.");
+        setStatus(Status::Error);
+        // Stop the already-started process
+        if (process_ && process_->state() != QProcess::NotRunning) {
+            process_->terminate();
+            process_->waitForFinished(3000);
+        }
+        return false;
+    }
     
     // Start process
     setStatus(Status::Starting);
@@ -649,6 +663,14 @@ bool ManticoreManager::testConnection()
             success = query.exec("SHOW STATUS");
             query.clear();
             db.close();
+        } else {
+            // Log the error once to help diagnose connection issues
+            static bool errorLogged = false;
+            if (!errorLogged) {
+                qWarning() << "testConnection: db.open() failed:" << db.lastError().text();
+                qWarning() << "Available SQL drivers:" << QSqlDatabase::drivers();
+                errorLogged = true;
+            }
         }
     }
     
