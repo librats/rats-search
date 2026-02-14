@@ -95,6 +95,19 @@ jobs:
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
 
+      - name: Copy MySQL libraries for tests
+        shell: powershell
+        run: |
+          $testDir = "build/tests"
+          $qtRoot = "$env:QT_ROOT_DIR"
+          
+          # Copy libmysql.dll next to test executables
+          $libmysql = "imports/win/x64/libmysql.dll"
+          if (Test-Path $libmysql) {
+            Copy-Item $libmysql -Destination $testDir -Force
+            Write-Host "Copied libmysql.dll to $testDir"
+          }
+
       - name: Run tests
         run: |
           cd build
