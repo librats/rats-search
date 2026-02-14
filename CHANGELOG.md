@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.17](https://github.com/DEgITx/rats-search/compare/v2.0.16...v2.0.17) (2026-02-14)
+
+
+### 🐛 Bug Fixes
+
+
+- **tray:** Restored starting minimized support([65b5afe](https://github.com/DEgITx/rats-search/commit/65b5afe31c269cc9dc41a0b8a1fdd06ae0ee440e)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.16([311ed89](https://github.com/DEgITx/rats-search/commit/311ed8987e4214fa6344f199e48f922cb03985fa)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **db:** Upgrade to manticore 17.5.1([ab54cf0](https://github.com/DEgITx/rats-search/commit/ab54cf0906bd74e5757df5c0218d018a64e0c9ac)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.16](https://github.com/DEgITx/rats-search/compare/v2.0.15...v2.0.16) (2026-02-13)
 
 
