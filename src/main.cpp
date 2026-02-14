@@ -579,7 +579,21 @@ int main(int argc, char *argv[])
         qInfo() << "MainWindow created:" << (startupTimer.elapsed() - windowStart) << "ms";
         
         // Show window immediately (services start in background)
-        mainWindow.show();
+        // Check if user wants to start minimized (to tray or taskbar)
+        bool startMinimized = tempConfig.startMinimized();
+        if (startMinimized) {
+            // If tray-on-minimize is enabled, hide to tray completely
+            if (tempConfig.trayOnMinimize()) {
+                qInfo() << "Starting minimized to system tray";
+                // Don't show the window at all - it will appear in tray
+                // MainWindow constructor already creates the tray icon
+            } else {
+                qInfo() << "Starting minimized to taskbar";
+                mainWindow.showMinimized();
+            }
+        } else {
+            mainWindow.show();
+        }
         qInfo() << "Window shown, total startup:" << startupTimer.elapsed() << "ms";
         qInfo() << "Heavy initialization continues in background...";
         
