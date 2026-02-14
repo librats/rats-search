@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.18](https://github.com/DEgITx/rats-search/compare/v2.0.17...v2.0.18) (2026-02-14)
+
+
+### 🐛 Bug Fixes
+
+
+- **dht:** Bootstrap ddos problem fixed([8e8ccfd](https://github.com/DEgITx/rats-search/commit/8e8ccfd4a08230371fb7bcb3ac7c6bfd1d0de0d9)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.17([3a2e82d](https://github.com/DEgITx/rats-search/commit/3a2e82df5b1ff7d6182b850bf2b5d4673f693dc2)) by @github-actions[bot]
+- **api:** Update api doc([39b03f0](https://github.com/DEgITx/rats-search/commit/39b03f0272d9b15eeaaaa4a112d3642307ea9ad8)) by @DEgITx
+
+
+### 🚀 Features
+
+
+- **debug:** Read always the log of manticore([e01b9f3](https://github.com/DEgITx/rats-search/commit/e01b9f3c436c2abebb2286eeed1782956c1747bf)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.17](https://github.com/DEgITx/rats-search/compare/v2.0.16...v2.0.17) (2026-02-14)
 
 
