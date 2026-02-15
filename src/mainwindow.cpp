@@ -543,6 +543,11 @@ void MainWindow::startServices()
         updateNetworkStatus();
     }
     
+    // Apply spider walk interval from config before starting
+    if (config) {
+        torrentSpider->setWalkInterval(config->spiderWalkInterval());
+    }
+    
     // Start torrent spider
     qint64 spiderStart = timer.elapsed();
     if (!torrentSpider->start()) {

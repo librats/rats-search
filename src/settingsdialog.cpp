@@ -135,9 +135,6 @@ void SettingsDialog::setupUi()
     QFormLayout *p2pLayout = new QFormLayout(p2pGroup);
     p2pLayout->setSpacing(12);
 
-    p2pBootstrapCheck_ = new QCheckBox(tr("Enable bootstrap nodes"));
-    p2pLayout->addRow(p2pBootstrapCheck_);
-
     p2pConnectionsSpin_ = new QSpinBox();
     p2pConnectionsSpin_->setRange(10, 1000);
     p2pConnectionsSpin_->setToolTip(tr("Maximum number of P2P connections"));
@@ -161,7 +158,7 @@ void SettingsDialog::setupUi()
     perfLayout->setSpacing(12);
 
     walkIntervalSpin_ = new QSpinBox();
-    walkIntervalSpin_->setRange(1, 150);
+    walkIntervalSpin_->setRange(1, 500);
     walkIntervalSpin_->setToolTip(tr("Interval between DHT walks (lower = faster, more CPU)"));
     perfLayout->addRow(tr("Spider walk interval:"), walkIntervalSpin_);
 
@@ -432,7 +429,6 @@ void SettingsDialog::loadSettings()
     trackersCheck_->setChecked(config_->trackersEnabled());
 
     // P2P
-    p2pBootstrapCheck_->setChecked(config_->p2pBootstrap());
     p2pConnectionsSpin_->setValue(config_->p2pConnections());
     p2pReplicationCheck_->setChecked(config_->p2pReplication());
     p2pReplicationServerCheck_->setChecked(config_->p2pReplicationServer());
@@ -511,7 +507,6 @@ void SettingsDialog::saveSettings()
     config_->setTrackersEnabled(trackersCheck_->isChecked());
 
     // Save P2P
-    config_->setP2pBootstrap(p2pBootstrapCheck_->isChecked());
     config_->setP2pConnections(p2pConnectionsSpin_->value());
     config_->setP2pReplication(p2pReplicationCheck_->isChecked());
     config_->setP2pReplicationServer(p2pReplicationServerCheck_->isChecked());

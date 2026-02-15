@@ -30,16 +30,13 @@ void ConfigManager::setDefaults()
     config_ = QJsonObject{
         // Network
         {"httpPort", 8095},
-        {"spiderPort", 4445},
         {"p2pPort", 4444},
         {"dhtPort", 6881},
-        {"udpTrackersPort", 4446},
         {"udpTrackersTimeout", 180000},
         
         // P2P
         {"p2p", true},
         {"p2pConnections", 10},
-        {"p2pBootstrap", true},
         {"p2pReplication", true},
         {"p2pReplicationServer", true},
         
@@ -51,7 +48,7 @@ void ConfigManager::setDefaults()
         
         // Spider
         {"spider", QJsonObject{
-            {"walkInterval", 5},
+            {"walkInterval", 100},
             {"nodesUsage", 100},
             {"packagesLimit", 500}
         }},
@@ -74,11 +71,7 @@ void ConfigManager::setDefaults()
         {"spaceDiskLimit", 7LL * 1024 * 1024 * 1024},
         {"recheckFilesOnAdding", true},
         
-        // Downloader
-        {"downloader", QJsonObject{
-            {"maxConnections", 200},
-            {"timeout", 5000}
-        }},
+        // Downloads
         {"downloadPath", QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)},
         
         // UI
@@ -188,11 +181,6 @@ void ConfigManager::setHttpPort(int port) {
     if (setValue("httpPort", port)) emit httpPortChanged(port);
 }
 
-int ConfigManager::spiderPort() const { return config_["spiderPort"].toInt(4445); }
-void ConfigManager::setSpiderPort(int port) { 
-    if (setValue("spiderPort", port)) emit spiderPortChanged(port);
-}
-
 int ConfigManager::p2pPort() const { return config_["p2pPort"].toInt(4444); }
 void ConfigManager::setP2pPort(int port) { 
     if (setValue("p2pPort", port)) emit p2pPortChanged(port);
@@ -202,9 +190,6 @@ int ConfigManager::dhtPort() const { return config_["dhtPort"].toInt(6881); }
 void ConfigManager::setDhtPort(int port) { 
     if (setValue("dhtPort", port)) emit dhtPortChanged(port);
 }
-
-int ConfigManager::udpTrackersPort() const { return config_["udpTrackersPort"].toInt(4446); }
-void ConfigManager::setUdpTrackersPort(int port) { setValue("udpTrackersPort", port); }
 
 int ConfigManager::udpTrackersTimeout() const { return config_["udpTrackersTimeout"].toInt(180000); }
 void ConfigManager::setUdpTrackersTimeout(int timeout) { setValue("udpTrackersTimeout", timeout); }
@@ -223,9 +208,6 @@ void ConfigManager::setP2pConnections(int connections) {
     connections = qBound(10, connections, 1000);
     if (setValue("p2pConnections", connections)) emit p2pConnectionsChanged(connections);
 }
-
-bool ConfigManager::p2pBootstrap() const { return config_["p2pBootstrap"].toBool(true); }
-void ConfigManager::setP2pBootstrap(bool enabled) { setValue("p2pBootstrap", enabled); }
 
 bool ConfigManager::p2pReplication() const { return config_["p2pReplication"].toBool(true); }
 void ConfigManager::setP2pReplication(bool enabled) {
@@ -435,26 +417,6 @@ QString ConfigManager::downloadPath() const {
     ); 
 }
 void ConfigManager::setDownloadPath(const QString& path) { setValue("downloadPath", path); }
-
-int ConfigManager::downloaderMaxConnections() const { 
-    return config_["downloader"].toObject()["maxConnections"].toInt(200); 
-}
-void ConfigManager::setDownloaderMaxConnections(int max) {
-    QJsonObject downloader = config_["downloader"].toObject();
-    downloader["maxConnections"] = max;
-    config_["downloader"] = downloader;
-    dirty_ = true;
-}
-
-int ConfigManager::downloaderTimeout() const { 
-    return config_["downloader"].toObject()["timeout"].toInt(5000); 
-}
-void ConfigManager::setDownloaderTimeout(int timeout) {
-    QJsonObject downloader = config_["downloader"].toObject();
-    downloader["timeout"] = timeout;
-    config_["downloader"] = downloader;
-    dirty_ = true;
-}
 
 // ============================================================================
 // UI Settings

@@ -28,7 +28,6 @@ class ConfigManager : public QObject
     
     // Network settings
     Q_PROPERTY(int httpPort READ httpPort WRITE setHttpPort NOTIFY httpPortChanged)
-    Q_PROPERTY(int spiderPort READ spiderPort WRITE setSpiderPort NOTIFY spiderPortChanged)
     Q_PROPERTY(int p2pPort READ p2pPort WRITE setP2pPort NOTIFY p2pPortChanged)
     Q_PROPERTY(int dhtPort READ dhtPort WRITE setDhtPort NOTIFY dhtPortChanged)
     
@@ -77,17 +76,11 @@ public:
     int httpPort() const;
     void setHttpPort(int port);
     
-    int spiderPort() const;
-    void setSpiderPort(int port);
-    
     int p2pPort() const;
     void setP2pPort(int port);
     
     int dhtPort() const;
     void setDhtPort(int port);
-    
-    int udpTrackersPort() const;
-    void setUdpTrackersPort(int port);
     
     int udpTrackersTimeout() const;
     void setUdpTrackersTimeout(int timeout);
@@ -101,9 +94,6 @@ public:
     
     int p2pConnections() const;
     void setP2pConnections(int connections);
-    
-    bool p2pBootstrap() const;
-    void setP2pBootstrap(bool enabled);
     
     bool p2pReplication() const;
     void setP2pReplication(bool enabled);
@@ -191,12 +181,6 @@ public:
     QString downloadPath() const;
     void setDownloadPath(const QString& path);
     
-    int downloaderMaxConnections() const;
-    void setDownloaderMaxConnections(int max);
-    
-    int downloaderTimeout() const;
-    void setDownloaderTimeout(int timeout);
-    
     // =========================================================================
     // UI Settings
     // =========================================================================
@@ -257,7 +241,6 @@ signals:
     
     // Individual property signals
     void httpPortChanged(int port);
-    void spiderPortChanged(int port);
     void p2pPortChanged(int port);
     void dhtPortChanged(int port);
     void p2pEnabledChanged(bool enabled);

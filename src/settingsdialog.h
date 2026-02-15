@@ -77,7 +77,6 @@ private:
     QCheckBox* trackersCheck_;
 
     // P2P settings
-    QCheckBox* p2pBootstrapCheck_;
     QSpinBox* p2pConnectionsSpin_;
     QCheckBox* p2pReplicationCheck_;
     QCheckBox* p2pReplicationServerCheck_;
