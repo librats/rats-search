@@ -334,6 +334,16 @@ void MigrationManager::registerMigrations()
         "Remove torrents with Unknown content type",
         false      // async/background
     });
+    
+    // v2.0.13 - Update spider walkInterval to new default (100ms)
+    // Old default was 5ms which was too aggressive; update existing configs
+    d->registeredMigrations.append({
+        "v2.0.19_sync_update_walk_interval",
+        "2.0.0",   // minVersion
+        "",        // maxVersion (empty = no limit)
+        "Update spider walk interval to 100ms",
+        true       // sync/blocking
+    });
 }
 
 // ============================================================================
@@ -377,6 +387,8 @@ bool MigrationManager::runSyncMigrations()
         // Dispatch to specific migration implementation
         if (migration.id == "v2.0.12_sync_cleanup_feed_storage") {
             success = migration_v2_0_12_sync_cleanup_feed_storage();
+        } else if (migration.id == "v2.0.19_sync_update_walk_interval") {
+            success = migration_v2_0_19_sync_update_walk_interval();
         }
         // Add more sync migrations here
         
@@ -432,6 +444,29 @@ bool MigrationManager::migration_v2_0_12_sync_cleanup_feed_storage()
         }
     } else {
         qInfo() << "Migration: Storage folder does not exist, skipping";
+    }
+    
+    return true;
+}
+
+bool MigrationManager::migration_v2_0_19_sync_update_walk_interval()
+{
+    if (!d->config) {
+        qWarning() << "Migration: ConfigManager not available";
+        return false;
+    }
+    
+    int currentInterval = d->config->spiderWalkInterval();
+    qInfo() << "Migration v2.0.19: Current spider walkInterval:" << currentInterval << "ms";
+    
+    // Update to new default (100ms) if still using old value (< 100)
+    if (currentInterval < 100) {
+        d->config->setSpiderWalkInterval(100);
+        d->config->save();
+        qInfo() << "Migration v2.0.19: Updated spider walkInterval from" 
+                << currentInterval << "ms to 100ms";
+    } else {
+        qInfo() << "Migration v2.0.19: walkInterval already >= 100ms, no change needed";
     }
     
     return true;

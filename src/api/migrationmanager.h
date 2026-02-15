@@ -133,6 +133,7 @@ private:
     // Specific migration implementations
     // Sync migrations (blocking, must succeed)
     bool migration_v2_0_12_sync_cleanup_feed_storage();
+    bool migration_v2_0_19_sync_update_walk_interval();
 
     // Async migrations (background, resumable)
     void migration_v2_0_12_recategorize_torrents();
