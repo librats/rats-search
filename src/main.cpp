@@ -25,6 +25,7 @@
 #include "api/apiserver.h"
 #include "api/translationmanager.h"
 #include "librats/src/logger.h"
+#include "version.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -152,6 +153,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     g_app = &app;
     
     qInfo() << "Rats Search Console Mode";
+    qInfo() << "Version:" << RATSSEARCH_VERSION_STRING << "(" << RATSSEARCH_GIT_DESCRIBE << ")";
     qInfo() << "Data directory:" << dataDir;
     
     // Create configuration manager first to get default ports
@@ -551,6 +553,7 @@ int main(int argc, char *argv[])
 #endif
         
         qInfo() << "Rats Search starting...";
+        qInfo() << "Version:" << RATSSEARCH_VERSION_STRING << "(" << RATSSEARCH_GIT_DESCRIBE << ")";
         qInfo() << "Data directory:" << dataDir;
         qInfo() << "Log file:" << logFilePath;
         if (p2pPort > 0) qInfo() << "P2P port (CLI override):" << p2pPort;
