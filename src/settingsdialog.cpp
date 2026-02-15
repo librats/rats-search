@@ -139,7 +139,7 @@ void SettingsDialog::setupUi()
     p2pLayout->addRow(p2pBootstrapCheck_);
 
     p2pConnectionsSpin_ = new QSpinBox();
-    p2pConnectionsSpin_->setRange(5, 100);
+    p2pConnectionsSpin_->setRange(10, 1000);
     p2pConnectionsSpin_->setToolTip(tr("Maximum number of P2P connections"));
     p2pLayout->addRow(tr("Max connections:"), p2pConnectionsSpin_);
 

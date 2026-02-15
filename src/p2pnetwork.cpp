@@ -27,10 +27,11 @@ static nlohmann::json qtToNlohmann(const QJsonObject& obj) {
     return nlohmann::json::parse(jsonStr);
 }
 
-P2PNetwork::P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObject *parent)
+P2PNetwork::P2PNetwork(int port, int dhtPort, const QString& dataDirectory, int maxPeers, QObject *parent)
     : QObject(parent)
     , port_(port)
     , dhtPort_(dhtPort)
+    , maxPeers_(maxPeers)
     , dataDirectory_(dataDirectory)
     , running_(false)
     , bitTorrentEnabled_(false)
@@ -53,8 +54,8 @@ bool P2PNetwork::start()
     try {
         qInfo() << "Starting P2P network on port" << port_;
         
-        // Create librats client
-        ratsClient_ = std::make_unique<librats::RatsClient>(port_);
+        // Create librats client with configured max peers
+        ratsClient_ = std::make_unique<librats::RatsClient>(port_, maxPeers_);
 
         // Set protocol name for rats-search
         ratsClient_->set_protocol_name("rats-search");
@@ -216,6 +217,15 @@ qint64 P2PNetwork::getRemoteTorrentsCount() const
         total += it.value().torrentsCount;
     }
     return total;
+}
+
+void P2PNetwork::setMaxPeers(int maxPeers)
+{
+    maxPeers_ = maxPeers;
+    if (ratsClient_) {
+        ratsClient_->set_max_peers(maxPeers);
+        qInfo() << "P2P max peers updated to" << maxPeers;
+    }
 }
 
 void P2PNetwork::setClientVersion(const QString& version)

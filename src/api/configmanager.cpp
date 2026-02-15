@@ -168,7 +168,7 @@ void ConfigManager::validateAndClamp()
     // Clamp p2pConnections
     int p2pConn = config_["p2pConnections"].toInt();
     if (p2pConn < 10) config_["p2pConnections"] = 10;
-    if (p2pConn > 300) config_["p2pConnections"] = 300;
+    if (p2pConn > 1000) config_["p2pConnections"] = 1000;
     
     // P2P replication dependency
     if (config_["p2pReplication"].toBool() && !config_["p2pReplicationServer"].toBool()) {
@@ -220,7 +220,7 @@ void ConfigManager::setP2pEnabled(bool enabled) {
 
 int ConfigManager::p2pConnections() const { return config_["p2pConnections"].toInt(10); }
 void ConfigManager::setP2pConnections(int connections) {
-    connections = qBound(10, connections, 300);
+    connections = qBound(10, connections, 1000);
     if (setValue("p2pConnections", connections)) emit p2pConnectionsChanged(connections);
 }
 

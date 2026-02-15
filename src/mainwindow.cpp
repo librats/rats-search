@@ -119,7 +119,7 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     qint64 objectsStart = startupTimer.elapsed();
     torrentDatabase = std::make_unique<TorrentDatabase>(dataDirectory_);
     torrentClient = std::make_unique<TorrentClient>(this);
-    p2pNetwork = std::make_unique<P2PNetwork>(config->p2pPort(), config->dhtPort(), dataDirectory_);
+    p2pNetwork = std::make_unique<P2PNetwork>(config->p2pPort(), config->dhtPort(), dataDirectory_, config->p2pConnections());
     p2pNetwork->setClientVersion(RATSSEARCH_VERSION_STRING);
     torrentSpider = std::make_unique<TorrentSpider>(torrentDatabase.get(), p2pNetwork.get());
     api = std::make_unique<RatsAPI>(this);
@@ -454,6 +454,13 @@ void MainWindow::connectP2PSignals()
     connect(p2pNetwork.get(), &P2PNetwork::peerDisconnected, this, [this](const QString&) {
         cachedRemoteTorrentCount_ = p2pNetwork->getRemoteTorrentsCount();
         updateStatusBar();
+    });
+    
+    // Update max peers at runtime when config changes
+    connect(config.get(), &ConfigManager::p2pConnectionsChanged, this, [this](int connections) {
+        if (p2pNetwork) {
+            p2pNetwork->setMaxPeers(connections);
+        }
     });
     
     // Spider

@@ -69,7 +69,7 @@ class P2PNetwork : public QObject
     Q_OBJECT
 
 public:
-    explicit P2PNetwork(int port, int dhtPort, const QString& dataDirectory, QObject *parent = nullptr);
+    explicit P2PNetwork(int port, int dhtPort, const QString& dataDirectory, int maxPeers = 10, QObject *parent = nullptr);
     ~P2PNetwork();
 
     // =========================================================================
@@ -110,6 +110,12 @@ public:
     // =========================================================================
     // Our Client Info (to send to peers)
     // =========================================================================
+    
+    /**
+     * @brief Set maximum number of P2P connections
+     * Updates librats at runtime if the client is running
+     */
+    void setMaxPeers(int maxPeers);
     
     /**
      * @brief Set our client version to advertise to peers
@@ -233,6 +239,7 @@ private:
     std::unique_ptr<librats::RatsClient> ratsClient_;
     int port_;
     int dhtPort_;
+    int maxPeers_;
     QString dataDirectory_;
     bool running_;
     bool bitTorrentEnabled_;
