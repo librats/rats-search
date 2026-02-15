@@ -186,14 +186,6 @@ bool ManticoreManager::start()
     }
     qInfo() << "Process start took:" << (startupTimer.elapsed() - processStart) << "ms";
     
-#ifdef Q_OS_WIN
-    // On Windows, the process forks into background immediately
-    // Don't wait for full finish - just give it a moment to fork
-    // The actual readiness will be detected in waitForReady()
-    process_->waitForFinished(100);  // Reduced from 3000ms to 100ms
-    qInfo() << "Windows daemon mode: searchd forking to background";
-#endif
-    
     // Wait for ready with optimized polling
     qint64 waitStart = startupTimer.elapsed();
     bool ready = waitForReady(30000);
@@ -556,73 +548,54 @@ bool ManticoreManager::createDatabaseDirectories()
 
 QString ManticoreManager::findSearchdPath()
 {
-    // Possible paths for searchd
+    const QString appDir = QCoreApplication::applicationDirPath();
+    
+    // Determine platform-specific executable name, OS and architecture
+#ifdef Q_OS_WIN
+    const QString execName = QStringLiteral("searchd.exe");
+    const QString platform = QStringLiteral("win");
+#elif defined(Q_OS_MACOS)
+    const QString execName = QStringLiteral("searchd");
+    const QString platform = QStringLiteral("darwin");
+#else
+    const QString execName = QStringLiteral("searchd");
+    const QString platform = QStringLiteral("linux");
+#endif
+
+#if defined(Q_PROCESSOR_ARM)
+    const QString arch = QStringLiteral("arm64");
+#elif defined(Q_PROCESSOR_X86_64)
+    const QString arch = QStringLiteral("x64");
+#else
+    const QString arch = QStringLiteral("ia32");
+#endif
+
+    const QString importsRelPath = QString("imports/%1/%2/%3").arg(platform, arch, execName);
+    
     QStringList searchPaths;
     
-    // Get application directory
-    QString appDir = QCoreApplication::applicationDirPath();
-    
     // Check near executable first (for deployed builds)
-    searchPaths << appDir + "/searchd"
-                << appDir + "/searchd.exe";
+    searchPaths << appDir + "/" + execName;
     
-    // Check imports directory based on platform
-    // For both deployed and development builds (from build/bin directory)
-#ifdef Q_OS_WIN
-    #ifdef Q_PROCESSOR_X86_64
-    searchPaths << appDir + "/../imports/win/x64/searchd.exe"
-                << appDir + "/imports/win/x64/searchd.exe"
-                << appDir + "/../../imports/win/x64/searchd.exe"
-                << appDir + "/../../../imports/win/x64/searchd.exe"
-                << "imports/win/x64/searchd.exe"
-                << "../imports/win/x64/searchd.exe"
-                << "../../imports/win/x64/searchd.exe";
-    #else
-    searchPaths << appDir + "/../imports/win/ia32/searchd.exe"
-                << appDir + "/imports/win/ia32/searchd.exe"
-                << appDir + "/../../imports/win/ia32/searchd.exe"
-                << appDir + "/../../../imports/win/ia32/searchd.exe"
-                << "imports/win/ia32/searchd.exe"
-                << "../imports/win/ia32/searchd.exe"
-                << "../../imports/win/ia32/searchd.exe";
-    #endif
-#elif defined(Q_OS_MACOS)
-    #ifdef Q_PROCESSOR_ARM
-    searchPaths << appDir + "/../imports/darwin/arm64/searchd"
-                << appDir + "/../../imports/darwin/arm64/searchd"
-                << appDir + "/../../../imports/darwin/arm64/searchd"
-                << "imports/darwin/arm64/searchd"
-                << "../imports/darwin/arm64/searchd"
-                << "../../imports/darwin/arm64/searchd";
-    #else
-    searchPaths << appDir + "/../imports/darwin/x64/searchd"
-                << appDir + "/../../imports/darwin/x64/searchd"
-                << appDir + "/../../../imports/darwin/x64/searchd"
-                << "imports/darwin/x64/searchd"
-                << "../imports/darwin/x64/searchd"
-                << "../../imports/darwin/x64/searchd";
-    #endif
-#else  // Linux
-    #ifdef Q_PROCESSOR_X86_64
-    searchPaths << appDir + "/../imports/linux/x64/searchd"
-                << appDir + "/../../imports/linux/x64/searchd"
-                << appDir + "/../../../imports/linux/x64/searchd"
-                << "imports/linux/x64/searchd"
-                << "../imports/linux/x64/searchd"
-                << "../../imports/linux/x64/searchd";
-    #else
-    searchPaths << appDir + "/../imports/linux/ia32/searchd"
-                << appDir + "/../../imports/linux/ia32/searchd"
-                << appDir + "/../../../imports/linux/ia32/searchd"
-                << "imports/linux/ia32/searchd"
-                << "../imports/linux/ia32/searchd"
-                << "../../imports/linux/ia32/searchd";
-    #endif
-#endif
+    // Check imports directory from various relative positions
+    // (covers both deployed and development builds from build/bin)
+    const QStringList prefixes = {
+        appDir + "/",
+        appDir + "/../",
+        appDir + "/../../",
+        appDir + "/../../../",
+        QString(),
+        QStringLiteral("../"),
+        QStringLiteral("../../"),
+    };
+    
+    for (const QString& prefix : prefixes) {
+        searchPaths << prefix + importsRelPath;
+    }
     
     // System paths
-    searchPaths << "/usr/bin/searchd"
-                << "/usr/local/bin/searchd";
+    searchPaths << QStringLiteral("/usr/bin/searchd")
+                << QStringLiteral("/usr/local/bin/searchd");
     
     qInfo() << "Searching for searchd in:" << searchPaths;
     
