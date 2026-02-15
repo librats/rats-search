@@ -186,6 +186,14 @@ bool ManticoreManager::start()
     }
     qInfo() << "Process start took:" << (startupTimer.elapsed() - processStart) << "ms";
     
+#ifdef Q_OS_WIN
+    // On Windows, the process forks into background immediately
+    // Don't wait for full finish - just give it a moment to fork
+    // The actual readiness will be detected in waitForReady()
+    process_->waitForFinished(100);  // Reduced from 3000ms to 100ms
+    qInfo() << "Windows daemon mode: searchd forking to background";
+#endif
+    
     // Wait for ready with optimized polling
     qint64 waitStart = startupTimer.elapsed();
     bool ready = waitForReady(30000);
