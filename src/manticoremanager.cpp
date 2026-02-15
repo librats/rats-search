@@ -286,6 +286,7 @@ QSqlDatabase ManticoreManager::getDatabase() const
         db.setHostName("127.0.0.1");
         db.setPort(port_);
         db.setDatabaseName("");
+        db.setConnectOptions("MYSQL_OPT_RECONNECT=1");
     }
     
     return QSqlDatabase::database(threadConnName);
