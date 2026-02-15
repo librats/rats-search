@@ -258,6 +258,18 @@ jobs:
             echo "MySQL plugin already available at $PLUGIN_PATH"
           fi
 
+      - name: Remove unused SQL plugins
+        run: |
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          echo "Removing unused SQL plugins to avoid macdeployqt errors..."
+          rm -f "$QT_PLUGIN_DIR/libqsqlmimer.dylib" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqlodbc.dylib" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqlpsql.dylib" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqloci.dylib" 2>/dev/null || true
+          echo "Remaining SQL plugins:"
+          ls -la "$QT_PLUGIN_DIR/" || true
+
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" \
@@ -314,7 +326,6 @@ jobs:
           retention-days: 30
 
   build-macos-arm:
-    if: false  # Temporarily disabled
     runs-on: macos-latest
     name: macOS ARM (Apple Silicon)
     permissions:
@@ -353,6 +364,8 @@ jobs:
           
           echo "Qt root: $QT_ROOT"
           echo "Plugin path: $PLUGIN_PATH"
+          echo "Host arch: $(uname -m)"
+          echo "MySQL lib arch: $(file "$MYSQL_LIB_DIR/libmysqlclient.dylib")"
           
           if [ ! -f "$PLUGIN_PATH" ]; then
             echo "MySQL plugin not found in Qt installation, building from source..."
@@ -362,10 +375,19 @@ jobs:
             
             cd qtbase-src/src/plugins/sqldrivers
             
+            # Configure using cmake
             cmake -B build -G "Ninja" \
               -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_OSX_ARCHITECTURES=arm64 \
               -DMySQL_INCLUDE_DIR="$MYSQL_INCLUDE_DIR" \
               -DMySQL_LIBRARY="$MYSQL_LIB_DIR/libmysqlclient.dylib"
+            
+            # Qt's internal build system (BuildInternals) may override CMAKE_OSX_ARCHITECTURES
+            # Force arm64 in the generated build files
+            if [ -f "build/build.ninja" ]; then
+              echo "Patching build.ninja to force arm64 architecture..."
+              sed -i '' 's/-arch x86_64/-arch arm64/g' build/build.ninja
+            fi
             
             cmake --build build --target qsqlmysql --config Release
             
@@ -373,12 +395,25 @@ jobs:
               mkdir -p "$QT_PLUGIN_DIR"
               cp build/plugins/sqldrivers/libqsqlmysql.dylib "$QT_PLUGIN_DIR/"
               echo "Successfully built and installed MySQL plugin"
+              echo "Plugin arch: $(file build/plugins/sqldrivers/libqsqlmysql.dylib)"
             fi
             
             cd ../../../..
           else
             echo "MySQL plugin already available at $PLUGIN_PATH"
           fi
+
+      - name: Remove unused SQL plugins
+        run: |
+          QT_ROOT="${{ env.QT_ROOT_DIR }}"
+          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
+          echo "Removing unused SQL plugins to avoid macdeployqt errors..."
+          rm -f "$QT_PLUGIN_DIR/libqsqlmimer.dylib" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqlodbc.dylib" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqlpsql.dylib" 2>/dev/null || true
+          rm -f "$QT_PLUGIN_DIR/libqsqloci.dylib" 2>/dev/null || true
+          echo "Remaining SQL plugins:"
+          ls -la "$QT_PLUGIN_DIR/" || true
 
       - name: Configure CMake
         run: |
@@ -729,7 +764,7 @@ jobs:
           retention-days: 30
 
   release:
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos-arm]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     
