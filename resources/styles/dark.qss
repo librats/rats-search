@@ -335,7 +335,6 @@ QTableView, QTableWidget {
 }
 
 QTableView::item, QTableWidget::item {
-    padding: 10px 8px;
     border-bottom: 1px solid #2a2a2a;
 }
 
@@ -351,7 +350,6 @@ QHeaderView::section {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
         stop:0 #353535, stop:1 #2a2a2a);
     color: #b0b0b0;
-    padding: 12px 10px;
     border: none;
     border-right: 1px solid #1e1e1e;
     border-bottom: 2px solid #4a9eff;

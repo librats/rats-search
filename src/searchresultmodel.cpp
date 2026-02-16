@@ -298,9 +298,11 @@ void SearchResultModel::mergeFileResultIntoExisting(const TorrentInfo &fileResul
             if (fileResult.isFileMatch) {
                 results_[i].isFileMatch = true;
             }
-            // Emit dataChanged for this row
-            QModelIndex idx = index(i, NameColumn);
-            emit dataChanged(idx, idx, {MatchingPathsRole, IsFileMatchRole});
+            // Emit dataChanged for all columns of this row, including Qt::SizeHintRole
+            // so the view recalculates the row height to accommodate the file paths
+            QModelIndex topLeft = index(i, 0);
+            QModelIndex bottomRight = index(i, ColumnCount - 1);
+            emit dataChanged(topLeft, bottomRight, {MatchingPathsRole, IsFileMatchRole, Qt::SizeHintRole});
             return;
         }
     }

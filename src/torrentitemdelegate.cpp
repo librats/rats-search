@@ -100,7 +100,9 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
     
     // Get column
     int column = index.column();
-    QRect rect = option.rect.adjusted(4, 2, -4, -2);
+    // Paddings
+    int borderBottom = 1; // Border bottom line from style sheet take one pixel of bottom padding
+    QRect rect = option.rect.adjusted(4, 2 - borderBottom, -4, -2 - borderBottom);
     
     switch (column) {
         case SearchResultModel::NameColumn: {
@@ -119,7 +121,8 @@ void TorrentItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &o
             int iconLeft = nameRect.left();
             if (!contentType.isEmpty()) {
                 QColor typeColor = getContentTypeColor(contentType);
-                QRect iconRect(iconLeft, nameRect.top() + (qMin(nameRect.height(), BaseRowHeight - 4) - 12) / 2, 12, 12);
+                const int filesOffset = hasFilePaths ? -3 : 0; // Offset for files as name will be shifted top
+                QRect iconRect(iconLeft, nameRect.top() + filesOffset + borderBottom + (qMin(nameRect.height(), BaseRowHeight - 4) - 12) / 2, 12, 12);
                 painter->setBrush(typeColor);
                 painter->setPen(Qt::NoPen);
                 painter->drawRoundedRect(iconRect, 2, 2);

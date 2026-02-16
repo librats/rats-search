@@ -45,7 +45,7 @@ private:
                              const QColor &highlightColor, const QFont &font) const;
     
     // Constants for layout
-    static constexpr int BaseRowHeight = 36;
+    static constexpr int BaseRowHeight = 30;
     static constexpr int FilePathRowHeight = 16;
     static constexpr int MaxVisiblePaths = 3;
 };

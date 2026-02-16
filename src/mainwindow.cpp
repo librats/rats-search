@@ -243,6 +243,7 @@ void MainWindow::setupUi()
     resultsTableView->setSortingEnabled(true);
     resultsTableView->horizontalHeader()->setStretchLastSection(true);
     resultsTableView->verticalHeader()->setVisible(false);
+    resultsTableView->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     resultsTableView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     resultsTableView->setShowGrid(false);
     resultsTableView->setContextMenuPolicy(Qt::CustomContextMenu);
