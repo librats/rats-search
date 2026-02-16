@@ -150,6 +150,7 @@ Console mode options:
 | `-d, --dht-port <port>` | DHT port (overrides config setting) |
 | `--data-dir <path>` | Data directory for database and config |
 | `-s, --spider` | Enable torrent spider (disabled by default in console mode) |
+| `-m, --max-peers <n>` | Maximum P2P connections (overrides config, range: 10-1000) |
 
 Interactive commands in console mode:
 
@@ -161,6 +162,7 @@ Interactive commands in console mode:
 | `top [type]` | Show top torrents by type |
 | `spider start` | Start the DHT spider |
 | `spider stop` | Stop the DHT spider |
+| `peers [n]` | Show or set max P2P connections (10-1000) |
 | `help` | Show available commands |
 | `quit` / `exit` | Exit the application |
 

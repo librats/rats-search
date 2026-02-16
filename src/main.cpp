@@ -148,7 +148,7 @@ void signalHandler(int signum)
 }
 
 // Console mode main loop - uses the existing QCoreApplication from main()
-int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QString& dataDir, bool enableSpider)
+int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QString& dataDir, bool enableSpider, int maxPeers)
 {
     g_app = &app;
     
@@ -164,8 +164,11 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     int actualP2pPort = (p2pPort > 0) ? p2pPort : config.p2pPort();
     int actualDhtPort = (dhtPort > 0) ? dhtPort : config.dhtPort();
     
+    int actualMaxPeers = (maxPeers > 0) ? qBound(10, maxPeers, 1000) : config.p2pConnections();
+    
     qInfo() << "P2P port:" << actualP2pPort << (p2pPort > 0 ? "(CLI)" : "(config)");
     qInfo() << "DHT port:" << actualDhtPort << (dhtPort > 0 ? "(CLI)" : "(config)");
+    qInfo() << "Max peers:" << actualMaxPeers << (maxPeers > 0 ? "(CLI)" : "(config)");
     
     // Initialize database
     TorrentDatabase database(dataDir);
@@ -177,7 +180,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     }
     
     // Initialize P2P network (single owner of RatsClient)
-    P2PNetwork p2p(actualP2pPort, actualDhtPort, dataDir);
+    P2PNetwork p2p(actualP2pPort, actualDhtPort, dataDir, actualMaxPeers);
     g_p2p = &p2p;
     
     if (!p2p.start()) {
@@ -349,6 +352,23 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
                 std::cout << "Indexed: " << spider.getIndexedCount() << std::endl;
             }
         }
+        else if (cmd == "peers") {
+            if (parts.size() > 1) {
+                bool ok;
+                int n = parts[1].toInt(&ok);
+                if (ok && n >= 10 && n <= 1000) {
+                    p2p.setMaxPeers(n);
+                    config.setP2pConnections(n);
+                    config.save();
+                    std::cout << "Max peers set to " << n << " (saved to config)" << std::endl;
+                } else {
+                    std::cout << "Invalid value. Range: 10-1000" << std::endl;
+                }
+            } else {
+                std::cout << "Connected peers: " << p2p.getPeerCount() << std::endl;
+                std::cout << "Max peers: " << config.p2pConnections() << std::endl;
+            }
+        }
         else if (cmd == "help") {
             std::cout << "Commands:" << std::endl;
             std::cout << "  stats        - Show statistics" << std::endl;
@@ -357,6 +377,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
             std::cout << "  top [type]   - Show top torrents" << std::endl;
             std::cout << "  spider start - Start spider" << std::endl;
             std::cout << "  spider stop  - Stop spider" << std::endl;
+            std::cout << "  peers [n]    - Show/set max P2P connections (10-1000)" << std::endl;
             std::cout << "  quit         - Exit" << std::endl;
         }
         else if (!cmd.isEmpty()) {
@@ -428,11 +449,16 @@ int main(int argc, char *argv[])
             "Enable torrent spider (default: disabled in console mode)");
         parser.addOption(spiderOption);
         
+        QCommandLineOption maxPeersOption(QStringList() << "m" << "max-peers",
+            "Maximum P2P connections (overrides config setting, range: 10-1000)", "max-peers");
+        parser.addOption(maxPeersOption);
+        
         parser.process(app);
         
         // Get command line options (0 means not specified - use config default)
         int p2pPort = parser.isSet(portOption) ? parser.value(portOption).toInt() : 0;
         int dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
+        int maxPeers = parser.isSet(maxPeersOption) ? parser.value(maxPeersOption).toInt() : 0;
         bool enableSpider = parser.isSet(spiderOption);
         
         QString dataDir;
@@ -475,7 +501,7 @@ int main(int argc, char *argv[])
         
         qInfo() << "Log file:" << logFilePath;
         
-        return runConsoleMode(app, p2pPort, dhtPort, dataDir, enableSpider);
+        return runConsoleMode(app, p2pPort, dhtPort, dataDir, enableSpider, maxPeers);
     }
     else {
         // GUI mode
