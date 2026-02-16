@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.19](https://github.com/DEgITx/rats-search/compare/v2.0.18...v2.0.19) (2026-02-16)
+
+
+### 🐛 Bug Fixes
+
+
+- **db:** Fix reconnection on long run of rats search([e396159](https://github.com/DEgITx/rats-search/commit/e396159d7231d409363e841f84851777d739f2fe)) by @DEgITx
+- **p2p:** Fix p2p max clients interval([d662175](https://github.com/DEgITx/rats-search/commit/d6621753c9dc8dbffc81077d5f64be44ea5efdd5)) by @DEgITx
+- **ui:** Cleanup unused options([282b26d](https://github.com/DEgITx/rats-search/commit/282b26d21e064eae5b87f7e5304d6b0e46b1e152)) by @DEgITx
+- **config:** Update spider interval to new default value([535b21d](https://github.com/DEgITx/rats-search/commit/535b21d772d286b44fa1c9072f2b9847da371fe4)) by @DEgITx
+- **mac os x:** Fix build for mac os([927b2cf](https://github.com/DEgITx/rats-search/commit/927b2cfa62f941b00f50111ef0ec3f877b160e78)) by @DEgITx
+- **search:** Simplify detection code([7f66ec8](https://github.com/DEgITx/rats-search/commit/7f66ec88401e2aba9abd9fcd6c71e9e933e746ea)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.18([4e0ccf1](https://github.com/DEgITx/rats-search/commit/4e0ccf11de1e707b7d5ce8d7c15b5ad51c828891)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **debug:** Verification for qt driver([f51bec0](https://github.com/DEgITx/rats-search/commit/f51bec0a3371932f40957821f40f0786278be857)) by @DEgITx
+- **arm:** Arm64 linux support([62a9881](https://github.com/DEgITx/rats-search/commit/62a98814cba340108669929ca44a779cfeab90f4)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.18](https://github.com/DEgITx/rats-search/compare/v2.0.17...v2.0.18) (2026-02-14)
 
 
