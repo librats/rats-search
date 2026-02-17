@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.20](https://github.com/DEgITx/rats-search/compare/v2.0.19...v2.0.20) (2026-02-17)
+
+
+### 🐛 Bug Fixes
+
+
+- **linux:** Fix spamming with epool_ctl MOD([d347d05](https://github.com/DEgITx/rats-search/commit/d347d05f0fca2b83e2b4e8c6bef714159fe82ded)) by @DEgITx
+- **search:** Fix search elements overlap when search contains files content([021eba6](https://github.com/DEgITx/rats-search/commit/021eba629991fb50e0bb916bed35e4c36cf54b64)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.19([eece977](https://github.com/DEgITx/rats-search/commit/eece9775b454544ecb31e4e17fbd6951748d5d74)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **cli:** Max peers option([0fefb55](https://github.com/DEgITx/rats-search/commit/0fefb550d295c93be1daccc781c472d5ee36361a)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.19](https://github.com/DEgITx/rats-search/compare/v2.0.18...v2.0.19) (2026-02-16)
 
 
