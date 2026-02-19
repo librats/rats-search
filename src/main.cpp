@@ -24,6 +24,7 @@
 #include "api/configmanager.h"
 #include "api/apiserver.h"
 #include "api/translationmanager.h"
+#include "autostartmanager.h"
 #include "librats/src/logger.h"
 #include "version.h"
 
@@ -601,6 +602,14 @@ int main(int argc, char *argv[])
         translationManager.setLanguage(savedLanguage);
         qInfo() << "Translation init took:" << (startupTimer.elapsed() - translationStart) << "ms";
         qInfo() << "Language:" << savedLanguage;
+        
+        // Sync autostart state with OS (updates registry/desktop file if exe path changed)
+        if (tempConfig.autoStart()) {
+            if (!AutoStartManager::isEnabled()) {
+                AutoStartManager::enable();
+                qInfo() << "Autostart re-synced with OS";
+            }
+        }
         
         // Create main window (UI setup only, services deferred)
         qint64 windowStart = startupTimer.elapsed();

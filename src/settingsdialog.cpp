@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 #include "api/configmanager.h"
 #include "api/ratsapi.h"
+#include "autostartmanager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -81,6 +82,17 @@ void SettingsDialog::setupUi()
 
     startMinimizedCheck_ = new QCheckBox(tr("Start minimized"));
     generalLayout->addRow(startMinimizedCheck_);
+
+    autoStartCheck_ = new QCheckBox(tr("Start with system (autostart)"));
+    autoStartCheck_->setToolTip(tr("Automatically start Rats Search when you log in to your computer"));
+    generalLayout->addRow(autoStartCheck_);
+    
+    // When autostart is enabled, suggest starting minimized
+    connect(autoStartCheck_, &QCheckBox::toggled, this, [this](bool checked) {
+        if (checked && !startMinimizedCheck_->isChecked()) {
+            startMinimizedCheck_->setChecked(true);
+        }
+    });
 
     darkModeCheck_ = new QCheckBox(tr("Dark mode"));
     generalLayout->addRow(darkModeCheck_);
@@ -415,6 +427,7 @@ void SettingsDialog::loadSettings()
     minimizeToTrayCheck_->setChecked(config_->trayOnMinimize());
     closeToTrayCheck_->setChecked(config_->trayOnClose());
     startMinimizedCheck_->setChecked(config_->startMinimized());
+    autoStartCheck_->setChecked(AutoStartManager::isEnabled());
     darkModeCheck_->setChecked(config_->darkMode());
     checkUpdatesCheck_->setChecked(config_->checkUpdatesOnStartup());
 
@@ -493,6 +506,16 @@ void SettingsDialog::saveSettings()
     config_->setTrayOnMinimize(minimizeToTrayCheck_->isChecked());
     config_->setTrayOnClose(closeToTrayCheck_->isChecked());
     config_->setStartMinimized(startMinimizedCheck_->isChecked());
+    
+    // Apply autostart at OS level
+    bool autoStartEnabled = autoStartCheck_->isChecked();
+    if (autoStartEnabled != AutoStartManager::isEnabled()) {
+        if (!AutoStartManager::setEnabled(autoStartEnabled)) {
+            qWarning() << "Failed to" << (autoStartEnabled ? "enable" : "disable") << "autostart";
+        }
+    }
+    config_->setAutoStart(autoStartEnabled);
+    
     config_->setDarkMode(darkModeCheck_->isChecked());
     config_->setCheckUpdatesOnStartup(checkUpdatesCheck_->isChecked());
 

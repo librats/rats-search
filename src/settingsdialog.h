@@ -63,6 +63,7 @@ private:
     QCheckBox* minimizeToTrayCheck_;
     QCheckBox* closeToTrayCheck_;
     QCheckBox* startMinimizedCheck_;
+    QCheckBox* autoStartCheck_;
     QCheckBox* darkModeCheck_;
     QCheckBox* checkUpdatesCheck_;
 

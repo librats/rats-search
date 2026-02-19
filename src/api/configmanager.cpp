@@ -80,6 +80,7 @@ void ConfigManager::setDefaults()
         {"trayOnClose", false},
         {"trayOnMinimize", true},
         {"startMinimized", false},
+        {"autoStart", false},
         {"checkUpdatesOnStartup", true},
         {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)},
         
@@ -445,6 +446,11 @@ void ConfigManager::setTrayOnMinimize(bool enabled) {
 bool ConfigManager::startMinimized() const { return config_["startMinimized"].toBool(false); }
 void ConfigManager::setStartMinimized(bool enabled) { 
     if (setValue("startMinimized", enabled)) emit startMinimizedChanged(enabled);
+}
+
+bool ConfigManager::autoStart() const { return config_["autoStart"].toBool(false); }
+void ConfigManager::setAutoStart(bool enabled) { 
+    if (setValue("autoStart", enabled)) emit autoStartChanged(enabled);
 }
 
 bool ConfigManager::checkUpdatesOnStartup() const { return config_["checkUpdatesOnStartup"].toBool(true); }
