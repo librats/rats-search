@@ -2,6 +2,7 @@
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QTabWidget>
 #include <QComboBox>
 #include <QCheckBox>
 #include <QSpinBox>
@@ -17,14 +18,12 @@ class RatsAPI;
 /**
  * @brief SettingsDialog - Application settings dialog
  * 
- * Provides UI for configuring:
- * - General settings (language, tray behavior, theme)
- * - Network settings (ports, REST API)
- * - Indexer settings
- * - P2P network settings
- * - Performance settings
- * - Content filters
- * - Database cleanup
+ * Tab-based layout with logical grouping:
+ * - General: language, theme, tray behavior, autostart, updates
+ * - Network: ports, P2P connections, replication, REST API
+ * - Indexer: DHT indexer, trackers, spider performance
+ * - Filters: name/regex, size, content type filters
+ * - Storage: download path, data directory, database cleanup
  */
 class SettingsDialog : public QDialog
 {
@@ -49,6 +48,12 @@ private slots:
 
 private:
     void setupUi();
+    QWidget* createGeneralTab();
+    QWidget* createNetworkTab();
+    QWidget* createIndexerTab();
+    QWidget* createFiltersTab();
+    QWidget* createStorageTab();
+    QWidget* wrapInScrollArea(QWidget* content);
     void loadSettings();
     void saveSettings();
 
@@ -57,6 +62,9 @@ private:
     QString dataDirectory_;
     
     bool needsRestart_ = false;
+
+    // Tab widget
+    QTabWidget* tabWidget_;
 
     // General settings
     QComboBox* languageCombo_;
@@ -73,14 +81,14 @@ private:
     QSpinBox* httpPortSpin_;
     QCheckBox* restApiCheck_;
 
-    // Indexer settings
-    QCheckBox* indexerCheck_;
-    QCheckBox* trackersCheck_;
-
     // P2P settings
     QSpinBox* p2pConnectionsSpin_;
     QCheckBox* p2pReplicationCheck_;
     QCheckBox* p2pReplicationServerCheck_;
+
+    // Indexer settings
+    QCheckBox* indexerCheck_;
+    QCheckBox* trackersCheck_;
 
     // Performance settings
     QSpinBox* walkIntervalSpin_;

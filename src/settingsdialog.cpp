@@ -25,8 +25,8 @@ SettingsDialog::SettingsDialog(ConfigManager* config, RatsAPI* api,
     , dataDirectory_(dataDirectory)
 {
     setWindowTitle(tr("Settings"));
-    setMinimumSize(550, 600);
-    resize(550, 700);
+    setMinimumSize(600, 550);
+    resize(650, 620);
     
     setupUi();
     loadSettings();
@@ -45,26 +45,55 @@ void SettingsDialog::setupUi()
     titleLabel->setObjectName("headerLabel");
     dialogLayout->addWidget(titleLabel);
 
-    // Scroll area
+    // Tab widget
+    tabWidget_ = new QTabWidget(this);
+    tabWidget_->addTab(createGeneralTab(),  tr("⚙️ General"));
+    tabWidget_->addTab(createNetworkTab(),  tr("🌐 Network"));
+    tabWidget_->addTab(createIndexerTab(),  tr("🕷️ Indexer"));
+    tabWidget_->addTab(createFiltersTab(),  tr("🔍 Filters"));
+    tabWidget_->addTab(createStorageTab(),  tr("💾 Storage"));
+    dialogLayout->addWidget(tabWidget_, 1);
+
+    // Buttons
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(
+        QDialogButtonBox::Save | QDialogButtonBox::Cancel);
+    dialogLayout->addWidget(buttonBox);
+
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &SettingsDialog::onAccepted);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+}
+
+// =============================================================================
+// Helper: wrap any content widget in a QScrollArea
+// =============================================================================
+QWidget* SettingsDialog::wrapInScrollArea(QWidget* content)
+{
     QScrollArea *scrollArea = new QScrollArea();
     scrollArea->setWidgetResizable(true);
-    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setObjectName("settingsScrollArea");
+    scrollArea->setWidget(content);
 
-    QWidget *scrollContent = new QWidget();
-    scrollContent->setObjectName("settingsScrollContent");
-    QVBoxLayout *mainLayout = new QVBoxLayout(scrollContent);
-    mainLayout->setSpacing(16);
-    mainLayout->setContentsMargins(8, 8, 8, 8);
+    QWidget *wrapper = new QWidget();
+    QVBoxLayout *wrapperLayout = new QVBoxLayout(wrapper);
+    wrapperLayout->setContentsMargins(0, 0, 0, 0);
+    wrapperLayout->addWidget(scrollArea);
+    return wrapper;
+}
 
-    // =========================================================================
-    // General Settings
-    // =========================================================================
-    QGroupBox *generalGroup = new QGroupBox(tr("General"));
-    QFormLayout *generalLayout = new QFormLayout(generalGroup);
-    generalLayout->setSpacing(12);
+// =============================================================================
+// Tab: General
+// =============================================================================
+QWidget* SettingsDialog::createGeneralTab()
+{
+    QWidget *tab = new QWidget();
+    QVBoxLayout *tabLayout = new QVBoxLayout(tab);
+    tabLayout->setSpacing(16);
+    tabLayout->setContentsMargins(12, 12, 12, 12);
+
+    // --- Appearance ---
+    QGroupBox *appearanceGroup = new QGroupBox(tr("Appearance"));
+    QFormLayout *appearanceLayout = new QFormLayout(appearanceGroup);
+    appearanceLayout->setSpacing(10);
 
     languageCombo_ = new QComboBox();
     languageCombo_->addItem("English", "en");
@@ -72,21 +101,31 @@ void SettingsDialog::setupUi()
     languageCombo_->addItem("Deutsch", "de");
     languageCombo_->addItem("Español", "es");
     languageCombo_->addItem("Français", "fr");
-    generalLayout->addRow(tr("Language:"), languageCombo_);
+    appearanceLayout->addRow(tr("Language:"), languageCombo_);
 
-    minimizeToTrayCheck_ = new QCheckBox(tr("Hide to tray on minimize"));
-    generalLayout->addRow(minimizeToTrayCheck_);
+    darkModeCheck_ = new QCheckBox(tr("Dark mode"));
+    appearanceLayout->addRow(darkModeCheck_);
 
-    closeToTrayCheck_ = new QCheckBox(tr("Hide to tray on close"));
-    generalLayout->addRow(closeToTrayCheck_);
+    tabLayout->addWidget(appearanceGroup);
 
-    startMinimizedCheck_ = new QCheckBox(tr("Start minimized"));
-    generalLayout->addRow(startMinimizedCheck_);
+    // --- Startup & Tray ---
+    QGroupBox *startupGroup = new QGroupBox(tr("Startup && System Tray"));
+    QFormLayout *startupLayout = new QFormLayout(startupGroup);
+    startupLayout->setSpacing(10);
 
     autoStartCheck_ = new QCheckBox(tr("Start with system (autostart)"));
     autoStartCheck_->setToolTip(tr("Automatically start Rats Search when you log in to your computer"));
-    generalLayout->addRow(autoStartCheck_);
-    
+    startupLayout->addRow(autoStartCheck_);
+
+    startMinimizedCheck_ = new QCheckBox(tr("Start minimized"));
+    startupLayout->addRow(startMinimizedCheck_);
+
+    minimizeToTrayCheck_ = new QCheckBox(tr("Hide to tray on minimize"));
+    startupLayout->addRow(minimizeToTrayCheck_);
+
+    closeToTrayCheck_ = new QCheckBox(tr("Hide to tray on close"));
+    startupLayout->addRow(closeToTrayCheck_);
+
     // When autostart is enabled, suggest starting minimized
     connect(autoStartCheck_, &QCheckBox::toggled, this, [this](bool checked) {
         if (checked && !startMinimizedCheck_->isChecked()) {
@@ -94,58 +133,58 @@ void SettingsDialog::setupUi()
         }
     });
 
-    darkModeCheck_ = new QCheckBox(tr("Dark mode"));
-    generalLayout->addRow(darkModeCheck_);
+    tabLayout->addWidget(startupGroup);
+
+    // --- Updates ---
+    QGroupBox *updatesGroup = new QGroupBox(tr("Updates"));
+    QFormLayout *updatesLayout = new QFormLayout(updatesGroup);
 
     checkUpdatesCheck_ = new QCheckBox(tr("Check for updates on startup"));
-    generalLayout->addRow(checkUpdatesCheck_);
+    updatesLayout->addRow(checkUpdatesCheck_);
 
-    mainLayout->addWidget(generalGroup);
+    tabLayout->addWidget(updatesGroup);
 
-    // =========================================================================
-    // Network Settings
-    // =========================================================================
-    QGroupBox *networkGroup = new QGroupBox(tr("Network"));
-    QFormLayout *networkLayout = new QFormLayout(networkGroup);
-    networkLayout->setSpacing(12);
+    tabLayout->addStretch();
+    return wrapInScrollArea(tab);
+}
+
+// =============================================================================
+// Tab: Network
+// =============================================================================
+QWidget* SettingsDialog::createNetworkTab()
+{
+    QWidget *tab = new QWidget();
+    QVBoxLayout *tabLayout = new QVBoxLayout(tab);
+    tabLayout->setSpacing(16);
+    tabLayout->setContentsMargins(12, 12, 12, 12);
+
+    // --- Ports ---
+    QGroupBox *portsGroup = new QGroupBox(tr("Ports"));
+    QFormLayout *portsLayout = new QFormLayout(portsGroup);
+    portsLayout->setSpacing(10);
 
     p2pPortSpin_ = new QSpinBox();
     p2pPortSpin_->setRange(1024, 65535);
-    networkLayout->addRow(tr("P2P Port:"), p2pPortSpin_);
+    portsLayout->addRow(tr("P2P Port:"), p2pPortSpin_);
 
     dhtPortSpin_ = new QSpinBox();
     dhtPortSpin_->setRange(1024, 65535);
-    networkLayout->addRow(tr("DHT Port:"), dhtPortSpin_);
+    portsLayout->addRow(tr("DHT Port:"), dhtPortSpin_);
 
     httpPortSpin_ = new QSpinBox();
     httpPortSpin_->setRange(1024, 65535);
-    networkLayout->addRow(tr("HTTP API Port:"), httpPortSpin_);
+    portsLayout->addRow(tr("HTTP API Port:"), httpPortSpin_);
 
-    restApiCheck_ = new QCheckBox(tr("Enable REST API server"));
-    networkLayout->addRow(restApiCheck_);
+    QLabel *portsHint = new QLabel(tr("* Changing ports requires restart"));
+    portsHint->setObjectName("hintLabel");
+    portsLayout->addRow(portsHint);
 
-    mainLayout->addWidget(networkGroup);
+    tabLayout->addWidget(portsGroup);
 
-    // =========================================================================
-    // Indexer Settings
-    // =========================================================================
-    QGroupBox *indexerGroup = new QGroupBox(tr("Indexer"));
-    QFormLayout *indexerLayout = new QFormLayout(indexerGroup);
-
-    indexerCheck_ = new QCheckBox(tr("Enable DHT indexer"));
-    indexerLayout->addRow(indexerCheck_);
-
-    trackersCheck_ = new QCheckBox(tr("Enable tracker checking"));
-    indexerLayout->addRow(trackersCheck_);
-
-    mainLayout->addWidget(indexerGroup);
-
-    // =========================================================================
-    // P2P Network Settings
-    // =========================================================================
+    // --- P2P Network ---
     QGroupBox *p2pGroup = new QGroupBox(tr("P2P Network"));
     QFormLayout *p2pLayout = new QFormLayout(p2pGroup);
-    p2pLayout->setSpacing(12);
+    p2pLayout->setSpacing(10);
 
     p2pConnectionsSpin_ = new QSpinBox();
     p2pConnectionsSpin_->setRange(10, 1000);
@@ -160,19 +199,55 @@ void SettingsDialog::setupUi()
     p2pReplicationServerCheck_->setToolTip(tr("Serve database to other peers"));
     p2pLayout->addRow(p2pReplicationServerCheck_);
 
-    mainLayout->addWidget(p2pGroup);
+    tabLayout->addWidget(p2pGroup);
 
-    // =========================================================================
-    // Performance Settings
-    // =========================================================================
-    QGroupBox *perfGroup = new QGroupBox(tr("Performance"));
+    // --- REST API ---
+    QGroupBox *apiGroup = new QGroupBox(tr("REST API"));
+    QFormLayout *apiLayout = new QFormLayout(apiGroup);
+
+    restApiCheck_ = new QCheckBox(tr("Enable REST API server"));
+    apiLayout->addRow(restApiCheck_);
+
+    tabLayout->addWidget(apiGroup);
+
+    tabLayout->addStretch();
+    return wrapInScrollArea(tab);
+}
+
+// =============================================================================
+// Tab: Indexer
+// =============================================================================
+QWidget* SettingsDialog::createIndexerTab()
+{
+    QWidget *tab = new QWidget();
+    QVBoxLayout *tabLayout = new QVBoxLayout(tab);
+    tabLayout->setSpacing(16);
+    tabLayout->setContentsMargins(12, 12, 12, 12);
+
+    // --- DHT Indexer ---
+    QGroupBox *indexerGroup = new QGroupBox(tr("DHT Indexer"));
+    QFormLayout *indexerLayout = new QFormLayout(indexerGroup);
+    indexerLayout->setSpacing(10);
+
+    indexerCheck_ = new QCheckBox(tr("Enable DHT indexer"));
+    indexerCheck_->setToolTip(tr("Crawl the DHT network for new torrents"));
+    indexerLayout->addRow(indexerCheck_);
+
+    trackersCheck_ = new QCheckBox(tr("Enable tracker checking"));
+    trackersCheck_->setToolTip(tr("Check trackers for seeders/leechers info"));
+    indexerLayout->addRow(trackersCheck_);
+
+    tabLayout->addWidget(indexerGroup);
+
+    // --- Spider Performance ---
+    QGroupBox *perfGroup = new QGroupBox(tr("Spider Performance"));
     QFormLayout *perfLayout = new QFormLayout(perfGroup);
-    perfLayout->setSpacing(12);
+    perfLayout->setSpacing(10);
 
     walkIntervalSpin_ = new QSpinBox();
     walkIntervalSpin_->setRange(1, 500);
     walkIntervalSpin_->setToolTip(tr("Interval between DHT walks (lower = faster, more CPU)"));
-    perfLayout->addRow(tr("Spider walk interval:"), walkIntervalSpin_);
+    perfLayout->addRow(tr("Walk interval:"), walkIntervalSpin_);
 
     nodesUsageSpin_ = new QSpinBox();
     nodesUsageSpin_->setRange(0, 1000);
@@ -184,40 +259,32 @@ void SettingsDialog::setupUi()
     packagesLimitSpin_->setToolTip(tr("Maximum network packages per second (0 = unlimited)"));
     perfLayout->addRow(tr("Package limit:"), packagesLimitSpin_);
 
-    mainLayout->addWidget(perfGroup);
+    QLabel *perfHint = new QLabel(tr("* Lower walk interval = faster indexing but higher CPU usage"));
+    perfHint->setObjectName("hintLabel");
+    perfHint->setWordWrap(true);
+    perfLayout->addRow(perfHint);
 
-    // =========================================================================
-    // Content Filters
-    // =========================================================================
-    QGroupBox *filtersGroup = new QGroupBox(tr("Content Filters"));
-    QVBoxLayout *filtersLayout = new QVBoxLayout(filtersGroup);
-    filtersLayout->setSpacing(12);
+    tabLayout->addWidget(perfGroup);
 
-    // Max files per torrent
-    QHBoxLayout *maxFilesRow = new QHBoxLayout();
-    QLabel *maxFilesLabel = new QLabel(tr("Max files per torrent:"));
-    maxFilesLabel->setToolTip(tr("Maximum number of files in a torrent (0 = disabled)"));
-    
-    maxFilesSlider_ = new QSlider(Qt::Horizontal);
-    maxFilesSlider_->setRange(0, 50000);
-    
-    maxFilesSpin_ = new QSpinBox();
-    maxFilesSpin_->setRange(0, 50000);
-    maxFilesSpin_->setMinimumWidth(80);
+    tabLayout->addStretch();
+    return wrapInScrollArea(tab);
+}
 
-    connect(maxFilesSlider_, &QSlider::valueChanged, maxFilesSpin_, &QSpinBox::setValue);
-    connect(maxFilesSpin_, QOverload<int>::of(&QSpinBox::valueChanged), maxFilesSlider_, &QSlider::setValue);
+// =============================================================================
+// Tab: Filters
+// =============================================================================
+QWidget* SettingsDialog::createFiltersTab()
+{
+    QWidget *tab = new QWidget();
+    QVBoxLayout *tabLayout = new QVBoxLayout(tab);
+    tabLayout->setSpacing(16);
+    tabLayout->setContentsMargins(12, 12, 12, 12);
 
-    maxFilesRow->addWidget(maxFilesLabel);
-    maxFilesRow->addWidget(maxFilesSlider_, 1);
-    maxFilesRow->addWidget(maxFilesSpin_);
-    filtersLayout->addLayout(maxFilesRow);
+    // --- Name Filters ---
+    QGroupBox *nameGroup = new QGroupBox(tr("Name Filters"));
+    QVBoxLayout *nameLayout = new QVBoxLayout(nameGroup);
+    nameLayout->setSpacing(10);
 
-    QLabel *maxFilesHint = new QLabel(tr("* 0 = Disabled (no limit)"));
-    maxFilesHint->setObjectName("hintLabel");
-    filtersLayout->addWidget(maxFilesHint);
-
-    // Regex filter
     QHBoxLayout *regexRow = new QHBoxLayout();
     QLabel *regexLabel = new QLabel(tr("Name filter (regex):"));
     regexEdit_ = new QLineEdit();
@@ -239,23 +306,54 @@ void SettingsDialog::setupUi()
     regexRow->addWidget(regexLabel);
     regexRow->addWidget(regexEdit_, 1);
     regexRow->addWidget(regexExamples);
-    filtersLayout->addLayout(regexRow);
+    nameLayout->addLayout(regexRow);
 
     regexNegativeCheck_ = new QCheckBox(tr("Negative regex filter (reject matches)"));
     regexNegativeCheck_->setToolTip(tr("When enabled, torrents matching the regex will be rejected"));
-    filtersLayout->addWidget(regexNegativeCheck_);
+    nameLayout->addWidget(regexNegativeCheck_);
 
     QLabel *regexHint = new QLabel(tr("* Empty string = Disabled"));
     regexHint->setObjectName("hintLabel");
-    filtersLayout->addWidget(regexHint);
+    nameLayout->addWidget(regexHint);
 
     adultFilterCheck_ = new QCheckBox(tr("Adult content filter (ignore XXX content)"));
     adultFilterCheck_->setToolTip(tr("When enabled, adult content will be filtered out"));
-    filtersLayout->addWidget(adultFilterCheck_);
+    nameLayout->addWidget(adultFilterCheck_);
+
+    tabLayout->addWidget(nameGroup);
+
+    // --- Size & File Limits ---
+    QGroupBox *sizeGroup = new QGroupBox(tr("Size && File Limits"));
+    QVBoxLayout *sizeGroupLayout = new QVBoxLayout(sizeGroup);
+    sizeGroupLayout->setSpacing(10);
+
+    // Max files per torrent
+    QHBoxLayout *maxFilesRow = new QHBoxLayout();
+    QLabel *maxFilesLabel = new QLabel(tr("Max files per torrent:"));
+    maxFilesLabel->setToolTip(tr("Maximum number of files in a torrent (0 = disabled)"));
+    
+    maxFilesSlider_ = new QSlider(Qt::Horizontal);
+    maxFilesSlider_->setRange(0, 50000);
+    
+    maxFilesSpin_ = new QSpinBox();
+    maxFilesSpin_->setRange(0, 50000);
+    maxFilesSpin_->setMinimumWidth(80);
+
+    connect(maxFilesSlider_, &QSlider::valueChanged, maxFilesSpin_, &QSpinBox::setValue);
+    connect(maxFilesSpin_, QOverload<int>::of(&QSpinBox::valueChanged), maxFilesSlider_, &QSlider::setValue);
+
+    maxFilesRow->addWidget(maxFilesLabel);
+    maxFilesRow->addWidget(maxFilesSlider_, 1);
+    maxFilesRow->addWidget(maxFilesSpin_);
+    sizeGroupLayout->addLayout(maxFilesRow);
+
+    QLabel *maxFilesHint = new QLabel(tr("* 0 = Disabled (no limit)"));
+    maxFilesHint->setObjectName("hintLabel");
+    sizeGroupLayout->addWidget(maxFilesHint);
 
     // Size filter
-    QGroupBox *sizeFilterBox = new QGroupBox(tr("Size Filter"));
-    QFormLayout *sizeLayout = new QFormLayout(sizeFilterBox);
+    QFormLayout *sizeLayout = new QFormLayout();
+    sizeLayout->setSpacing(8);
 
     sizeMinSpin_ = new QSpinBox();
     sizeMinSpin_->setRange(0, 999999);
@@ -269,9 +367,10 @@ void SettingsDialog::setupUi()
     sizeMaxSpin_->setToolTip(tr("Maximum torrent size (0 = no maximum)"));
     sizeLayout->addRow(tr("Maximum size:"), sizeMaxSpin_);
 
-    filtersLayout->addWidget(sizeFilterBox);
+    sizeGroupLayout->addLayout(sizeLayout);
+    tabLayout->addWidget(sizeGroup);
 
-    // Content type filter
+    // --- Content Type Filter ---
     QGroupBox *contentTypeBox = new QGroupBox(tr("Content Type Filter"));
     QVBoxLayout *contentTypeLayout = new QVBoxLayout(contentTypeBox);
 
@@ -297,11 +396,73 @@ void SettingsDialog::setupUi()
     typeGrid->addWidget(discsCheck_, 3, 0);
 
     contentTypeLayout->addLayout(typeGrid);
-    filtersLayout->addWidget(contentTypeBox);
+    tabLayout->addWidget(contentTypeBox);
 
-    // Database cleanup
+    tabLayout->addStretch();
+    return wrapInScrollArea(tab);
+}
+
+// =============================================================================
+// Tab: Storage
+// =============================================================================
+QWidget* SettingsDialog::createStorageTab()
+{
+    QWidget *tab = new QWidget();
+    QVBoxLayout *tabLayout = new QVBoxLayout(tab);
+    tabLayout->setSpacing(16);
+    tabLayout->setContentsMargins(12, 12, 12, 12);
+
+    // --- Downloads ---
+    QGroupBox *downloadGroup = new QGroupBox(tr("Downloads"));
+    QFormLayout *downloadLayout = new QFormLayout(downloadGroup);
+    downloadLayout->setSpacing(10);
+
+    QHBoxLayout *downloadPathLayout = new QHBoxLayout();
+    downloadPathEdit_ = new QLineEdit();
+    QPushButton *browseDownloadBtn = new QPushButton(tr("Browse..."));
+    browseDownloadBtn->setObjectName("secondaryButton");
+    connect(browseDownloadBtn, &QPushButton::clicked, this, [this]() {
+        QString dir = QFileDialog::getExistingDirectory(this, tr("Select Download Directory"), 
+            downloadPathEdit_->text());
+        if (!dir.isEmpty()) {
+            downloadPathEdit_->setText(dir);
+        }
+    });
+    downloadPathLayout->addWidget(downloadPathEdit_);
+    downloadPathLayout->addWidget(browseDownloadBtn);
+    downloadLayout->addRow(tr("Default directory:"), downloadPathLayout);
+    
+    QLabel *downloadPathHint = new QLabel(tr("* Default location for downloaded torrents"));
+    downloadPathHint->setObjectName("hintLabel");
+    downloadLayout->addRow(downloadPathHint);
+
+    tabLayout->addWidget(downloadGroup);
+
+    // --- Data Directory ---
+    QGroupBox *dbGroup = new QGroupBox(tr("Data Directory"));
+    QFormLayout *dbLayout = new QFormLayout(dbGroup);
+    dbLayout->setSpacing(10);
+
+    QHBoxLayout *pathLayout = new QHBoxLayout();
+    dataPathEdit_ = new QLineEdit();
+    QPushButton *browseBtn = new QPushButton(tr("Browse..."));
+    browseBtn->setObjectName("secondaryButton");
+    connect(browseBtn, &QPushButton::clicked, this, &SettingsDialog::onBrowseDataPath);
+    pathLayout->addWidget(dataPathEdit_);
+    pathLayout->addWidget(browseBtn);
+    dbLayout->addRow(tr("Path:"), pathLayout);
+    
+    QLabel *dataPathHint = new QLabel(tr("* Database and configuration storage. Changing requires restart."));
+    dataPathHint->setObjectName("hintLabel");
+    dataPathHint->setWordWrap(true);
+    dbLayout->addRow(dataPathHint);
+
+    tabLayout->addWidget(dbGroup);
+
+    // --- Database Cleanup ---
     QGroupBox *cleanupBox = new QGroupBox(tr("Database Cleanup"));
     QVBoxLayout *cleanupLayout = new QVBoxLayout(cleanupBox);
+    cleanupLayout->setSpacing(10);
 
     QLabel *cleanupDesc = new QLabel(tr("Check and remove torrents that don't match the current filters:"));
     cleanupDesc->setWordWrap(true);
@@ -347,70 +508,15 @@ void SettingsDialog::setupUi()
         });
     }
 
-    filtersLayout->addWidget(cleanupBox);
-    mainLayout->addWidget(filtersGroup);
+    tabLayout->addWidget(cleanupBox);
 
-    // =========================================================================
-    // Downloads Settings
-    // =========================================================================
-    QGroupBox *downloadGroup = new QGroupBox(tr("Downloads"));
-    QFormLayout *downloadLayout = new QFormLayout(downloadGroup);
-
-    QHBoxLayout *downloadPathLayout = new QHBoxLayout();
-    downloadPathEdit_ = new QLineEdit();
-    QPushButton *browseDownloadBtn = new QPushButton(tr("Browse..."));
-    browseDownloadBtn->setObjectName("secondaryButton");
-    connect(browseDownloadBtn, &QPushButton::clicked, this, [this]() {
-        QString dir = QFileDialog::getExistingDirectory(this, tr("Select Download Directory"), 
-            downloadPathEdit_->text());
-        if (!dir.isEmpty()) {
-            downloadPathEdit_->setText(dir);
-        }
-    });
-    downloadPathLayout->addWidget(downloadPathEdit_);
-    downloadPathLayout->addWidget(browseDownloadBtn);
-    downloadLayout->addRow(tr("Default Download Directory:"), downloadPathLayout);
-    
-    QLabel *downloadPathHint = new QLabel(tr("* Default location for downloaded torrents"));
-    downloadPathHint->setObjectName("hintLabel");
-    downloadLayout->addRow(downloadPathHint);
-
-    mainLayout->addWidget(downloadGroup);
-
-    // =========================================================================
-    // Database Settings
-    // =========================================================================
-    QGroupBox *dbGroup = new QGroupBox(tr("Database"));
-    QFormLayout *dbLayout = new QFormLayout(dbGroup);
-
-    QHBoxLayout *pathLayout = new QHBoxLayout();
-    dataPathEdit_ = new QLineEdit();
-    QPushButton *browseBtn = new QPushButton(tr("Browse..."));
-    browseBtn->setObjectName("secondaryButton");
-    connect(browseBtn, &QPushButton::clicked, this, &SettingsDialog::onBrowseDataPath);
-    pathLayout->addWidget(dataPathEdit_);
-    pathLayout->addWidget(browseBtn);
-    dbLayout->addRow(tr("Data Directory:"), pathLayout);
-    
-    QLabel *dataPathHint = new QLabel(tr("* Changing data directory requires restart"));
-    dataPathHint->setObjectName("hintLabel");
-    dbLayout->addRow(dataPathHint);
-
-    mainLayout->addWidget(dbGroup);
-    mainLayout->addStretch();
-
-    scrollContent->setLayout(mainLayout);
-    scrollArea->setWidget(scrollContent);
-    dialogLayout->addWidget(scrollArea, 1);
-
-    // Buttons
-    QDialogButtonBox *buttonBox = new QDialogButtonBox(
-        QDialogButtonBox::Save | QDialogButtonBox::Cancel);
-    dialogLayout->addWidget(buttonBox);
-
-    connect(buttonBox, &QDialogButtonBox::accepted, this, &SettingsDialog::onAccepted);
-    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    tabLayout->addStretch();
+    return wrapInScrollArea(tab);
 }
+
+// =============================================================================
+// Load / Save
+// =============================================================================
 
 void SettingsDialog::loadSettings()
 {
@@ -424,11 +530,11 @@ void SettingsDialog::loadSettings()
             break;
         }
     }
+    darkModeCheck_->setChecked(config_->darkMode());
+    autoStartCheck_->setChecked(AutoStartManager::isEnabled());
+    startMinimizedCheck_->setChecked(config_->startMinimized());
     minimizeToTrayCheck_->setChecked(config_->trayOnMinimize());
     closeToTrayCheck_->setChecked(config_->trayOnClose());
-    startMinimizedCheck_->setChecked(config_->startMinimized());
-    autoStartCheck_->setChecked(AutoStartManager::isEnabled());
-    darkModeCheck_->setChecked(config_->darkMode());
     checkUpdatesCheck_->setChecked(config_->checkUpdatesOnStartup());
 
     // Network
@@ -436,17 +542,13 @@ void SettingsDialog::loadSettings()
     dhtPortSpin_->setValue(config_->dhtPort());
     httpPortSpin_->setValue(config_->httpPort());
     restApiCheck_->setChecked(config_->restApiEnabled());
-
-    // Indexer
-    indexerCheck_->setChecked(config_->indexerEnabled());
-    trackersCheck_->setChecked(config_->trackersEnabled());
-
-    // P2P
     p2pConnectionsSpin_->setValue(config_->p2pConnections());
     p2pReplicationCheck_->setChecked(config_->p2pReplication());
     p2pReplicationServerCheck_->setChecked(config_->p2pReplicationServer());
 
-    // Performance
+    // Indexer
+    indexerCheck_->setChecked(config_->indexerEnabled());
+    trackersCheck_->setChecked(config_->trackersEnabled());
     walkIntervalSpin_->setValue(config_->spiderWalkInterval());
     nodesUsageSpin_->setValue(config_->spiderNodesUsage());
     packagesLimitSpin_->setValue(config_->spiderPackagesLimit());
@@ -474,7 +576,7 @@ void SettingsDialog::loadSettings()
     archivesCheck_->setChecked(enabledTypes.contains("archive"));
     discsCheck_->setChecked(enabledTypes.contains("disc"));
     
-    // Downloads
+    // Storage
     downloadPathEdit_->setText(config_->downloadPath());
     
     // Database - load from QSettings first (source of truth for data directory),
@@ -501,11 +603,13 @@ void SettingsDialog::saveSettings()
     bool oldRestApi = config_->restApiEnabled();
     QString oldDataDir = config_->dataDirectory();
 
-    // Save General (language and dark mode are applied immediately via signals)
+    // Save General
     config_->setLanguage(languageCombo_->currentData().toString());
+    config_->setDarkMode(darkModeCheck_->isChecked());
+    config_->setStartMinimized(startMinimizedCheck_->isChecked());
     config_->setTrayOnMinimize(minimizeToTrayCheck_->isChecked());
     config_->setTrayOnClose(closeToTrayCheck_->isChecked());
-    config_->setStartMinimized(startMinimizedCheck_->isChecked());
+    config_->setCheckUpdatesOnStartup(checkUpdatesCheck_->isChecked());
     
     // Apply autostart at OS level
     bool autoStartEnabled = autoStartCheck_->isChecked();
@@ -515,26 +619,19 @@ void SettingsDialog::saveSettings()
         }
     }
     config_->setAutoStart(autoStartEnabled);
-    
-    config_->setDarkMode(darkModeCheck_->isChecked());
-    config_->setCheckUpdatesOnStartup(checkUpdatesCheck_->isChecked());
 
     // Save Network
     config_->setP2pPort(p2pPortSpin_->value());
     config_->setDhtPort(dhtPortSpin_->value());
     config_->setHttpPort(httpPortSpin_->value());
     config_->setRestApiEnabled(restApiCheck_->isChecked());
-
-    // Save Indexer
-    config_->setIndexerEnabled(indexerCheck_->isChecked());
-    config_->setTrackersEnabled(trackersCheck_->isChecked());
-
-    // Save P2P
     config_->setP2pConnections(p2pConnectionsSpin_->value());
     config_->setP2pReplication(p2pReplicationCheck_->isChecked());
     config_->setP2pReplicationServer(p2pReplicationServerCheck_->isChecked());
 
-    // Save Performance
+    // Save Indexer
+    config_->setIndexerEnabled(indexerCheck_->isChecked());
+    config_->setTrackersEnabled(trackersCheck_->isChecked());
     config_->setSpiderWalkInterval(walkIntervalSpin_->value());
     config_->setSpiderNodesUsage(nodesUsageSpin_->value());
     config_->setSpiderPackagesLimit(packagesLimitSpin_->value());
@@ -575,14 +672,11 @@ void SettingsDialog::saveSettings()
         config_->setDataDirectory(newDataDir);
         
         // Also save to QSettings so main.cpp can read it at startup
-        // This solves the chicken-and-egg problem: config is in dataDirectory,
-        // but we need to know dataDirectory before loading config
         QSettings settings("RatsSearch", "RatsSearch");
         settings.setValue("dataDirectory", newDataDir);
     }
 
     // Check if restart needed (only for settings that can't be applied at runtime)
-    // Network ports and data directory require restart
     needsRestart_ = (p2pPortSpin_->value() != oldP2pPort) ||
                     (dhtPortSpin_->value() != oldDhtPort) ||
                     (httpPortSpin_->value() != oldHttpPort) ||
@@ -592,6 +686,10 @@ void SettingsDialog::saveSettings()
     // Save config to file
     config_->save();
 }
+
+// =============================================================================
+// Slots
+// =============================================================================
 
 void SettingsDialog::onCheckTorrentsClicked()
 {
