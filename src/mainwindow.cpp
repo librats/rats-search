@@ -2079,6 +2079,14 @@ void MainWindow::onUpdateReady()
         // Stop services gracefully
         stopServices();
         
+        // Close database (stops Manticore/searchd) before update to release locked files
+        // On Windows, searchd runs as a separate daemon process and locks searchd.exe
+        // and its DLLs (e.g. libzstd.dll), preventing the updater from overwriting them
+        if (torrentDatabase) {
+            qInfo() << "Closing database before update (stopping searchd)...";
+            torrentDatabase->close();
+        }
+        
         // Execute the update script (this will close the app)
         if (updateManager) {
             // Access private method through a workaround - call applyUpdate which leads to ready state
