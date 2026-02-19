@@ -46,6 +46,9 @@ private slots:
     void onBrowseDataPath();
     void onAccepted();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 private:
     void setupUi();
     QWidget* createGeneralTab();
@@ -54,6 +57,7 @@ private:
     QWidget* createFiltersTab();
     QWidget* createStorageTab();
     QWidget* wrapInScrollArea(QWidget* content);
+    void installScrollGuard(QWidget* container);
     void loadSettings();
     void saveSettings();
 

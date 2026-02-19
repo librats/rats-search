@@ -16,6 +16,7 @@
 #include <QGridLayout>
 #include <QStyle>
 #include <QSettings>
+#include <QEvent>
 
 SettingsDialog::SettingsDialog(ConfigManager* config, RatsAPI* api,
                                const QString& dataDirectory, QWidget *parent)
@@ -77,7 +78,51 @@ QWidget* SettingsDialog::wrapInScrollArea(QWidget* content)
     QVBoxLayout *wrapperLayout = new QVBoxLayout(wrapper);
     wrapperLayout->setContentsMargins(0, 0, 0, 0);
     wrapperLayout->addWidget(scrollArea);
+
+    // Prevent scroll-wheel from changing spinboxes/combos/sliders
+    // when user just scrolls the page
+    installScrollGuard(content);
+
     return wrapper;
+}
+
+// =============================================================================
+// Helper: install event filter on all scrollable input widgets
+// =============================================================================
+void SettingsDialog::installScrollGuard(QWidget* container)
+{
+    // Find all QSpinBox, QComboBox, QSlider children
+    const auto spinBoxes = container->findChildren<QSpinBox*>();
+    for (auto *w : spinBoxes) {
+        w->setFocusPolicy(Qt::StrongFocus);
+        w->installEventFilter(this);
+    }
+    const auto comboBoxes = container->findChildren<QComboBox*>();
+    for (auto *w : comboBoxes) {
+        w->setFocusPolicy(Qt::StrongFocus);
+        w->installEventFilter(this);
+    }
+    const auto sliders = container->findChildren<QSlider*>();
+    for (auto *w : sliders) {
+        w->setFocusPolicy(Qt::StrongFocus);
+        w->installEventFilter(this);
+    }
+}
+
+// =============================================================================
+// Event filter: block wheel events on unfocused input widgets
+// =============================================================================
+bool SettingsDialog::eventFilter(QObject *obj, QEvent *event)
+{
+    if (event->type() == QEvent::Wheel) {
+        auto *widget = qobject_cast<QWidget*>(obj);
+        if (widget && !widget->hasFocus()) {
+            // Forward the wheel event to the parent scroll area instead
+            event->ignore();
+            return true;
+        }
+    }
+    return QDialog::eventFilter(obj, event);
 }
 
 // =============================================================================
