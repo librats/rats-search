@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.21](https://github.com/DEgITx/rats-search/compare/v2.0.20...v2.0.21) (2026-02-20)
+
+
+### 🐛 Bug Fixes
+
+
+- **settings:** Scroll guard for settings #261([5c954b0](https://github.com/DEgITx/rats-search/commit/5c954b005a554d76d3fcbf931b8c549d9808d0ab)) by @DEgITx
+- **upgrade:** Fix searchd blocking during upgrade #260([c660e6c](https://github.com/DEgITx/rats-search/commit/c660e6cdf510d2bb1ad197914d5774be4d408f19)) by @DEgITx
+- **update:** Fix update of AppImage on linux system([bdedf26](https://github.com/DEgITx/rats-search/commit/bdedf26dac07c8269f5018f2c8c48d97cfa98bb9)) by @DEgITx
+- **translations:** Finish ru translations([4adb782](https://github.com/DEgITx/rats-search/commit/4adb7823119d56619ce59a1ed79eca15acad91fb)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.20([916bc13](https://github.com/DEgITx/rats-search/commit/916bc13db92e79072d85c7044a0577458167f083)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **ui:** Auto-start option #262([578a9ef](https://github.com/DEgITx/rats-search/commit/578a9ef7f27dd48c6a66c33e75776eaaba022057)) by @DEgITx
+- **settings:** Tab structure([49ac911](https://github.com/DEgITx/rats-search/commit/49ac911e03b3d55017d0b03f5c29153db881eda3)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 6 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.20](https://github.com/DEgITx/rats-search/compare/v2.0.19...v2.0.20) (2026-02-17)
 
 
