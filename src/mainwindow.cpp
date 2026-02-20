@@ -518,7 +518,7 @@ void MainWindow::startServices()
     // Initialize database (this starts Manticore - the slowest part)
     qint64 dbStart = timer.elapsed();
     if (!torrentDatabase->initialize()) {
-        QMessageBox::critical(this, "Error", "Failed to initialize database!");
+        QMessageBox::critical(this, tr("Error"), tr("Failed to initialize database!"));
         return;
     }
     qInfo() << "Database initialize took:" << (timer.elapsed() - dbStart) << "ms";
@@ -526,7 +526,7 @@ void MainWindow::startServices()
     // Start P2P network
     qint64 p2pStart = timer.elapsed();
     if (!p2pNetwork->start()) {
-        QMessageBox::warning(this, "Warning", "Failed to start P2P network. Some features may be limited.");
+        QMessageBox::warning(this, tr("Warning"), tr("Failed to start P2P network. Some features may be limited."));
     } else {
         qInfo() << "P2P network start took:" << (timer.elapsed() - p2pStart) << "ms";
         
@@ -552,7 +552,7 @@ void MainWindow::startServices()
     // Start torrent spider
     qint64 spiderStart = timer.elapsed();
     if (!torrentSpider->start()) {
-        QMessageBox::warning(this, "Warning", "Failed to start torrent spider. Automatic indexing disabled.");
+        QMessageBox::warning(this, tr("Warning"), tr("Failed to start torrent spider. Automatic indexing disabled."));
     } else {
         qInfo() << "Spider start took:" << (timer.elapsed() - spiderStart) << "ms";
     }
@@ -806,7 +806,7 @@ void MainWindow::performSearch(const QString &query)
     
     currentSearchQuery_ = query;
     qInfo() << "Search started:" << query.left(50) << (query.length() > 50 ? "..." : "");
-    statusBar()->showMessage("🔍 Searching...", 2000);
+    statusBar()->showMessage(tr("🔍 Searching..."), 2000);
     
     // Switch to Search Results tab when searching
     tabWidget->setCurrentIndex(0);
@@ -836,7 +836,7 @@ void MainWindow::performSearch(const QString &query)
     // Search torrents by name
     api->searchTorrents(query, options, [this](const ApiResponse& response) {
         if (!response.success) {
-            statusBar()->showMessage(QString("❌ Torrent search failed: %1").arg(response.error), 3000);
+            statusBar()->showMessage(tr("❌ Torrent search failed: %1").arg(response.error), 3000);
             return;
         }
         
@@ -848,7 +848,7 @@ void MainWindow::performSearch(const QString &query)
         }
         
         searchResultModel->addResults(results);
-        statusBar()->showMessage(QString("✅ Found %1 torrents").arg(results.size()), 3000);
+        statusBar()->showMessage(tr("✅ Found %1 torrents").arg(results.size()), 3000);
     });
     
     // Also search files within torrents
@@ -869,7 +869,7 @@ void MainWindow::performSearch(const QString &query)
         if (!results.isEmpty()) {
             searchResultModel->addFileResults(results);
             int total = searchResultModel->resultCount();
-            statusBar()->showMessage(QString("✅ Found %1 total results (incl. file matches)").arg(total), 3000);
+            statusBar()->showMessage(tr("✅ Found %1 total results (incl. file matches)").arg(total), 3000);
         }
     });
 }
@@ -893,8 +893,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
         qInfo() << "Minimizing to system tray instead of closing";
         hide();
         if (!trayNotificationShown_) {
-            trayIcon->showMessage("Rats Search", 
-                "Application is still running in the system tray.",
+            trayIcon->showMessage(tr("Rats Search"), 
+                tr("Application is still running in the system tray."),
                 QSystemTrayIcon::Information, 2000);
             trayNotificationShown_ = true;
         }
@@ -1204,7 +1204,7 @@ void MainWindow::onDownloadRequested(const QString &hash)
         api->downloadAdd(hash, downloadPath, [this, hash](const ApiResponse& response) {
             if (response.success) {
                 qInfo() << "Download started successfully:" << hash.left(16);
-                statusBar()->showMessage("⬇️ Download started", 2000);
+                statusBar()->showMessage(tr("⬇️ Download started"), 2000);
                 
                 // Update details panel to show download in progress
                 if (detailsPanel && detailsPanel->currentHash() == hash) {
@@ -1212,7 +1212,7 @@ void MainWindow::onDownloadRequested(const QString &hash)
                 }
             } else {
                 qWarning() << "Download failed:" << hash.left(16) << "-" << response.error;
-                QMessageBox::warning(this, "Download Failed", response.error);
+                QMessageBox::warning(this, tr("Download Failed"), response.error);
             }
         });
     }
@@ -1335,7 +1335,7 @@ void MainWindow::updateNetworkStatus()
 
 void MainWindow::onTorrentIndexed(const QString &infoHash, const QString &name)
 {
-    statusBar()->showMessage(QString("📥 Indexed: %1").arg(name), 2000);
+    statusBar()->showMessage(tr("📥 Indexed: %1").arg(name), 2000);
     cachedTorrentCount_++;
     updateStatusBar();
     
@@ -1445,7 +1445,7 @@ void MainWindow::showAbout()
     layout->addWidget(copyrightLabel);
     
     // GitHub link
-    QLabel* linkLabel = new QLabel("<a href='https://github.com/DEgITx/rats-search'>GitHub Repository</a>");
+    QLabel* linkLabel = new QLabel(QString("<a href='https://github.com/DEgITx/rats-search'>%1</a>").arg(tr("GitHub Repository")));
     linkLabel->setAlignment(Qt::AlignCenter);
     linkLabel->setObjectName("linkLabel");
     linkLabel->setOpenExternalLinks(true);
@@ -1808,7 +1808,7 @@ void MainWindow::setupSystemTray()
     // Create tray icon
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QIcon(":/images/icon.png"));
-    trayIcon->setToolTip("Rats Search - P2P Torrent Search Engine");
+    trayIcon->setToolTip(tr("Rats Search - P2P Torrent Search Engine"));
     
     // Create tray menu
     trayMenu = new QMenu(this);
@@ -1877,8 +1877,8 @@ void MainWindow::changeEvent(QEvent *event)
             // Hide to tray when minimized
             QTimer::singleShot(0, this, &QWidget::hide);
             if (trayIcon && !trayNotificationShown_) {
-                trayIcon->showMessage("Rats Search", 
-                    "Application minimized to tray. Click to restore.",
+                trayIcon->showMessage(tr("Rats Search"), 
+                    tr("Application minimized to tray. Click to restore."),
                     QSystemTrayIcon::Information, 2000);
                 trayNotificationShown_ = true;
             }
@@ -1910,7 +1910,7 @@ void MainWindow::checkForUpdates()
 {
     if (!updateManager) return;
     
-    statusBar()->showMessage("Checking for updates...", 3000);
+    statusBar()->showMessage(tr("Checking for updates..."), 3000);
     
     // Disconnect previous connections to avoid duplicates
     disconnect(updateManager.get(), &UpdateManager::noUpdateAvailable, nullptr, nullptr);
