@@ -573,7 +573,20 @@ bool UpdateManager::createUpdateScript(const QString& updateDir)
     
     QTextStream out(&script);
     
-    QString exePath = appDir + "/RatsSearch";
+    // Detect AppImage mode: when running from an AppImage, the APPIMAGE env var
+    // contains the real path to the .AppImage file. QCoreApplication::applicationDirPath()
+    // returns a path inside the FUSE-mounted temporary filesystem (e.g. /tmp/.mount_XXX/usr/bin)
+    // which is destroyed when the AppImage exits, so we cannot copy files there.
+    QString appImagePath = qEnvironmentVariable("APPIMAGE");
+    bool isAppImage = !appImagePath.isEmpty() && QFile::exists(appImagePath);
+    
+    QString exePath;
+    if (isAppImage) {
+        exePath = appImagePath;
+        qInfo() << "AppImage update mode, real path:" << appImagePath;
+    } else {
+        exePath = appDir + "/RatsSearch";
+    }
     
     out << "#!/bin/bash\n";
     out << "echo 'Rats Search Updater'\n";
@@ -605,24 +618,57 @@ bool UpdateManager::createUpdateScript(const QString& updateDir)
     out << "echo 'Updating files...'\n";
     out << "\n";
     out << "SOURCE_DIR='" << updateDir << "'\n";
-    out << "DEST_DIR='" << appDir << "'\n";
-    out << "\n";
-    out << "# Find the actual source directory (might be nested)\n";
-    out << "for dir in \"$SOURCE_DIR\"/*/; do\n";
-    out << "    if [ -f \"${dir}RatsSearch\" ] || [ -f \"${dir}RatsSearch.AppImage\" ]; then\n";
-    out << "        SOURCE_DIR=\"${dir%/}\"\n";
-    out << "        break\n";
-    out << "    fi\n";
-    out << "done\n";
-    out << "\n";
-    out << "# Copy all files\n";
-    out << "cp -rf \"$SOURCE_DIR\"/* \"$DEST_DIR/\" 2>/dev/null\n";
-    out << "\n";
-    out << "# Make executable\n";
-    out << "chmod +x \"$DEST_DIR/RatsSearch\" 2>/dev/null\n";
-    out << "chmod +x \"$DEST_DIR\"/*.AppImage 2>/dev/null\n";
-    out << "chmod +x \"$DEST_DIR/searchd\" 2>/dev/null\n";
-    out << "chmod +x \"$DEST_DIR/indexer\" 2>/dev/null\n";
+    
+    if (isAppImage) {
+        // AppImage update: replace the .AppImage file directly
+        out << "APPIMAGE_FILE='" << appImagePath << "'\n";
+        out << "\n";
+        out << "# Find new AppImage in source directory (might be nested)\n";
+        out << "NEW_APPIMAGE=''\n";
+        out << "for f in \"$SOURCE_DIR\"/*.AppImage; do\n";
+        out << "    [ -f \"$f\" ] && NEW_APPIMAGE=\"$f\" && break\n";
+        out << "done\n";
+        out << "if [ -z \"$NEW_APPIMAGE\" ]; then\n";
+        out << "    for dir in \"$SOURCE_DIR\"/*/; do\n";
+        out << "        for f in \"${dir}\"*.AppImage; do\n";
+        out << "            [ -f \"$f\" ] && NEW_APPIMAGE=\"$f\" && break 2\n";
+        out << "        done\n";
+        out << "    done\n";
+        out << "fi\n";
+        out << "\n";
+        out << "if [ -n \"$NEW_APPIMAGE\" ]; then\n";
+        out << "    echo \"Replacing AppImage: $APPIMAGE_FILE\"\n";
+        out << "    echo \"With: $NEW_APPIMAGE\"\n";
+        out << "    cp -f \"$NEW_APPIMAGE\" \"$APPIMAGE_FILE\"\n";
+        out << "    chmod +x \"$APPIMAGE_FILE\"\n";
+        out << "    echo 'AppImage replaced successfully'\n";
+        out << "else\n";
+        out << "    echo 'ERROR: New AppImage not found in update package'\n";
+        out << "    echo 'Contents of source directory:'\n";
+        out << "    find \"$SOURCE_DIR\" -type f\n";
+        out << "    exit 1\n";
+        out << "fi\n";
+    } else {
+        // Regular (non-AppImage) installation: copy all files to app directory
+        out << "DEST_DIR='" << appDir << "'\n";
+        out << "\n";
+        out << "# Find the actual source directory (might be nested)\n";
+        out << "for dir in \"$SOURCE_DIR\"/*/; do\n";
+        out << "    if [ -f \"${dir}RatsSearch\" ]; then\n";
+        out << "        SOURCE_DIR=\"${dir%/}\"\n";
+        out << "        break\n";
+        out << "    fi\n";
+        out << "done\n";
+        out << "\n";
+        out << "# Copy all files\n";
+        out << "cp -rf \"$SOURCE_DIR\"/* \"$DEST_DIR/\" 2>/dev/null\n";
+        out << "\n";
+        out << "# Make executable\n";
+        out << "chmod +x \"$DEST_DIR/RatsSearch\" 2>/dev/null\n";
+        out << "chmod +x \"$DEST_DIR/searchd\" 2>/dev/null\n";
+        out << "chmod +x \"$DEST_DIR/indexer\" 2>/dev/null\n";
+    }
+    
     out << "\n";
     out << "echo 'Update complete!'\n";
     out << "echo 'Starting application...'\n";
