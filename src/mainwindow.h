@@ -92,6 +92,10 @@ private slots:
     void checkForUpdates();
     void showUpdateDialog();
     
+    // GitHub slots
+    void reportBug();
+    void requestFeature();
+    
     // Tab change handler
     void onTabChanged(int index);
 

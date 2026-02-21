@@ -52,6 +52,7 @@
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QFile>
 #include <QDateTime>
 #include <QContextMenuEvent>
@@ -65,6 +66,7 @@
 #include <QJsonObject>
 #include <QFileDialog>
 #include <QStandardPaths>
+#include <QSysInfo>
 
 MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, QWidget *parent)
     : QMainWindow(parent)
@@ -337,6 +339,16 @@ void MainWindow::setupMenuBar()
     QAction *changelogAction = helpMenu->addAction(tr("📋 &Changelog"));
     connect(changelogAction, &QAction::triggered, this, &MainWindow::showChangelog);
     
+    helpMenu->addSeparator();
+    
+    QAction *reportBugAction = helpMenu->addAction(tr("🐛 &Report a Bug..."));
+    reportBugAction->setToolTip(tr("Open a bug report on GitHub"));
+    connect(reportBugAction, &QAction::triggered, this, &MainWindow::reportBug);
+    
+    QAction *featureAction = helpMenu->addAction(tr("💡 Request a &Feature..."));
+    featureAction->setToolTip(tr("Suggest a new feature on GitHub"));
+    connect(featureAction, &QAction::triggered, this, &MainWindow::requestFeature);
+
     helpMenu->addSeparator();
     
     QAction *aboutAction = helpMenu->addAction(tr("&About"));
@@ -2109,6 +2121,61 @@ void MainWindow::showUpdateDialog()
     } else {
         checkForUpdates();
     }
+}
+
+void MainWindow::reportBug()
+{
+    // Pre-fill bug report with system information
+    QString body = QString(
+        "**Describe the bug**\n"
+        "A clear description of what the bug is.\n\n"
+        "**To Reproduce**\n"
+        "Steps to reproduce the behavior:\n"
+        "1. Go to '...'\n"
+        "2. Click on '...'\n"
+        "3. See error\n\n"
+        "**Expected behavior**\n"
+        "What you expected to happen.\n\n"
+        "**Screenshots**\n"
+        "If applicable, add screenshots.\n\n"
+        "**Environment:**\n"
+        "- App Version: %1\n"
+        "- Git: %2\n"
+        "- OS: %3\n"
+        "- Qt: %4\n"
+    ).arg(RATSSEARCH_VERSION_STRING, RATSSEARCH_GIT_DESCRIBE, QSysInfo::prettyProductName(), qVersion());
+    
+    QUrl url("https://github.com/DEgITx/rats-search/issues/new");
+    QUrlQuery query;
+    query.addQueryItem("labels", "bug");
+    query.addQueryItem("title", "[Bug] ");
+    query.addQueryItem("body", body);
+    url.setQuery(query);
+    
+    QDesktopServices::openUrl(url);
+}
+
+void MainWindow::requestFeature()
+{
+    QString body = QString(
+        "**Is your feature request related to a problem?**\n"
+        "A clear description of the problem.\n\n"
+        "**Describe the solution you'd like**\n"
+        "What you want to happen.\n\n"
+        "**Additional context**\n"
+        "Any other context or screenshots.\n\n"
+        "---\n"
+        "App Version: %1\n"
+    ).arg(RATSSEARCH_VERSION_STRING);
+    
+    QUrl url("https://github.com/DEgITx/rats-search/issues/new");
+    QUrlQuery query;
+    query.addQueryItem("labels", "enhancement");
+    query.addQueryItem("title", "[Feature] ");
+    query.addQueryItem("body", body);
+    url.setQuery(query);
+    
+    QDesktopServices::openUrl(url);
 }
 
 void MainWindow::saveSettings()
