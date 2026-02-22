@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <QRegularExpression>
 #include <QElapsedTimer>
+#include <QTcpServer>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -130,6 +131,19 @@ bool ManticoreManager::start()
     }
     
     qInfo() << "Found searchd at:" << searchdPath_;
+    
+    // Check if the configured port is available, find alternative if not
+    if (!isPortAvailable(port_)) {
+        qInfo() << "Port" << port_ << "is already in use, searching for available port...";
+        int newPort = findAvailablePort(port_ + 1, 20);
+        if (newPort < 0) {
+            emit error(QString("No available port found (tried %1-%2)").arg(port_).arg(port_ + 20));
+            setStatus(Status::Error);
+            return false;
+        }
+        port_ = newPort;
+        qInfo() << "Using alternative port:" << port_;
+    }
     
     // Create directories and config
     qint64 configStart = startupTimer.elapsed();
@@ -669,3 +683,30 @@ void ManticoreManager::setStatus(Status status)
     }
 }
 
+bool ManticoreManager::isPortAvailable(int port)
+{
+    QTcpServer server;
+    bool available = server.listen(QHostAddress::LocalHost, static_cast<quint16>(port));
+    if (available) {
+        server.close();
+    }
+    return available;
+}
+
+int ManticoreManager::findAvailablePort(int startPort, int maxAttempts)
+{
+    for (int i = 0; i < maxAttempts; ++i) {
+        int port = startPort + i;
+        if (port > 65535) break;
+        
+        if (isPortAvailable(port)) {
+            if (port != startPort) {
+                qInfo() << "Port" << startPort << "is busy, using alternative port" << port;
+            }
+            return port;
+        } else {
+            qWarning() << "Port" << port << "is not available, trying next...";
+        }
+    }
+    return -1;  // No available port found
+}

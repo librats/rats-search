@@ -107,6 +107,8 @@ private:
     QString findSearchdPath();
     bool testConnection();
     void setStatus(Status status);
+    bool isPortAvailable(int port);
+    int findAvailablePort(int startPort, int maxAttempts = 10);
 
     QString dataDirectory_;
     QString databasePath_;
