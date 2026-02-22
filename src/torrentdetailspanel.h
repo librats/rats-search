@@ -16,6 +16,7 @@
 // Forward declarations
 class RatsAPI;
 class TorrentClient;
+class FavoritesManager;
 
 /**
  * @brief Panel for displaying detailed torrent information
@@ -38,6 +39,7 @@ public:
     void setTorrent(const TorrentInfo &torrent);
     void setApi(RatsAPI* api);
     void setTorrentClient(TorrentClient* client);
+    void setFavoritesManager(FavoritesManager* manager);
     void clear();
     bool isEmpty() const { return currentHash_.isEmpty(); }
     QString currentHash() const { return currentHash_; }
@@ -58,6 +60,7 @@ signals:
     void voteRequested(const QString &hash, bool isGood);
     void closeRequested();
     void goToDownloadsRequested();
+    void addToFavoritesRequested(const QString &hash);
 
 public slots:
     void onVotesUpdated(const QString& hash, int good, int bad);
@@ -69,6 +72,7 @@ private slots:
     void onGoodVoteClicked();
     void onBadVoteClicked();
     void onCancelDownloadClicked();
+    void onFavoriteClicked();
 
 private:
     void setupUi();
@@ -79,8 +83,11 @@ private:
     QString formatSpeed(int bytesPerSec) const;
     QString makeBreakable(const QString& text) const;
     
+    void updateFavoriteButton();
+    
     RatsAPI* api_ = nullptr;
     TorrentClient* torrentClient_ = nullptr;
+    FavoritesManager* favoritesManager_ = nullptr;
     
     // Header section
     QLabel *titleLabel_;
@@ -117,6 +124,7 @@ private:
     // Actions
     QPushButton *magnetButton_;
     QPushButton *downloadButton_;
+    QPushButton *favoriteButton_;
     QPushButton *copyHashButton_;
     QPushButton *closeButton_;
     

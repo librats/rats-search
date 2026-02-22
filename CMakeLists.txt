@@ -176,6 +176,8 @@ set(SOURCES
     src/feedwidget.cpp
     src/downloadswidget.cpp
     src/activitywidget.cpp
+    src/favoritesmanager.cpp
+    src/favoriteswidget.cpp
     # API layer (replaces old searchapi.cpp and searchengine.cpp)
     src/api/ratsapi.cpp
     src/api/configmanager.cpp
@@ -212,6 +214,8 @@ set(HEADERS
     src/feedwidget.h
     src/downloadswidget.h
     src/activitywidget.h
+    src/favoritesmanager.h
+    src/favoriteswidget.h
     # API layer (replaces old searchapi.h and searchengine.h)
     src/api/ratsapi.h
     src/api/configmanager.h

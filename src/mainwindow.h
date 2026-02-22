@@ -23,6 +23,7 @@ class ConfigManager;
 class ApiServer;
 class UpdateManager;
 class MigrationManager;
+class FavoritesManager;
 
 // UI components
 class QLineEdit;
@@ -37,6 +38,7 @@ class FeedWidget;
 class DownloadsWidget;
 class TorrentFilesWidget;
 class ActivityWidget;
+class FavoritesWidget;
 
 struct TorrentInfo;
 
@@ -148,6 +150,7 @@ private:
     FeedWidget *feedWidget;
     DownloadsWidget *downloadsWidget;
     ActivityWidget *activityWidget;
+    FavoritesWidget *favoritesWidget;
     
     // Status bar
     QLabel *p2pStatusLabel;
@@ -169,6 +172,7 @@ private:
     std::unique_ptr<ApiServer> apiServer;
     std::unique_ptr<UpdateManager> updateManager;
     std::unique_ptr<MigrationManager> migrationManager;
+    std::unique_ptr<FavoritesManager> favoritesManager;
     
     // Models and Delegates
     SearchResultModel *searchResultModel;

@@ -14,6 +14,8 @@
 #include "downloadswidget.h"
 #include "torrentfileswidget.h"
 #include "activitywidget.h"
+#include "favoriteswidget.h"
+#include "favoritesmanager.h"
 
 // New API layer
 #include "api/ratsapi.h"
@@ -127,6 +129,8 @@ MainWindow::MainWindow(int p2pPort, int dhtPort, const QString& dataDirectory, Q
     api = std::make_unique<RatsAPI>(this);
     updateManager = std::make_unique<UpdateManager>(this);
     migrationManager = std::make_unique<MigrationManager>(dataDirectory_, this);
+    favoritesManager = std::make_unique<FavoritesManager>(dataDirectory_, this);
+    favoritesManager->load();
     qInfo() << "Object creation took:" << (startupTimer.elapsed() - objectsStart) << "ms";
     
     qInfo() << "MainWindow constructor (before deferred init):" << startupTimer.elapsed() << "ms";
@@ -276,6 +280,10 @@ void MainWindow::setupUi()
     // Activity tab
     activityWidget = new ActivityWidget(this);
     tabWidget->addTab(activityWidget, tr("⚡ Activity"));
+    
+    // Favorites tab
+    favoritesWidget = new FavoritesWidget(this);
+    tabWidget->addTab(favoritesWidget, tr("⭐ Favorites"));
     
     mainSplitter->addWidget(tabWidget);
     
@@ -432,6 +440,11 @@ void MainWindow::connectTabSignals()
     connect(activityWidget, &ActivityWidget::torrentSelected,
             this, &MainWindow::showTorrentDetails);
     connect(activityWidget, &ActivityWidget::torrentDoubleClicked,
+            this, &MainWindow::openMagnetLink);
+    
+    connect(favoritesWidget, &FavoritesWidget::torrentSelected,
+            this, &MainWindow::showTorrentDetails);
+    connect(favoritesWidget, &FavoritesWidget::torrentDoubleClicked,
             this, &MainWindow::openMagnetLink);
 }
 
@@ -651,6 +664,11 @@ void MainWindow::initializeServicesDeferred()
     if (detailsPanel) {
         detailsPanel->setApi(api.get());
         detailsPanel->setTorrentClient(torrentClient.get());
+        detailsPanel->setFavoritesManager(favoritesManager.get());
+    }
+    
+    if (favoritesWidget) {
+        favoritesWidget->setFavoritesManager(favoritesManager.get());
     }
     
     // Connect TorrentClient signals to details panel for download status updates
@@ -1011,11 +1029,25 @@ void MainWindow::dropEvent(QDropEvent *event)
             if (response.success) {
                 QJsonObject data = response.data.toObject();
                 QString name = data["name"].toString();
+                QString hash = data["hash"].toString();
                 bool alreadyExists = data["alreadyExists"].toBool();
                 if (alreadyExists) {
                     statusBar()->showMessage(tr("Already indexed: %1").arg(name), 2000);
                 } else {
                     statusBar()->showMessage(tr("Added: %1").arg(name), 2000);
+                }
+                
+                // Auto-add to favorites
+                if (favoritesManager && !hash.isEmpty()) {
+                    FavoriteEntry fav;
+                    fav.hash = hash;
+                    fav.name = name;
+                    fav.size = data["size"].toVariant().toLongLong();
+                    fav.files = data["files"].toInt();
+                    fav.contentType = data["contentType"].toString();
+                    fav.contentCategory = data["contentCategory"].toString();
+                    fav.added = QDateTime::currentDateTime();
+                    favoritesManager->addFavorite(fav);
                 }
             } else {
                 qWarning() << "Failed to add torrent file:" << filePath << "-" << response.error;
@@ -1098,6 +1130,8 @@ void MainWindow::onTabChanged(int index)
         selectedTorrent = feedWidget->getSelectedTorrent();
     } else if (currentWidget == activityWidget) {
         selectedTorrent = activityWidget->getSelectedTorrent();
+    } else if (currentWidget == favoritesWidget) {
+        selectedTorrent = favoritesWidget->getSelectedTorrent();
     } else if (currentWidget == downloadsWidget) {
         // Downloads tab doesn't have torrent selection in the same way
         // Hide details panel when switching to downloads
@@ -1260,6 +1294,36 @@ void MainWindow::showTorrentContextMenu(const QPoint &pos)
         QApplication::clipboard()->setText(torrent.magnetLink());
         statusBar()->showMessage(tr("Magnet link copied to clipboard"), 2000);
     });
+    
+    contextMenu.addSeparator();
+    
+    // Favorites action
+    if (favoritesManager) {
+        if (favoritesManager->isFavorite(torrent.hash)) {
+            QAction *removeFavAction = contextMenu.addAction(tr("★ Remove from Favorites"));
+            connect(removeFavAction, &QAction::triggered, [this, torrent]() {
+                favoritesManager->removeFavorite(torrent.hash);
+                statusBar()->showMessage(tr("Removed from favorites"), 2000);
+            });
+        } else {
+            QAction *addFavAction = contextMenu.addAction(tr("⭐ Add to Favorites"));
+            connect(addFavAction, &QAction::triggered, [this, torrent]() {
+                FavoriteEntry fav;
+                fav.hash = torrent.hash;
+                fav.name = torrent.name;
+                fav.size = torrent.size;
+                fav.files = torrent.files;
+                fav.seeders = torrent.seeders;
+                fav.leechers = torrent.leechers;
+                fav.completed = torrent.completed;
+                fav.contentType = torrent.contentType;
+                fav.contentCategory = torrent.contentCategory;
+                fav.added = torrent.added;
+                favoritesManager->addFavorite(fav);
+                statusBar()->showMessage(tr("Added to favorites: %1").arg(torrent.name), 2000);
+            });
+        }
+    }
     
     contextMenu.addSeparator();
     
@@ -1606,6 +1670,19 @@ void MainWindow::addTorrentFile()
                 statusBar()->showMessage(tr("Added to index: %1").arg(name), 3000);
             }
             
+            // Auto-add to favorites
+            if (favoritesManager && !hash.isEmpty()) {
+                FavoriteEntry fav;
+                fav.hash = hash;
+                fav.name = name;
+                fav.size = data["size"].toVariant().toLongLong();
+                fav.files = data["files"].toInt();
+                fav.contentType = data["contentType"].toString();
+                fav.contentCategory = data["contentCategory"].toString();
+                fav.added = QDateTime::currentDateTime();
+                favoritesManager->addFavorite(fav);
+            }
+            
             // Show notification
             if (trayIcon && trayIcon->isVisible()) {
                 trayIcon->showMessage(
@@ -1779,6 +1856,19 @@ void MainWindow::createTorrent()
                         statusLabel->setText(tr("Torrent already exists"));
                     } else {
                         statusLabel->setText(tr("✅ Torrent created successfully!"));
+                    }
+                    
+                    // Auto-add to favorites
+                    if (favoritesManager && !hash.isEmpty()) {
+                        FavoriteEntry fav;
+                        fav.hash = hash;
+                        fav.name = name;
+                        fav.size = data["size"].toVariant().toLongLong();
+                        fav.files = data["files"].toInt();
+                        fav.contentType = data["contentType"].toString();
+                        fav.contentCategory = data["contentCategory"].toString();
+                        fav.added = QDateTime::currentDateTime();
+                        favoritesManager->addFavorite(fav);
                     }
                     
                     // Show success message with torrent file path

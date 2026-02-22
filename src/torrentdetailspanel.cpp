@@ -1,6 +1,7 @@
 #include "torrentdetailspanel.h"
 #include "torrentitemdelegate.h"
 #include "torrentclient.h"
+#include "favoritesmanager.h"
 #include "api/ratsapi.h"
 #include "api/p2pstoremanager.h"
 #include "api/trackerinfoscraper.h"
@@ -380,6 +381,13 @@ void TorrentDetailsPanel::setupUi()
     connect(downloadButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onDownloadClicked);
     mainLayout->addWidget(downloadButton_);
     
+    // Favorite button
+    favoriteButton_ = new QPushButton(tr("⭐ Add to Favorites"));
+    favoriteButton_->setObjectName("secondaryButton");
+    favoriteButton_->setCursor(Qt::PointingHandCursor);
+    connect(favoriteButton_, &QPushButton::clicked, this, &TorrentDetailsPanel::onFavoriteClicked);
+    mainLayout->addWidget(favoriteButton_);
+    
     // Copy hash button
     copyHashButton_ = new QPushButton(tr("Copy Info Hash"));
     copyHashButton_->setObjectName("secondaryButton");
@@ -441,6 +449,7 @@ void TorrentDetailsPanel::setTorrent(const TorrentInfo &torrent)
     // Rating
     updateRatingDisplay();
     updateVotingButtons();
+    updateFavoriteButton();
     
     // Check if this torrent is currently downloading
     if (torrentClient_ && torrentClient_->isDownloading(torrent.hash)) {
@@ -625,6 +634,60 @@ void TorrentDetailsPanel::setApi(RatsAPI* api)
 void TorrentDetailsPanel::setTorrentClient(TorrentClient* client)
 {
     torrentClient_ = client;
+}
+
+void TorrentDetailsPanel::setFavoritesManager(FavoritesManager* manager)
+{
+    favoritesManager_ = manager;
+    if (favoritesManager_) {
+        connect(favoritesManager_, &FavoritesManager::favoritesChanged,
+                this, &TorrentDetailsPanel::updateFavoriteButton);
+    }
+}
+
+void TorrentDetailsPanel::onFavoriteClicked()
+{
+    if (currentHash_.isEmpty() || !favoritesManager_) return;
+    
+    if (favoritesManager_->isFavorite(currentHash_)) {
+        // Remove from favorites
+        favoritesManager_->removeFavorite(currentHash_);
+    } else {
+        // Add to favorites
+        FavoriteEntry entry;
+        entry.hash = currentTorrent_.hash;
+        entry.name = currentTorrent_.name;
+        entry.size = currentTorrent_.size;
+        entry.files = currentTorrent_.files;
+        entry.seeders = currentTorrent_.seeders;
+        entry.leechers = currentTorrent_.leechers;
+        entry.completed = currentTorrent_.completed;
+        entry.contentType = currentTorrent_.contentType;
+        entry.contentCategory = currentTorrent_.contentCategory;
+        entry.added = currentTorrent_.added;
+        
+        favoritesManager_->addFavorite(entry);
+    }
+    
+    updateFavoriteButton();
+}
+
+void TorrentDetailsPanel::updateFavoriteButton()
+{
+    if (!favoritesManager_ || currentHash_.isEmpty()) {
+        favoriteButton_->setText(tr("⭐ Add to Favorites"));
+        return;
+    }
+    
+    if (favoritesManager_->isFavorite(currentHash_)) {
+        favoriteButton_->setText(tr("★ In Favorites (Remove)"));
+        favoriteButton_->setObjectName("warningButton");
+    } else {
+        favoriteButton_->setText(tr("⭐ Add to Favorites"));
+        favoriteButton_->setObjectName("secondaryButton");
+    }
+    favoriteButton_->style()->unpolish(favoriteButton_);
+    favoriteButton_->style()->polish(favoriteButton_);
 }
 
 void TorrentDetailsPanel::onGoodVoteClicked()
