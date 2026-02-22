@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.22](https://github.com/DEgITx/rats-search/compare/v2.0.21...v2.0.22) (2026-02-22)
+
+
+### 🐛 Bug Fixes
+
+
+- **details:** Details tab now unlimited by space to get more details info([f2de104](https://github.com/DEgITx/rats-search/commit/f2de1040953b7f2683ad815bc889f20943647160)) by @DEgITx
+- **top:** Fix display unknown torrent on tab with games #263([abb72ca](https://github.com/DEgITx/rats-search/commit/abb72ca6fafe342c3c2804fb62aba42846099682)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.21([74ba8e1](https://github.com/DEgITx/rats-search/commit/74ba8e1c5024b0c7261d18771591a7cd352302a0)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **menu:** Report to github([82c9f3f](https://github.com/DEgITx/rats-search/commit/82c9f3f030badc36e8692891d0cb1a578e1b5b8c)) by @DEgITx
+- **debug:** Statup info for problem detection([4edd3e7](https://github.com/DEgITx/rats-search/commit/4edd3e74ffd49cfbf15723ebe8679055fc942dff)) by @DEgITx
+- **fav:** Favorite tab for easy access to own/watch torrents([2872fbd](https://github.com/DEgITx/rats-search/commit/2872fbd72c80a7620c0f8270720e862339538c19)) by @DEgITx
+- **macos:** Mac os x dmg packing([fc4e8e9](https://github.com/DEgITx/rats-search/commit/fc4e8e9c7d99bb969ab03c61931e7e62e0ebbd7b)) by @DEgITx
+- **db:** Fix db start on port busy([6211cf7](https://github.com/DEgITx/rats-search/commit/6211cf7737ab6534edba279b6af29d9f14b8fe8e)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 7 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.21](https://github.com/DEgITx/rats-search/compare/v2.0.20...v2.0.21) (2026-02-20)
 
 
