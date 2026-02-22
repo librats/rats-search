@@ -301,16 +301,43 @@ jobs:
             echo "Copied libqsqlmysql.dylib"
           fi
 
-      - name: Create deployment package
+      - name: Get version
+        id: version
         run: |
-          cd build/bin
-          zip -r ../../RatsSearch-macOS-Intel.zip RatsSearch.app
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="dev-$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create DMG
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          DMG_NAME="RatsSearch-macOS-Intel-${VERSION}.dmg"
+          
+          # Create a temporary directory for DMG contents
+          mkdir -p dmg-contents
+          cp -R build/bin/RatsSearch.app dmg-contents/
+          ln -s /Applications dmg-contents/Applications
+          
+          # Create DMG
+          hdiutil create \
+            -volname "Rats Search" \
+            -srcfolder dmg-contents \
+            -ov \
+            -format UDZO \
+            "$DMG_NAME"
+          
+          echo "Created: $DMG_NAME"
+          ls -la "$DMG_NAME"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-macOS-Intel
-          path: RatsSearch-macOS-Intel.zip
+          path: RatsSearch-macOS-Intel-*.dmg
           retention-days: 30
 
   build-macos-arm:
@@ -434,16 +461,43 @@ jobs:
             echo "Copied libqsqlmysql.dylib"
           fi
 
-      - name: Create deployment package
+      - name: Get version
+        id: version
         run: |
-          cd build/bin
-          zip -r ../../RatsSearch-macOS-ARM.zip RatsSearch.app
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="dev-$(echo ${{ github.sha }} | cut -c1-7)"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create DMG
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          DMG_NAME="RatsSearch-macOS-ARM-${VERSION}.dmg"
+          
+          # Create a temporary directory for DMG contents
+          mkdir -p dmg-contents
+          cp -R build/bin/RatsSearch.app dmg-contents/
+          ln -s /Applications dmg-contents/Applications
+          
+          # Create DMG
+          hdiutil create \
+            -volname "Rats Search" \
+            -srcfolder dmg-contents \
+            -ov \
+            -format UDZO \
+            "$DMG_NAME"
+          
+          echo "Created: $DMG_NAME"
+          ls -la "$DMG_NAME"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: RatsSearch-macOS-ARM
-          path: RatsSearch-macOS-ARM.zip
+          path: RatsSearch-macOS-ARM-*.dmg
           retention-days: 30
 
   build-linux:
@@ -777,6 +831,7 @@ jobs:
         with:
           files: |
             artifacts/**/*.zip
+            artifacts/**/*.dmg
             artifacts/**/*.AppImage
             artifacts/**/*.tar.gz
           draft: false
