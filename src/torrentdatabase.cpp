@@ -302,7 +302,14 @@ QVector<TorrentInfo> TorrentDatabase::searchTorrents(const SearchOptions& option
     }
     
     if (!options.contentType.isEmpty()) {
-        sql += QString(" AND contentType = %1").arg(contentTypeId(options.contentType));
+        // "application" is a combined category covering both Software (5) and Games (6)
+        if (options.contentType == "application") {
+            sql += QString(" AND contentType IN (%1, %2)")
+                .arg(static_cast<int>(ContentType::Software))
+                .arg(static_cast<int>(ContentType::Games));
+        } else {
+            sql += QString(" AND contentType = %1").arg(contentTypeId(options.contentType));
+        }
     }
     
     if (options.sizeMin > 0) {
@@ -454,7 +461,14 @@ QVector<TorrentInfo> TorrentDatabase::getTopTorrents(const QString& type,
         .arg(static_cast<int>(ContentCategory::XXX));
     
     if (!type.isEmpty()) {
-        where += QString(" AND contentType = %1").arg(contentTypeId(type));
+        // "application" is a combined category covering both Software (5) and Games (6)
+        if (type == "application") {
+            where += QString(" AND contentType IN (%1, %2)")
+                .arg(static_cast<int>(ContentType::Software))
+                .arg(static_cast<int>(ContentType::Games));
+        } else {
+            where += QString(" AND contentType = %1").arg(contentTypeId(type));
+        }
     }
     
     if (!time.isEmpty()) {
