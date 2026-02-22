@@ -170,6 +170,7 @@ set(SOURCES
     src/torrentfileswidget.cpp
     src/contentdetector.cpp
     src/autostartmanager.cpp
+    src/startupinfo.cpp
     # New tab widgets (migrated from legacy)
     src/toptorrentswidget.cpp
     src/feedwidget.cpp
@@ -205,6 +206,7 @@ set(HEADERS
     src/torrentfileswidget.h
     src/contentdetector.h
     src/autostartmanager.h
+    src/startupinfo.h
     # New tab widgets (migrated from legacy)
     src/toptorrentswidget.h
     src/feedwidget.h
