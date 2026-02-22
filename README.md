@@ -217,6 +217,30 @@ We welcome all contributions: bug fixes, improvements, code refactoring, and oth
 * [Translation Guide](docs/TRANSLATION.md)
 * [Tracker Support](docs/TRACKERS.md)
 
+## Docker
+
+Run Rats Search in a container (console mode, no GUI):
+
+```bash
+docker build -t rats-search .
+docker run -d -p 8095:8095 -v rats-data:/data rats-search
+```
+
+The default command starts the spider with 30 max P2P peers. Override as needed:
+
+```bash
+docker run -d \
+  -p 8095:8095 \
+  -v rats-data:/data \
+  rats-search \
+  /app/RatsSearch --console --spider --max-peers 100 --data-dir /data
+```
+
+| Port / Volume | Description |
+|---------------|-------------|
+| `8095` | HTTP REST API (enable `restApi` in `/data/rats.json`) |
+| `/data` | Persistent storage for database, config, and logs |
+
 ---
 
 ## Legacy Version (1.x — Electron/Node.js)
@@ -233,13 +257,6 @@ npm run server
 ```
 
 Access the web interface at: http://localhost:8095
-
-### Legacy Docker Image
-
-```bash
-docker build -t rats-search:legacy -f Dockerfile .
-docker run -p 8095:8095 rats-search:legacy
-```
 
 [Legacy Server Configuration](docs/SERVER.md)
 
