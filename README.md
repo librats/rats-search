@@ -248,13 +248,16 @@ docker run -p 8095:8095 rats-search:legacy
 
 ## Support & Donation
 
-[**❤️ Support Rats Search development on OpenCollective**](https://opencollective.com/RatsSearch)
+Bitcoin: bc1qsm5akf0gf2jnnxvjpf6nn3cd2p29yt3svxva3g
+
+Subscribe to autor (GitHub donations): https://github.com/sponsors/DEgITx
+
 
 ## Contacts
 
-- Twitter/X: [@RatsSearch](https://twitter.com/RatsSearch)
 - [Discord Community](https://discord.gg/t9GQtxA)
 - [GitHub Issues](https://github.com/DEgITx/rats-search/issues)
+- Twitter/X: [@RatsSearch](https://twitter.com/RatsSearch)
 
 ## License
 
