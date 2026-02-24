@@ -527,10 +527,12 @@ void RatsAPI::registerMethods()
 {
     // Search methods
     methods_["search.torrents"] = [this](const QJsonObject& params, ApiCallback cb) {
-        searchTorrents(params["text"].toString(), params, cb);
+        // Use toVariant().toString() to handle numeric query values from HTTP API
+        // (e.g. "1987" gets parsed as int by apiserver, toString() on int QJsonValue returns "")
+        searchTorrents(params["text"].toVariant().toString(), params, cb);
     };
     methods_["search.files"] = [this](const QJsonObject& params, ApiCallback cb) {
-        searchFiles(params["text"].toString(), params, cb);
+        searchFiles(params["text"].toVariant().toString(), params, cb);
     };
     methods_["search.torrent"] = [this](const QJsonObject& params, ApiCallback cb) {
         getTorrent(params["hash"].toString(), 
