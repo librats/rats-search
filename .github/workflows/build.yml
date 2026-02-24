@@ -185,11 +185,41 @@ jobs:
           Compress-Archive -Path $packageDir -DestinationPath $zipName -Force
           Write-Host "Created: $zipName"
 
-      - name: Upload artifact
+      - name: Create installer
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $packageDir = (Resolve-Path "RatsSearch-Windows-x64").Path
+          $issFile = "installer/windows.iss"
+          
+          # Inno Setup is pre-installed on windows-latest runners
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            Write-Host "Inno Setup not found, installing..."
+            choco install innosetup -y
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          
+          Write-Host "Building installer with version: $version"
+          Write-Host "Source directory: $packageDir"
+          
+          & $iscc /DMyAppVersion="$version" /DSourceDir="$packageDir" "$issFile"
+          
+          Write-Host "Installer created:"
+          Get-ChildItem "installer\*.exe" | ForEach-Object { Write-Host $_.Name }
+
+      - name: Upload artifact (ZIP)
         uses: actions/upload-artifact@v5
         with:
-          name: RatsSearch-Windows-x64
+          name: RatsSearch-Windows-x64-zip
           path: RatsSearch-Windows-x64-*.zip
+          retention-days: 30
+
+      - name: Upload artifact (Installer)
+        uses: actions/upload-artifact@v5
+        with:
+          name: RatsSearch-Windows-x64-setup
+          path: installer/RatsSearch-Windows-x64-*-setup.exe
           retention-days: 30
 
   build-macos-intel:
@@ -831,6 +861,7 @@ jobs:
         with:
           files: |
             artifacts/**/*.zip
+            artifacts/**/*.exe
             artifacts/**/*.dmg
             artifacts/**/*.AppImage
             artifacts/**/*.tar.gz
