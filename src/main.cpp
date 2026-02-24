@@ -203,6 +203,14 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     RatsAPI api;
     api.initialize(&database, &p2p, nullptr, &config);
     
+    // Update P2P network with our database stats (like GUI mode does in initializeServicesDeferred)
+    {
+        auto stats = database.getStatistics();
+        p2p.updateOurStats(stats.totalTorrents, stats.totalFiles, stats.totalSize);
+        qInfo() << "Initial P2P stats: torrents:" << stats.totalTorrents 
+                << "files:" << stats.totalFiles << "size:" << stats.totalSize;
+    }
+    
     // Connect to tracker checking for all indexed torrents (like MainWindow does in GUI mode)
     // Lambda that calls checkTrackers for any indexed torrent
     auto onTorrentIndexed = [&api](const QString& hash, const QString& name) {
@@ -252,10 +260,11 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
         }
     }
     
-    // Print statistics periodically
+    // Print statistics periodically and update P2P stats for peers
     QTimer statsTimer;
     QObject::connect(&statsTimer, &QTimer::timeout, [&]() {
         auto stats = database.getStatistics();
+        p2p.updateOurStats(stats.totalTorrents, stats.totalFiles, stats.totalSize);
         qInfo() << "Stats - Torrents:" << stats.totalTorrents 
                 << "Files:" << stats.totalFiles
                 << "Size:" << (stats.totalSize / (1024*1024*1024)) << "GB"
