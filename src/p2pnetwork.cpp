@@ -99,6 +99,19 @@ bool P2PNetwork::start()
             qWarning() << "Failed to start mDNS discovery";
         }
         
+        // Configure STUN for NAT traversal and public address discovery
+        ratsClient_->add_stun_server("stun.l.google.com", 19302);
+        ratsClient_->add_stun_server("stun1.l.google.com", 19302);
+        
+        auto publicAddr = ratsClient_->discover_public_address("stun.l.google.com", 19302, 5000);
+        if (publicAddr && publicAddr->is_valid()) {
+            qInfo() << "Public address discovered via STUN:" 
+                    << QString::fromStdString(publicAddr->address) 
+                    << "port:" << publicAddr->port;
+        } else {
+            qWarning() << "Could not discover public address via STUN";
+        }
+        
         // Setup GossipSub topics
         setupGossipSub();
         
