@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.23](https://github.com/DEgITx/rats-search/compare/v2.0.22...v2.0.23) (2026-02-24)
+
+
+### 🐛 Bug Fixes
+
+
+- **docker:** Update to v2 build([0525af1](https://github.com/DEgITx/rats-search/commit/0525af13f1b26675586f0f73d64da355ea6e0e73)) by @DEgITx
+- **console:** Fix console display stats in p2p([7119ed0](https://github.com/DEgITx/rats-search/commit/7119ed05b7cba6995860c81473b42509d8b6f03d)) by @DEgITx
+- **api:** Fix rest api small requests with numbers #265([2d1a66b](https://github.com/DEgITx/rats-search/commit/2d1a66b798e3c7c5b56e23bf91b9cc886ce11803)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.22([9409416](https://github.com/DEgITx/rats-search/commit/9409416854246f0ad19bbd24e0e21b4816702aea)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **setup:** Added installer setup for windows([b231092](https://github.com/DEgITx/rats-search/commit/b2310923e8604413564f4791507b20de3d540254)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.22](https://github.com/DEgITx/rats-search/compare/v2.0.21...v2.0.22) (2026-02-22)
 
 
