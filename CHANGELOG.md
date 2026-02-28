@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.24](https://github.com/DEgITx/rats-search/compare/v2.0.23...v2.0.24) (2026-02-28)
+
+
+### 🐛 Bug Fixes
+
+
+- **macosx:** Fix start of mac os x version([9f23632](https://github.com/DEgITx/rats-search/commit/9f23632ae1ac93d9c764607e5545710805253de1)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.23([a3e2c93](https://github.com/DEgITx/rats-search/commit/a3e2c936fd805b60fb4c7f5902c658610e3efbc9)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.23](https://github.com/DEgITx/rats-search/compare/v2.0.22...v2.0.23) (2026-02-24)
 
 
