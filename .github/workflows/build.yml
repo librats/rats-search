@@ -314,23 +314,6 @@ jobs:
           echo "Copied Manticore binaries:"
           ls -la "$BUNDLE_DIR/"
 
-      - name: Copy Qt MySQL plugin
-        run: |
-          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
-          QT_ROOT="${{ env.QT_ROOT_DIR }}"
-          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
-          
-          BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
-          PLUGIN_DST="$BUNDLE_DIR/PlugIns/sqldrivers"
-          
-          mkdir -p "$PLUGIN_DST"
-          
-          # Copy MySQL plugin if it exists
-          if [ -f "$QT_PLUGIN_DIR/libqsqlmysql.dylib" ]; then
-            cp "$QT_PLUGIN_DIR/libqsqlmysql.dylib" "$PLUGIN_DST/"
-            echo "Copied libqsqlmysql.dylib"
-          fi
-
       - name: Get version
         id: version
         run: |
@@ -473,23 +456,6 @@ jobs:
           
           echo "Copied Manticore binaries:"
           ls -la "$BUNDLE_DIR/"
-
-      - name: Copy Qt MySQL plugin
-        run: |
-          # Use QT_ROOT_DIR which is set by jurplel/install-qt-action
-          QT_ROOT="${{ env.QT_ROOT_DIR }}"
-          QT_PLUGIN_DIR="$QT_ROOT/plugins/sqldrivers"
-          
-          BUNDLE_DIR="build/bin/RatsSearch.app/Contents"
-          PLUGIN_DST="$BUNDLE_DIR/PlugIns/sqldrivers"
-          
-          mkdir -p "$PLUGIN_DST"
-          
-          # Copy MySQL plugin if it exists
-          if [ -f "$QT_PLUGIN_DIR/libqsqlmysql.dylib" ]; then
-            cp "$QT_PLUGIN_DIR/libqsqlmysql.dylib" "$PLUGIN_DST/"
-            echo "Copied libqsqlmysql.dylib"
-          fi
 
       - name: Get version
         id: version

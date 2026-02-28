@@ -295,10 +295,10 @@ install(TARGETS ${PROJECT_NAME}
 )
 
 # Qt deployment
+get_target_property(QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+get_filename_component(QT_BIN_DIR "${QMAKE_EXECUTABLE}" DIRECTORY)
+
 if(WIN32)
-    # Windows deployment
-    get_target_property(QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
-    get_filename_component(QT_BIN_DIR "${QMAKE_EXECUTABLE}" DIRECTORY)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BIN_DIR}")
     
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -306,7 +306,6 @@ if(WIN32)
         COMMENT "Running windeployqt..."
     )
 elseif(APPLE)
-    # macOS deployment
     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BIN_DIR}")
     
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
