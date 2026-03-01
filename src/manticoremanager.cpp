@@ -44,7 +44,6 @@ ManticoreManager::ManticoreManager(const QString& dataDirectory, QObject *parent
     , dataDirectory_(dataDirectory)
     , port_(9306)  // Default MySQL port for Manticore
     , status_(Status::Stopped)
-    , isExternalInstance_(false)
     , isWindowsDaemonMode_(false)
 {
     databasePath_ = dataDirectory_ + "/database";
@@ -97,28 +96,6 @@ bool ManticoreManager::start()
     
     isWindowsDaemonMode_ = false;
     
-    // Check if external instance is running via PID file (fast check first)
-    if (QFile::exists(pidFilePath_)) {
-        QFile pidFile(pidFilePath_);
-        if (pidFile.open(QIODevice::ReadOnly)) {
-            qint64 pid = pidFile.readAll().trimmed().toLongLong();
-            pidFile.close();
-            
-            if (isProcessRunning(pid)) {
-                qInfo() << "Found existing Manticore instance via PID file (pid:" << pid << ")";
-                
-                // Verify it's responding with quick timeout
-                if (testConnection()) {
-                    isExternalInstance_ = true;
-                    setStatus(Status::Running);
-                    emit started();
-                    qInfo() << "Manticore startup (existing instance):" << startupTimer.elapsed() << "ms";
-                    return true;
-                }
-            }
-        }
-    }
-    
     // Find searchd executable FIRST (before slow network check)
     qint64 findStart = startupTimer.elapsed();
     searchdPath_ = findSearchdPath();
@@ -131,7 +108,10 @@ bool ManticoreManager::start()
     }
     
     qInfo() << "Found searchd at:" << searchdPath_;
-    
+
+    // Kill existing manticore process before starting new one    
+    killExistingProcess();
+
     // Check if the configured port is available, find alternative if not
     if (!isPortAvailable(port_)) {
         qInfo() << "Port" << port_ << "is already in use, searching for available port...";
@@ -159,18 +139,12 @@ bool ManticoreManager::start()
         return false;
     }
     qInfo() << "Config generation took:" << (startupTimer.elapsed() - configStart) << "ms";
-
+    
     // Verify QMYSQL driver is available before waiting
     if (!QSqlDatabase::isDriverAvailable("QMYSQL")) {
-        qCritical() << "QMYSQL driver not available!";
-        qCritical() << "Available SQL drivers:" << QSqlDatabase::drivers();
+        qCritical() << "QMYSQL driver not available! Available:" << QSqlDatabase::drivers();
         emit error("QMYSQL driver not available.");
         setStatus(Status::Error);
-        // Stop the already-started process
-        if (process_ && process_->state() != QProcess::NotRunning) {
-            process_->terminate();
-            process_->waitForFinished(3000);
-        }
         return false;
     }
     
@@ -223,13 +197,6 @@ void ManticoreManager::stop()
     
     // Guard against double-stop calls
     if (status_ == Status::Stopped) {
-        return;
-    }
-    
-    if (isExternalInstance_) {
-        qInfo() << "Not stopping external Manticore instance";
-        setStatus(Status::Stopped);
-        emit stopped();
         return;
     }
     
@@ -638,6 +605,59 @@ QString ManticoreManager::findSearchdPath()
     
     qWarning() << "searchd not found! Searched paths:" << searchPaths;
     return QString();
+}
+
+void ManticoreManager::killExistingProcess()
+{
+    if (!QFile::exists(pidFilePath_)) {
+        qInfo() << "No existing Manticore process found, continuing...";
+        return;
+    }
+    
+    QFile pidFile(pidFilePath_);
+    if (!pidFile.open(QIODevice::ReadOnly)) {
+        qInfo() << "Failed to open PID file:" << pidFilePath_ << ", continuing...";
+        return;
+    }
+    
+    qint64 pid = pidFile.readAll().trimmed().toLongLong();
+    pidFile.close();
+    
+    if (pid <= 0 || !isProcessRunning(pid)) {
+        QFile::remove(pidFilePath_);
+        qInfo() << "Current PID file is not running" << pidFilePath_ << " continuing...";
+        return;
+    }
+    
+    qInfo() << "Killing existing Manticore process (pid:" << pid << ")";
+    
+    if (!searchdPath_.isEmpty()) {
+        QProcess stopProcess;
+        stopProcess.start(searchdPath_, {"--config", configPath_, "--stopwait"});
+        if (stopProcess.waitForFinished(5000) && !isProcessRunning(pid)) {
+            qInfo() << "Existing process stopped gracefully";
+            QFile::remove(pidFilePath_);
+            return;
+        }
+    }
+    
+#ifdef Q_OS_WIN
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, static_cast<DWORD>(pid));
+    if (hProcess) {
+        TerminateProcess(hProcess, 1);
+        CloseHandle(hProcess);
+    }
+#else
+    kill(static_cast<pid_t>(pid), SIGKILL);
+#endif
+    
+    for (int i = 0; i < 20; ++i) {
+        if (!isProcessRunning(pid)) break;
+        QThread::msleep(100);
+    }
+    
+    QFile::remove(pidFilePath_);
+    qInfo() << "Existing Manticore process killed";
 }
 
 bool ManticoreManager::testConnection()

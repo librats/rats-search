@@ -109,6 +109,7 @@ private:
     void setStatus(Status status);
     bool isPortAvailable(int port);
     int findAvailablePort(int startPort, int maxAttempts = 10);
+    void killExistingProcess();
 
     QString dataDirectory_;
     QString databasePath_;
@@ -121,7 +122,6 @@ private:
 
     std::unique_ptr<QProcess> process_;
     std::unique_ptr<QTimer> connectionCheckTimer_;
-    bool isExternalInstance_;
     bool isWindowsDaemonMode_;
     QString connectionName_;
 };
