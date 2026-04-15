@@ -43,6 +43,7 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+    void sort(int column, Qt::SortOrder order = Qt::AscendingOrder) override;
     
     // Custom methods for torrent results
     void setResults(const QVector<TorrentInfo> &results);
@@ -67,8 +68,11 @@ private:
     QString formatSize(qint64 bytes) const;
     QString formatDate(const QDateTime &dateTime) const;
     void mergeFileResultIntoExisting(const TorrentInfo &fileResult);
-    
+    void applyCurrentSort();
+
     QVector<TorrentInfo> results_;
+    int sortColumn_ = -1;
+    Qt::SortOrder sortOrder_ = Qt::DescendingOrder;
 };
 
 #endif // SEARCHRESULTMODEL_H

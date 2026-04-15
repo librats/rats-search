@@ -1,5 +1,8 @@
 #include "searchresultmodel.h"
 #include <QDateTime>
+#include <QHash>
+#include <QPair>
+#include <algorithm>
 
 SearchResultModel::SearchResultModel(QObject *parent)
     : QAbstractTableModel(parent)
@@ -133,6 +136,7 @@ void SearchResultModel::setResults(const QVector<TorrentInfo> &results)
     beginResetModel();
     results_ = results;
     endResetModel();
+    applyCurrentSort();
 }
 
 void SearchResultModel::addResult(const TorrentInfo &result)
@@ -143,16 +147,17 @@ void SearchResultModel::addResult(const TorrentInfo &result)
             return;  // Already exists
         }
     }
-    
+
     beginInsertRows(QModelIndex(), results_.size(), results_.size());
     results_.append(result);
     endInsertRows();
+    applyCurrentSort();
 }
 
 void SearchResultModel::addResults(const QVector<TorrentInfo> &results)
 {
     QVector<TorrentInfo> newResults;
-    
+
     // Filter out duplicates
     for (const TorrentInfo& result : results) {
         bool exists = false;
@@ -166,14 +171,15 @@ void SearchResultModel::addResults(const QVector<TorrentInfo> &results)
             newResults.append(result);
         }
     }
-    
+
     if (newResults.isEmpty()) {
         return;
     }
-    
+
     beginInsertRows(QModelIndex(), results_.size(), results_.size() + newResults.size() - 1);
     results_.append(newResults);
     endInsertRows();
+    applyCurrentSort();
 }
 
 void SearchResultModel::clearResults()
@@ -311,6 +317,80 @@ void SearchResultModel::mergeFileResultIntoExisting(const TorrentInfo &fileResul
     beginInsertRows(QModelIndex(), results_.size(), results_.size());
     results_.append(fileResult);
     endInsertRows();
+    applyCurrentSort();
+}
+
+void SearchResultModel::sort(int column, Qt::SortOrder order)
+{
+    if (column < 0 || column >= ColumnCount) {
+        return;
+    }
+
+    sortColumn_ = column;
+    sortOrder_ = order;
+    applyCurrentSort();
+}
+
+void SearchResultModel::applyCurrentSort()
+{
+    if (sortColumn_ < 0 || sortColumn_ >= ColumnCount || results_.isEmpty()) {
+        return;
+    }
+
+    const int column = sortColumn_;
+    const Qt::SortOrder order = sortOrder_;
+
+    emit layoutAboutToBeChanged();
+
+    // Capture persistent indexes by hash so we can remap them after sorting
+    const QModelIndexList oldPersistent = persistentIndexList();
+    QVector<QPair<QPersistentModelIndex, QString>> persistentByHash;
+    persistentByHash.reserve(oldPersistent.size());
+    for (const QModelIndex& idx : oldPersistent) {
+        if (idx.row() >= 0 && idx.row() < results_.size()) {
+            persistentByHash.append({QPersistentModelIndex(idx), results_[idx.row()].hash});
+        }
+    }
+
+    auto lessThan = [column](const TorrentInfo& a, const TorrentInfo& b) {
+        switch (column) {
+            case NameColumn:
+                return a.name.localeAwareCompare(b.name) < 0;
+            case SizeColumn:
+                return a.size < b.size;
+            case SeedersColumn:
+                return a.seeders < b.seeders;
+            case LeechersColumn:
+                return a.leechers < b.leechers;
+            case DateColumn:
+                return a.added < b.added;
+        }
+        return false;
+    };
+
+    if (order == Qt::AscendingOrder) {
+        std::stable_sort(results_.begin(), results_.end(), lessThan);
+    } else {
+        std::stable_sort(results_.begin(), results_.end(),
+            [&lessThan](const TorrentInfo& a, const TorrentInfo& b) { return lessThan(b, a); });
+    }
+
+    // Rebuild a hash -> new row map to remap persistent indexes
+    QHash<QString, int> rowByHash;
+    rowByHash.reserve(results_.size());
+    for (int i = 0; i < results_.size(); ++i) {
+        rowByHash.insert(results_[i].hash, i);
+    }
+    for (const auto& pair : persistentByHash) {
+        const int newRow = rowByHash.value(pair.second, -1);
+        if (newRow >= 0) {
+            changePersistentIndex(pair.first, index(newRow, pair.first.column()));
+        } else {
+            changePersistentIndex(pair.first, QModelIndex());
+        }
+    }
+
+    emit layoutChanged();
 }
 
 int SearchResultModel::torrentResultCount() const
