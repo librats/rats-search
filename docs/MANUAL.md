@@ -9,15 +9,6 @@
 
 ## Documentation
 
-### Usage Manuals
-* [English](USAGE.md)
-* [Russian](USAGE.RU.md)
-
 ### Configuration
 * [Server Configuration](SERVER.md)
 * [API Documentation](API.md)
-* [Tracker Support](TRACKERS.md)
-* [Translation Guide](TRANSLATION.md)
-
-### Technical Notes
-* [Server Compatibility](SERVER_COMPATIBILITY.md)
