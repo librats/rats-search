@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     git \
     qt6-base-dev \
     qt6-websockets-dev \
-    qt6-l10n-tools \
+    qt6-tools-dev \
     libgl1-mesa-dev \
     libxkbcommon-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libqt6sql6t64 \
     libqt6sql6-mysql \
     libqt6concurrent6t64 \
-    libqt6websockets6t64 \
+    libqt6websockets6 \
     libgl1 \
     libxkbcommon0 \
     ca-certificates \
