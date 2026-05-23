@@ -65,6 +65,13 @@ public:
     void setPort(int port) { port_ = port; }
 
     /**
+     * @brief Set remote Manticore hostname. When non-empty, the manager
+     * skips the local searchd process and connects to the remote instance.
+     * Default: empty string (embedded mode).
+     */
+    void setHostname(const QString& hostname) { hostname_ = hostname; }
+
+    /**
      * @brief Get database path
      */
     QString databasePath() const { return databasePath_; }
@@ -142,6 +149,7 @@ private:
     bool isExternalInstance_;
     bool isWindowsDaemonMode_;
     QString connectionName_;
+    QString hostname_;
 };
 
 #endif // MANTICOREMANAGER_H

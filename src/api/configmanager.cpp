@@ -83,7 +83,10 @@ void ConfigManager::setDefaults()
         {"autoStart", false},
         {"checkUpdatesOnStartup", true},
         {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)},
-        
+
+        // Database
+        {"manticoreHost", ""},
+
         // Legal
         {"agreementAccepted", false}
     };
@@ -171,6 +174,15 @@ void ConfigManager::validateAndClamp()
     if (!config_["p2pReplicationServer"].toBool() && config_["p2pReplication"].toBool()) {
         config_["p2pReplication"] = false;
     }
+}
+
+// ============================================================================
+// Database Settings
+// ============================================================================
+
+QString ConfigManager::manticoreHost() const { return config_["manticoreHost"].toString(); }
+void ConfigManager::setManticoreHost(const QString& host) {
+    if (setValue("manticoreHost", host)) emit manticoreHostChanged(host);
 }
 
 // ============================================================================
