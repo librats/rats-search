@@ -50,6 +50,7 @@ ManticoreManager::ManticoreManager(const QString& dataDirectory, QObject *parent
     , status_(Status::Stopped)
     , isExternalInstance_(false)
     , isWindowsDaemonMode_(false)
+    , hostname_()
 {
     databasePath_ = dataDirectory_ + "/database";
     configPath_ = dataDirectory_ + "/sphinx.conf";
@@ -95,12 +96,31 @@ bool ManticoreManager::start()
     if (status_ == Status::Running) {
         return true;
     }
-    
+
     QElapsedTimer startupTimer;
     startupTimer.start();
-    
+
     isWindowsDaemonMode_ = false;
-    
+
+    // ====================================================================
+    // Remote mode: connect to an existing external Manticore instance
+    // ====================================================================
+    if (!hostname_.isEmpty()) {
+        qInfo() << "Using remote Manticore at" << hostname_ << ":" << port_;
+
+        if (testConnection()) {
+            isExternalInstance_ = true;
+            setStatus(Status::Running);
+            emit started();
+            qInfo() << "Connected to remote Manticore in" << startupTimer.elapsed() << "ms";
+            return true;
+        }
+
+        emit error(QString("Cannot connect to remote Manticore at %1:%2").arg(hostname_).arg(port_));
+        setStatus(Status::Error);
+        return false;
+    }
+
     // Check if external instance is running via PID file (fast check first)
     if (QFile::exists(pidFilePath_)) {
         QFile pidFile(pidFilePath_);
@@ -297,7 +317,7 @@ QSqlDatabase ManticoreManager::getDatabase() const
     
     if (!QSqlDatabase::contains(threadConnName)) {
         QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", threadConnName);
-        db.setHostName("127.0.0.1");
+        db.setHostName(hostname_.isEmpty() ? QStringLiteral("127.0.0.1") : hostname_);
         db.setPort(port_);
         db.setDatabaseName("");
         db.setConnectOptions("MYSQL_OPT_RECONNECT=1");
@@ -679,7 +699,7 @@ bool ManticoreManager::testConnection()
     
     {
         QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL", testConnName);
-        db.setHostName("127.0.0.1");
+        db.setHostName(hostname_.isEmpty() ? QStringLiteral("127.0.0.1") : hostname_);
         db.setPort(port_);
         db.setDatabaseName("");
         // Set short connection timeout (1 second instead of default ~30s)

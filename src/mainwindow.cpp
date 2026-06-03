@@ -559,6 +559,12 @@ void MainWindow::startServices()
     
     // Initialize database (this starts Manticore - the slowest part)
     qint64 dbStart = timer.elapsed();
+
+    // Configure remote Manticore host before initialize (empty = embedded)
+    if (config && !config->manticoreHost().isEmpty()) {
+        torrentDatabase->setManticoreHost(config->manticoreHost());
+    }
+
     if (!torrentDatabase->initialize()) {
         QMessageBox::critical(this, tr("Error"), tr("Failed to initialize database!"));
         return;

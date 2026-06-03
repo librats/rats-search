@@ -104,6 +104,12 @@ public:
      * Starts Manticore and prepares tables
      */
     bool initialize();
+
+    /**
+     * @brief Set remote Manticore hostname
+     * Must be called before initialize(). Empty = embedded mode (default).
+     */
+    void setManticoreHost(const QString& host) { manticoreHost_ = host; }
     
     /**
      * @brief Close the database
@@ -318,6 +324,7 @@ private:
     bool addFilesToDatabase(const TorrentInfo& torrent);
     
     QString dataDirectory_;
+    QString manticoreHost_;
     std::unique_ptr<ManticoreManager> manager_;
     std::unique_ptr<SphinxQL> sphinxQL_;
     qint64 nextTorrentId_ = 1;
