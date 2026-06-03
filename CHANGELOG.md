@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.28](https://github.com/DEgITx/rats-search/compare/v2.0.27...v2.0.28) (2026-06-03)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix double stun run([6653c64](https://github.com/DEgITx/rats-search/commit/6653c642f5b38f685556c25b487cd51dbbf75e0b)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.27([49ec368](https://github.com/DEgITx/rats-search/commit/49ec368c72010aaedfebc36a7a78aca9b090c761)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **network:** Upnp port forwarding support([f7a7eba](https://github.com/DEgITx/rats-search/commit/f7a7ebac253c057b1dd5e49ba4f471df4242a7c0)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 2 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.27](https://github.com/DEgITx/rats-search/compare/v2.0.26...v2.0.27) (2026-06-01)
 
 
