@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libxkbcommon0 \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -67,6 +68,10 @@ VOLUME /data
 
 # Default HTTP API port
 EXPOSE 8095
+
+# Health check for Kubernetes
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8095/healthz || exit 1
 
 # Run in console mode with spider enabled and 30 max peers
 CMD ["/app/RatsSearch", "--console", "--spider", "--max-peers", "30", "--data-dir", "/data"]

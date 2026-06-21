@@ -49,6 +49,7 @@ _deps
 # IDE
 .vscode/
 .idea/
+.qtcreator/
 *.swp
 *.swo
 *~
