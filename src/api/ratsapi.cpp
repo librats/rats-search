@@ -8,6 +8,7 @@
 #include "../sphinxql.h"
 #include "../p2pnetwork.h"
 #include "../torrentclient.h"
+#include "../torrentspider.h"
 
 // librats for torrent parsing and DHT metadata lookup
 #ifdef RATS_SEARCH_FEATURES
@@ -64,6 +65,7 @@ public:
     TorrentDatabase* database = nullptr;
     P2PNetwork* p2p = nullptr;
     TorrentClient* torrentClient = nullptr;
+    TorrentSpider* spider = nullptr;
     ConfigManager* config = nullptr;
     
     std::unique_ptr<FeedManager> feedManager;
@@ -348,6 +350,11 @@ void RatsAPI::initialize(TorrentDatabase* database,
     
     d->ready = true;
     qInfo() << "RatsAPI initialized";
+}
+
+void RatsAPI::setSpider(TorrentSpider* spider)
+{
+    d->spider = spider;
 }
 
 // ============================================================================
@@ -1404,6 +1411,21 @@ P2PStoreManager* RatsAPI::p2pStore() const
 TorrentClient* RatsAPI::getTorrentClient() const
 {
     return d->torrentClient;
+}
+
+P2PNetwork* RatsAPI::getP2PNetwork() const
+{
+    return d->p2p;
+}
+
+TorrentDatabase* RatsAPI::getDatabase() const
+{
+    return d->database;
+}
+
+TorrentSpider* RatsAPI::getSpider() const
+{
+    return d->spider;
 }
 
 void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)

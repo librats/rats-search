@@ -14,6 +14,7 @@
 // Forward declarations
 class P2PNetwork;
 class TorrentClient;
+class TorrentSpider;
 class ConfigManager;
 class FeedManager;
 class P2PStoreManager;
@@ -115,6 +116,11 @@ public:
                    P2PNetwork* p2p,
                    TorrentClient* torrentClient,
                    ConfigManager* config);
+    
+    /**
+     * @brief Set the torrent spider (optional, for metrics)
+     */
+    void setSpider(TorrentSpider* spider);
     
     /**
      * @brief Check if API is ready
@@ -323,6 +329,21 @@ public:
      * @brief Get the torrent client for downloads
      */
     TorrentClient* getTorrentClient() const;
+    
+    /**
+     * @brief Get the P2P network instance
+     */
+    P2PNetwork* getP2PNetwork() const;
+    
+    /**
+     * @brief Get the torrent database
+     */
+    TorrentDatabase* getDatabase() const;
+    
+    /**
+     * @brief Get the torrent spider
+     */
+    TorrentSpider* getSpider() const;
     
     /**
      * @brief Check/update tracker info for a torrent
