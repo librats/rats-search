@@ -656,6 +656,7 @@ void MainWindow::initializeServicesDeferred()
     // All P2P API logic is centralized in RatsAPI (like legacy api.js)
     qint64 apiStart = timer.elapsed();
     api->initialize(torrentDatabase.get(), p2pNetwork.get(), torrentClient.get(), config.get());
+    api->setSpider(torrentSpider.get());
     qInfo() << "RatsAPI initialize took:" << (timer.elapsed() - apiStart) << "ms";
     
     // Connect RatsAPI remote search results to UI

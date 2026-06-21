@@ -202,6 +202,7 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     // Create RatsAPI
     RatsAPI api;
     api.initialize(&database, &p2p, nullptr, &config);
+    api.setSpider(&spider);
     
     // Update P2P network with our database stats (like GUI mode does in initializeServicesDeferred)
     {
