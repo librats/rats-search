@@ -19,6 +19,15 @@ add_library(rats_testable STATIC
     ${SRC_DIR}/contentdetector.cpp
     ${SRC_DIR}/api/updatemanager.cpp
     ${SRC_DIR}/api/configmanager.cpp
+    ${SRC_DIR}/api/apiserver.cpp
+    ${SRC_DIR}/api/ratsapi.cpp
+    ${SRC_DIR}/api/feedmanager.cpp
+    ${SRC_DIR}/api/p2pstoremanager.cpp
+    ${SRC_DIR}/api/trackerwrapper.cpp
+    ${SRC_DIR}/api/trackerinfoscraper.cpp
+    ${SRC_DIR}/p2pnetwork.cpp
+    ${SRC_DIR}/torrentclient.cpp
+    ${SRC_DIR}/torrentspider.cpp
 )
 target_include_directories(rats_testable PUBLIC ${SRC_DIR} ${CMAKE_BINARY_DIR})
 target_link_libraries(rats_testable PUBLIC
@@ -28,12 +37,13 @@ target_link_libraries(rats_testable PUBLIC
     Qt6::Sql
     Qt6::Concurrent
     Qt6::Network
+    Qt6::WebSockets
 )
 
 # Helper function to add a test with minimal boilerplate
 function(add_rats_test TEST_NAME)
     add_executable(${TEST_NAME} ${TEST_NAME}.cpp)
-    target_link_libraries(${TEST_NAME} PRIVATE Qt6::Test rats_testable)
+    target_link_libraries(${TEST_NAME} PRIVATE Qt6::Test Qt6::WebSockets rats_testable)
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()
 
@@ -47,6 +57,9 @@ add_rats_test(test_contentdetector)
 
 # Integration test: starts real Manticore and verifies all query patterns
 add_rats_test(test_manticore_queries)
+
+# API endpoint tests
+add_rats_test(test_metrics_endpoint)
 
 # Copy libmysql.dll next to test executables so the QMYSQL driver can load
 if(WIN32)
@@ -64,7 +77,7 @@ endif()
 # Custom target to run all tests
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector test_manticore_queries
+    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector test_manticore_queries test_metrics_endpoint
     COMMENT "Running all tests..."
 )
 
