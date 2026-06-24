@@ -1,30 +1,60 @@
 #include "p2pnetwork.h"
-#include "librats.h"
+
+// librats' EventBus exposes a method named emit(), which collides with Qt's
+// `emit` keyword macro. Neutralise the macro across all librats includes, then
+// restore it so rats-search's own `emit signal` statements keep working.
+#pragma push_macro("emit")
+#undef emit
+#include "node/node.h"
+#include "peer/peer.h"
+#include "peer/peer_id.h"
+#include "core/address.h"
+#include "core/bytes.h"
+#include "util/json.h"
+#include "subsystems/dht_discovery.h"
+#include "subsystems/mdns_discovery.h"
+#include "subsystems/pubsub.h"
+#include "subsystems/message_json.h"
+#include "subsystems/port_mapping_service.h"
+#include "subsystems/reconnection.h"
+#include "dht/dht.h"
+#ifdef RATS_SEARCH_FEATURES
+#include "subsystems/bittorrent.h"
+#endif
+#ifdef RATS_STORAGE
+#include "storage/storage.h"
+#endif
+#pragma pop_macro("emit")
+
 #include <QTimer>
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDateTime>
 #include <QMutexLocker>
-#include <QNetworkAccessManager>
-#include <QNetworkRequest>
-#include <QNetworkReply>
 
-// Helper: Convert nlohmann::json to QJsonObject
-static QJsonObject nlohmannToQt(const nlohmann::json& j) {
-    if (j.is_null() || !j.is_object()) {
+// Helper: Convert librats::Json to QJsonObject (via compact text round-trip).
+static QJsonObject libratsJsonToQt(const librats::Json& j)
+{
+    if (!j.is_object()) {
         return QJsonObject();
     }
-    QString jsonStr = QString::fromStdString(j.dump());
-    QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+    const std::string s = j.dump();
+    QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(s));
     return doc.object();
 }
 
-// Helper: Convert QJsonObject to nlohmann::json
-static nlohmann::json qtToNlohmann(const QJsonObject& obj) {
-    QJsonDocument doc(obj);
-    std::string jsonStr = doc.toJson(QJsonDocument::Compact).toStdString();
-    return nlohmann::json::parse(jsonStr);
+// Helper: Convert QJsonObject to librats::Json (via compact text round-trip).
+static librats::Json qtToLibratsJson(const QJsonObject& obj)
+{
+    const QByteArray bytes = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+    librats::Json j = librats::Json::parse(std::string(bytes.constData(),
+                                                       static_cast<size_t>(bytes.size())),
+                                           nullptr, /*allow_exceptions=*/false);
+    if (j.is_discarded()) {
+        return librats::Json::object();
+}
+    return j;
 }
 
 P2PNetwork::P2PNetwork(int port, int dhtPort, const QString& dataDirectory, int maxPeers, QObject *parent)
@@ -54,67 +84,103 @@ bool P2PNetwork::start()
     try {
         qInfo() << "Starting P2P network on port" << port_;
         
-        // Create librats client with configured max peers
-        ratsClient_ = std::make_unique<librats::RatsClient>(port_, maxPeers_);
+        // --- Build the node configuration ---------------------------------
+        librats::NodeConfig config;
+        config.listen_port = static_cast<uint16_t>(port_);
+        config.max_peers   = maxPeers_ > 0 ? static_cast<size_t>(maxPeers_) : 0;
+        // Protocol identity is bound into the Noise handshake AND namespaces DHT
+        // discovery. Keep it version-less so peers across patch releases meet.
+        config.protocol    = "rats-search";
+        config.data_dir    = dataDirectory_.toStdString();
+        config.security    = librats::NodeConfig::Security::Noise;
 
-        // Set protocol name for rats-search
-        ratsClient_->set_protocol_name("rats-search");
-        ratsClient_->set_protocol_version("2.0.1");
+        node_ = std::make_unique<librats::Node>(std::move(config));
 
-        // Set data directory
-        std::string dataDir = dataDirectory_.toStdString();
-        ratsClient_->set_data_directory(dataDir);
-
-        // Enable storage
-        ratsClient_->get_storage_manager();
-        
-        // Load configuration
-        ratsClient_->load_configuration();
-
-        // Improtant to call initialize_encryption after loading configuration
-        // Enable encryption for rats peers
-        ratsClient_->initialize_encryption(true);
-
-        // Apply automatic NAT port forwarding preference (UPnP + NAT-PMP).
-        // librats starts the backends automatically during start() below.
-        ratsClient_->set_port_mapping_enabled(portMappingEnabled_);
-
-        // Setup librats callbacks
+        // Peer connect/disconnect callbacks MUST be registered before start().
         setupLibratsCallbacks();
+
+        // --- Attach subsystems (all BEFORE node_->start()) ----------------
         
-        // Start the client
-        if (!ratsClient_->start()) {
-            qWarning() << "Failed to start librats client";
+        // DHT discovery (shared by the BitTorrent subsystem and the spider).
+        {
+            librats::DhtDiscovery::Config dhtCfg;
+            dhtCfg.dht_port = static_cast<uint16_t>(dhtPort_);
+            dhtCfg.data_dir = dataDirectory_.toStdString();
+            dht_ = node_->add_subsystem(std::make_unique<librats::DhtDiscovery>(std::move(dhtCfg)));
+        }
+
+        // Local-network discovery.
+        mdns_ = node_->add_subsystem(std::make_unique<librats::MdnsDiscovery>());
+
+        // Pub/sub (GossipSub) for search/announcement dissemination.
+        pubsub_ = node_->add_subsystem(std::make_unique<librats::PubSub>());
+
+        // Typed JSON messaging (the old RatsClient on()/send() surface).
+        messages_ = node_->add_subsystem(std::make_unique<librats::MessageJson>());
+        
+        // Automatic NAT port forwarding (UPnP + NAT-PMP), gated by preference.
+        if (portMappingEnabled_) {
+            librats::PortMappingConfig pmCfg;
+            pmCfg.enabled       = true;
+            pmCfg.enable_upnp   = true;
+            pmCfg.enable_natpmp = true;
+            portMapping_ = node_->add_subsystem(std::make_unique<librats::PortMappingService>(pmCfg));
+        }
+        
+        // Remember + re-dial known peers across restarts.
+        {
+            librats::ReconnectionService::Config rc;
+            if (!dataDirectory_.isEmpty()) {
+                rc.store_path = (dataDirectory_ + "/peers.json").toStdString();
+        }
+            reconnect_ = node_->add_subsystem(std::make_unique<librats::ReconnectionService>(rc));
+        }
+        
+#ifdef RATS_STORAGE
+        // Distributed key/value store (used by the voting system).
+        {
+            librats::StorageConfig sc;
+            sc.data_directory = (dataDirectory_ + "/storage").toStdString();
+            storage_ = node_->add_subsystem(std::make_unique<librats::StorageManager>(sc));
+        }
+#endif
+        
+#ifdef RATS_SEARCH_FEATURES
+        // BitTorrent (downloads + DHT spider). Attached after DhtDiscovery so it
+        // borrows the same Kademlia swarm. Always available.
+        {
+            librats::Bittorrent::Config btCfg;
+            btCfg.client.download_path = dataDirectory_.toStdString();
+            btCfg.client.listen_port   = static_cast<uint16_t>(dhtPort_);
+            btCfg.use_node_dht         = true;
+            bittorrent_ = node_->add_subsystem(std::make_unique<librats::Bittorrent>(std::move(btCfg)));
+        }
+#endif
+
+        // --- Bring the node (and all subsystems) up -----------------------
+        if (!node_->start()) {
+            qWarning() << "Failed to start librats node";
             emit error("Failed to start P2P network");
+            node_.reset();
+            dht_ = nullptr; mdns_ = nullptr; pubsub_ = nullptr; messages_ = nullptr;
+            portMapping_ = nullptr; reconnect_ = nullptr; storage_ = nullptr; bittorrent_ = nullptr;
             return false;
         }
+
+        bitTorrentEnabled_ = (bittorrent_ != nullptr);
+
+        // Post-start wiring: topic subscriptions + message dispatchers.
+        setupGossipSub();
+        setupClientInfoHandler();
+        for (auto it = messageHandlers_.begin(); it != messageHandlers_.end(); ++it) {
+            registerDispatcher(it.key());
+        }
         
-        // Start DHT discovery on specified port
-        if (ratsClient_->start_dht_discovery(dhtPort_)) {
+        if (dht_ && dht_->is_running()) {
             qInfo() << "DHT discovery started on port" << dhtPort_;
         } else {
-            qWarning() << "Failed to start DHT discovery";
+            qWarning() << "DHT discovery not running";
         }
-        
-        // Start mDNS discovery for local network
-        if (ratsClient_->start_mdns_discovery("rats-search")) {
-            qInfo() << "mDNS discovery started successfully";
-        } else {
-            qWarning() << "Failed to start mDNS discovery";
-        }
-        
-        // Configure STUN servers for NAT traversal. librats probes STUN itself at the start of
-        // its discovery loop and feeds the result into the DHT (external IP + BEP 42 node ID),
-        // so we only register the servers here — no separate probe whose result we'd discard.
-        ratsClient_->add_stun_server("stun.l.google.com", 19302);
-        ratsClient_->add_stun_server("stun1.l.google.com", 19302);
-
-        // Setup GossipSub topics
-        setupGossipSub();
-        
-        // Try to reconnect to known peers
-        int reconnectAttempts = ratsClient_->load_and_reconnect_peers();
-        qInfo() << "Attempted to reconnect to" << reconnectAttempts << "previous peers";
         
         running_ = true;
         updateTimer_->start(1000);  // Update every second
@@ -123,7 +189,7 @@ bool P2PNetwork::start()
         emit statusChanged("Started");
         
         qInfo() << "P2P network started successfully";
-        qInfo() << "Our peer ID:" << QString::fromStdString(ratsClient_->get_our_peer_id());
+        qInfo() << "Our peer ID:" << getOurPeerId();
         
         return true;
         
@@ -136,12 +202,10 @@ bool P2PNetwork::start()
 
 void P2PNetwork::setPortMappingEnabled(bool enabled)
 {
+    // Subsystems are attached before start(), so this only takes effect on the
+    // next P2P (re)start. We just record the preference here.
     portMappingEnabled_ = enabled;
-    // If the client is already running, apply the change live.
-    if (running_ && ratsClient_) {
-        ratsClient_->set_port_mapping_enabled(enabled);
     }
-}
 
 void P2PNetwork::stop()
 {
@@ -153,20 +217,17 @@ void P2PNetwork::stop()
     
     updateTimer_->stop();
     
-    if (ratsClient_) {
-        // Save configuration and peers
-        ratsClient_->save_configuration();
-        ratsClient_->save_historical_peers();
-        
-        // Stop DHT and mDNS
-        ratsClient_->stop_dht_discovery();
-        ratsClient_->stop_mdns_discovery();
-        
-        // Stop the client
-        ratsClient_->stop();
-        ratsClient_.reset();
+    if (node_) {
+        // ReconnectionService persists the peer book; identity persists via data_dir.
+        node_->stop();
+        node_.reset();
     }
-    
+        
+    dht_ = nullptr; mdns_ = nullptr; pubsub_ = nullptr; messages_ = nullptr;
+    portMapping_ = nullptr; reconnect_ = nullptr; storage_ = nullptr; bittorrent_ = nullptr;
+    registeredDispatchers_.clear();
+    bitTorrentEnabled_ = false;
+        
     running_ = false;
     emit stopped();
     emit statusChanged("Stopped");
@@ -176,45 +237,43 @@ void P2PNetwork::stop()
 
 bool P2PNetwork::isRunning() const
 {
-    return running_ && ratsClient_ && ratsClient_->is_running();
+    return running_ && node_ != nullptr;
 }
 
 bool P2PNetwork::isConnected() const
 {
-    return isRunning() && ratsClient_ && ratsClient_->get_peer_count() > 0;
+    return isRunning() && getPeerCount() > 0;
 }
 
 int P2PNetwork::getPeerCount() const
 {
-    if (!ratsClient_) {
+    if (!node_) {
         return 0;
     }
-    return ratsClient_->get_peer_count();
+    return static_cast<int>(node_->peer_count());
 }
 
 QString P2PNetwork::getOurPeerId() const
 {
-    if (!ratsClient_) {
+    if (!node_) {
         return QString();
     }
-    return QString::fromStdString(ratsClient_->get_our_peer_id());
+    return QString::fromStdString(node_->local_id().to_hex());
 }
 
 size_t P2PNetwork::getDhtNodeCount() const
 {
-    if (!ratsClient_) {
+    if (!dht_) {
         return 0;
     }
-    return ratsClient_->get_dht_routing_table_size();
+    librats::DhtClient* client = dht_->dht_client();
+    return client ? client->get_routing_table_size() : 0;
 }
 
 bool P2PNetwork::isDhtRunning() const
 {
-    if (!ratsClient_) {
-        return false;
+    return dht_ && dht_->is_running();
     }
-    return ratsClient_->is_dht_running();
-}
 
 QHash<QString, PeerInfo> P2PNetwork::getConnectedPeersInfo() const
 {
@@ -241,8 +300,8 @@ qint64 P2PNetwork::getRemoteTorrentsCount() const
 void P2PNetwork::setMaxPeers(int maxPeers)
 {
     maxPeers_ = maxPeers;
-    if (ratsClient_) {
-        ratsClient_->set_max_peers(maxPeers);
+    if (node_) {
+        node_->set_max_peers(maxPeers > 0 ? static_cast<size_t>(maxPeers) : 0);
         qInfo() << "P2P max peers updated to" << maxPeers;
     }
 }
@@ -266,36 +325,46 @@ void P2PNetwork::updateOurStats(qint64 torrents, qint64 files, qint64 totalSize)
 
 bool P2PNetwork::sendMessage(const QString& peerId, const QString& messageType, const QJsonObject& data)
 {
-    if (!isRunning()) {
+    if (!isRunning() || !messages_) {
         qWarning() << "Cannot send message: P2P network not running";
         return false;
     }
     
-    nlohmann::json jsonData = qtToNlohmann(data);
-    ratsClient_->send(peerId.toStdString(), messageType.toStdString(), jsonData);
+    auto id = librats::PeerId::from_hex(peerId.toStdString());
+    if (!id) {
+        qWarning() << "Cannot send message: invalid peer id" << peerId.left(8);
+        return false;
+    }
+
+    librats::Json jsonData = qtToLibratsJson(data);
+    messages_->send(*id, messageType.toStdString(), jsonData);
     return true;
 }
 
 int P2PNetwork::broadcastMessage(const QString& messageType, const QJsonObject& data)
 {
-    if (!isRunning()) {
+    if (!isRunning() || !messages_) {
         qWarning() << "Cannot broadcast: P2P network not running";
         return 0;
     }
     
-    nlohmann::json jsonData = qtToNlohmann(data);
-    ratsClient_->send(messageType.toStdString(), jsonData);
+    librats::Json jsonData = qtToLibratsJson(data);
+    messages_->send(messageType.toStdString(), jsonData);
     return getPeerCount();  // Approximate count
 }
 
 bool P2PNetwork::publishToTopic(const QString& topic, const QJsonObject& data)
 {
-    if (!isRunning()) {
+    if (!isRunning() || !pubsub_) {
         return false;
     }
     
-    nlohmann::json jsonData = qtToNlohmann(data);
-    return ratsClient_->publish_json_to_topic(topic.toStdString(), jsonData);
+    librats::Json jsonData = qtToLibratsJson(data);
+    const std::string payload = jsonData.dump();
+    pubsub_->publish(topic.toStdString(),
+                     librats::ByteView(reinterpret_cast<const uint8_t*>(payload.data()),
+                                       payload.size()));
+    return true;
 }
 
 void P2PNetwork::searchTorrents(const QString& query)
@@ -344,29 +413,13 @@ void P2PNetwork::announceTorrent(const QString& infoHash, const QString& name)
 
 void P2PNetwork::registerMessageHandler(const QString& messageType, MessageHandler handler)
 {
-    if (!ratsClient_) {
-        // Store handler for later registration when client starts
         messageHandlers_[messageType] = handler;
-        return;
-    }
     
-    messageHandlers_[messageType] = handler;
-    
-    // Register with librats
-    ratsClient_->on(messageType.toStdString(), 
-        [this, messageType](const std::string& peer_id, const nlohmann::json& data) {
-            QString peerId = QString::fromStdString(peer_id);
-            QJsonObject jsonData = nlohmannToQt(data);
-            
-            // Call registered handler
-            auto it = messageHandlers_.find(messageType);
-            if (it != messageHandlers_.end() && it.value()) {
-                it.value()(peerId, jsonData);
-            } else {
-                // Emit signal for unhandled messages
-                emit messageReceived(peerId, messageType, jsonData);
+    // If the node is already up, wire the dispatcher immediately; otherwise it
+    // will be registered in start() once MessageJson is attached.
+    if (messages_) {
+        registerDispatcher(messageType);
             }
-        });
     
     qInfo() << "Registered P2P message handler for:" << messageType;
 }
@@ -375,8 +428,34 @@ void P2PNetwork::unregisterMessageHandler(const QString& messageType)
 {
     messageHandlers_.remove(messageType);
     
-    if (ratsClient_) {
-        ratsClient_->off(messageType.toStdString());
+    if (messages_) {
+        messages_->off(messageType.toStdString());
+    }
+    registeredDispatchers_.remove(messageType);
+}
+
+void P2PNetwork::registerDispatcher(const QString& messageType)
+{
+    if (!messages_ || registeredDispatchers_.contains(messageType)) {
+        return;
+    }
+    registeredDispatchers_.insert(messageType);
+
+    messages_->on(messageType.toStdString(),
+        [this, messageType](const librats::PeerId& from, const librats::Json& data) {
+            QString peerId = QString::fromStdString(from.to_hex());
+            QJsonObject jsonData = libratsJsonToQt(data);
+            dispatchMessage(peerId, messageType, jsonData);
+        });
+}
+
+void P2PNetwork::dispatchMessage(const QString& peerId, const QString& messageType, const QJsonObject& data)
+{
+    auto it = messageHandlers_.find(messageType);
+    if (it != messageHandlers_.end() && it.value()) {
+        it.value()(peerId, data);
+    } else {
+        emit messageReceived(peerId, messageType, data);
     }
 }
 
@@ -386,27 +465,25 @@ void P2PNetwork::unregisterMessageHandler(const QString& messageType)
 
 void P2PNetwork::setupLibratsCallbacks()
 {
-    if (!ratsClient_) {
+    if (!node_) {
         return;
     }
     
-    // Connection callback - send our client info
-    ratsClient_->set_connection_callback([this](socket_t socket, const std::string& peer_id) {
-        Q_UNUSED(socket);
-        QString peerId = QString::fromStdString(peer_id);
+    // Connection callback - send our client info. Runs on a reactor thread.
+    node_->on_peer_connected([this](const librats::Peer& peer) {
+        QString peerId = QString::fromStdString(peer.id().to_hex());
         qInfo() << "Peer connected:" << peerId.left(8);
         
         emit peerConnected(peerId);
-        emit peerCountChanged(ratsClient_->get_peer_count());
+        emit peerCountChanged(getPeerCount());
         
         // Send our client info to the new peer
         sendClientInfo(peerId);
     });
     
-    // Disconnection callback - remove peer info
-    ratsClient_->set_disconnect_callback([this](socket_t socket, const std::string& peer_id) {
-        Q_UNUSED(socket);
-        QString peerId = QString::fromStdString(peer_id);
+    // Disconnection callback - remove peer info. Runs on a reactor thread.
+    node_->on_peer_disconnected([this](const librats::PeerId& id) {
+        QString peerId = QString::fromStdString(id.to_hex());
         qInfo() << "Peer disconnected:" << peerId.left(8);
         
         {
@@ -415,55 +492,35 @@ void P2PNetwork::setupLibratsCallbacks()
         }
         
         emit peerDisconnected(peerId);
-        emit peerCountChanged(ratsClient_->get_peer_count());
+        emit peerCountChanged(getPeerCount());
     });
-    
-    // Setup client info handler
-    setupClientInfoHandler();
-    
-    // Re-register any handlers that were added before start()
-    for (auto it = messageHandlers_.begin(); it != messageHandlers_.end(); ++it) {
-        const QString& messageType = it.key();
-        ratsClient_->on(messageType.toStdString(),
-            [this, messageType](const std::string& peer_id, const nlohmann::json& data) {
-                QString peerId = QString::fromStdString(peer_id);
-                QJsonObject jsonData = nlohmannToQt(data);
-                
-                auto handler = messageHandlers_.find(messageType);
-                if (handler != messageHandlers_.end() && handler.value()) {
-                    handler.value()(peerId, jsonData);
-                } else {
-                    emit messageReceived(peerId, messageType, jsonData);
                 }
-            });
-    }
-}
 
 void P2PNetwork::setupGossipSub()
 {
-    if (!ratsClient_ || !ratsClient_->is_gossipsub_available()) {
+    if (!pubsub_) {
         qWarning() << "GossipSub not available";
         return;
     }
     
-    // Subscribe to rats-search topic
-    if (ratsClient_->subscribe_to_topic("rats-search")) {
-        qInfo() << "Subscribed to rats-search topic";
+    auto handler = [this](const librats::PeerId& from, const std::string& topic,
+                          librats::ByteView data) {
+        QString peerId = QString::fromStdString(from.to_hex());
+        std::string s(reinterpret_cast<const char*>(data.data()), data.size());
+        librats::Json j = librats::Json::parse(s, nullptr, /*allow_exceptions=*/false);
+        QJsonObject jsonData = j.is_discarded() ? QJsonObject() : libratsJsonToQt(j);
+        dispatchMessage(peerId, QString::fromStdString(topic), jsonData);
+    };
+    
+    pubsub_->subscribe("rats-search", handler);
+    pubsub_->subscribe("rats-announcements", handler);
+    qInfo() << "Subscribed to rats-search and rats-announcements topics";
     }
     
-    // Subscribe to rats-announcements topic
-    if (ratsClient_->subscribe_to_topic("rats-announcements")) {
-        qInfo() << "Subscribed to rats-announcements topic";
-    }
-    
-    // GossipSub messages are forwarded via messageReceived signal
-    // RatsAPI can register handlers for specific topics
-}
-
 void P2PNetwork::updatePeerCount()
 {
-    if (ratsClient_) {
-        int count = ratsClient_->get_peer_count();
+    if (node_) {
+        int count = getPeerCount();
         static int lastCount = -1;
         if (count != lastCount) {
             emit peerCountChanged(count);
@@ -478,29 +535,15 @@ void P2PNetwork::updatePeerCount()
 
 bool P2PNetwork::isBitTorrentEnabled() const
 {
-    return bitTorrentEnabled_;
+    return bitTorrentEnabled_ && bittorrent_ != nullptr;
 }
 
 bool P2PNetwork::enableBitTorrent()
 {
 #ifdef RATS_SEARCH_FEATURES
-    if (!ratsClient_) {
-        qWarning() << "Cannot enable BitTorrent: RatsClient not started";
-        return false;
-    }
-    
-    if (bitTorrentEnabled_) {
-        return true;
-    }
-    
-    if (ratsClient_->enable_bittorrent(dhtPort_)) {
-        bitTorrentEnabled_ = true;
-        qInfo() << "BitTorrent enabled on port" << dhtPort_;
-        return true;
-    } else {
-        qWarning() << "Failed to enable BitTorrent";
-        return false;
-    }
+    // BitTorrent is attached unconditionally in start(); nothing to toggle. If the
+    // node is already up it is available, otherwise it will be once start() runs.
+    return running_ ? (bittorrent_ != nullptr) : true;
 #else
     qWarning() << "BitTorrent features not compiled in";
     return false;
@@ -509,20 +552,15 @@ bool P2PNetwork::enableBitTorrent()
 
 void P2PNetwork::disableBitTorrent()
 {
-#ifdef RATS_SEARCH_FEATURES
-    if (ratsClient_ && bitTorrentEnabled_) {
-        ratsClient_->disable_bittorrent();
-        bitTorrentEnabled_ = false;
-        qInfo() << "BitTorrent disabled";
+    // BitTorrent is a permanently-attached subsystem now; disabling at runtime is
+    // not supported by the new core. No-op.
     }
-#endif
-}
 
 void P2PNetwork::setResumeDataPath(const QString& path)
 {
 #ifdef RATS_SEARCH_FEATURES
-    if (ratsClient_ && bitTorrentEnabled_) {
-        ratsClient_->set_resume_data_path(path.toStdString());
+    if (bittorrent_ && bittorrent_->client()) {
+        bittorrent_->client()->set_resume_data_path(path.toStdString());
         qInfo() << "Resume data path set to:" << path;
     }
 #else
@@ -532,7 +570,7 @@ void P2PNetwork::setResumeDataPath(const QString& path)
 
 bool P2PNetwork::connectToPeer(const QString& address)
 {
-    if (!ratsClient_ || address.isEmpty()) {
+    if (!node_ || address.isEmpty()) {
         return false;
     }
     
@@ -560,30 +598,27 @@ bool P2PNetwork::connectToPeer(const QString& address)
         return false;
     }
     
-    // Use librats connect_to_peer method
-    std::string hostStr = host.toStdString();
-    if (ratsClient_->connect_to_peer(hostStr, port)) {
-        qInfo() << "Connected to bootstrap peer:" << address.left(30);
+    // Non-blocking dial; the connection surfaces via on_peer_connected.
+    node_->connect(host.toStdString(), static_cast<uint16_t>(port));
+    qInfo() << "Dialing bootstrap peer:" << address.left(30);
         return true;
     }
     
-    return false;
-}
-
 // =========================================================================
 // Client Info Exchange
 // =========================================================================
 
 void P2PNetwork::setupClientInfoHandler()
 {
-    if (!ratsClient_) {
+    if (!messages_ || registeredDispatchers_.contains("client_info")) {
         return;
     }
+    registeredDispatchers_.insert("client_info");
     
-    ratsClient_->on("client_info",
-        [this](const std::string& peer_id, const nlohmann::json& data) {
-            QString peerId = QString::fromStdString(peer_id);
-            QJsonObject jsonData = nlohmannToQt(data);
+    messages_->on("client_info",
+        [this](const librats::PeerId& from, const librats::Json& data) {
+            QString peerId = QString::fromStdString(from.to_hex());
+            QJsonObject jsonData = libratsJsonToQt(data);
             handleClientInfo(peerId, jsonData);
         });
 }

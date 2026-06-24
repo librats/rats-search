@@ -10,11 +10,15 @@
 #include "../torrentclient.h"
 
 // librats for torrent parsing and DHT metadata lookup
+// Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
+#pragma push_macro("emit")
+#undef emit
 #ifdef RATS_SEARCH_FEATURES
-#include "../librats/src/bittorrent.h"
-#include "../librats/src/librats.h"
-#include "../librats/src/bt_create_torrent.h"
+#include "subsystems/bittorrent.h"
+#include "bittorrent/bt_torrent_info.h"
+#include "bittorrent/bt_create_torrent.h"
 #endif
+#pragma pop_macro("emit")
 
 #include <QDebug>
 #include <QtConcurrent>
@@ -733,12 +737,12 @@ void RatsAPI::searchTorrents(const QString& text,
         if (isHash && results.isEmpty()) {
 #ifdef RATS_SEARCH_FEATURES
             if (d->p2p && d->p2p->isBitTorrentEnabled()) {
-                auto* client = d->p2p->getRatsClient();
-                if (client && client->is_bittorrent_enabled()) {
+                auto* bt = d->p2p->bittorrent();
+                if (bt && bt->is_running()) {
                     QString hash = opts.query.toLower();
                     qInfo() << "Search: Hash" << hash.left(8) << "not in DB, trying DHT lookup...";
-                    
-                    client->get_torrent_metadata(hash.toStdString(),
+
+                    bt->get_torrent_metadata(hash.toStdString(),
                         [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
                             if (success && libratsTorrent.is_valid()) {
                                 qInfo() << "DHT search lookup succeeded for" << hash.left(8);
@@ -884,12 +888,12 @@ void RatsAPI::getTorrent(const QString& hash,
             // Torrent not in database - try DHT metadata lookup (like legacy api.js:346-373)
 #ifdef RATS_SEARCH_FEATURES
             if (d->p2p && d->p2p->isBitTorrentEnabled()) {
-                auto* client = d->p2p->getRatsClient();
-                if (client && client->is_bittorrent_enabled()) {
+                auto* bt = d->p2p->bittorrent();
+                if (bt && bt->is_running()) {
                     qInfo() << "DHT: Looking up metadata for" << hash.left(16);
-                    
+
                     // Use get_torrent_metadata to fetch via DHT/BEP9
-                    client->get_torrent_metadata(hash.toStdString(),
+                    bt->get_torrent_metadata(hash.toStdString(),
                         [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
                             if (success && libratsTorrent.is_valid()) {
                                 qInfo() << "DHT: Metadata received for" << hash.left(16) 

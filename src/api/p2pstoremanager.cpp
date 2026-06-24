@@ -8,8 +8,15 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
-// Include librats headers
-#include "librats.h"
+// Include librats headers. Neutralise Qt's `emit` macro across them
+// (librats' EventBus::emit collides with the Qt keyword macro).
+#pragma push_macro("emit")
+#undef emit
+#ifdef RATS_STORAGE
+#include "storage/storage.h"
+#include "util/json.h"
+#endif
+#pragma pop_macro("emit")
 
 // ============================================================================
 // Constructor / Destructor
@@ -34,12 +41,8 @@ P2PStoreManager::~P2PStoreManager()
 
 bool P2PStoreManager::isAvailable() const
 {
-    if (!p2p_ || !p2p_->getRatsClient()) {
-        return false;
-    }
-    
 #ifdef RATS_STORAGE
-    return p2p_->getRatsClient()->is_storage_available();
+    return p2p_ && p2p_->storage() != nullptr;
 #else
     return false;
 #endif
@@ -47,12 +50,11 @@ bool P2PStoreManager::isAvailable() const
 
 bool P2PStoreManager::isSynchronized() const
 {
+#ifdef RATS_STORAGE
     if (!isAvailable()) {
         return false;
     }
-    
-#ifdef RATS_STORAGE
-    return p2p_->getRatsClient()->is_storage_synced();
+    return p2p_->storage()->is_synced();
 #else
     return false;
 #endif
@@ -60,10 +62,10 @@ bool P2PStoreManager::isSynchronized() const
 
 QString P2PStoreManager::ourPeerId() const
 {
-    if (!p2p_ || !p2p_->getRatsClient()) {
+    if (!p2p_) {
         return QString();
     }
-    return QString::fromStdString(p2p_->getRatsClient()->get_our_peer_id());
+    return p2p_->getOurPeerId();
 }
 
 // ============================================================================
@@ -83,33 +85,33 @@ bool P2PStoreManager::store(const QJsonObject& obj)
         return false;
     }
     
-    auto* client = p2p_->getRatsClient();
-    
+    auto* storage = p2p_->storage();
+
     // Get type and index
     QString type = obj["type"].toString();
     QString index = obj["_index"].toString();
-    
+
     if (type.isEmpty()) {
         qWarning() << "P2PStoreManager: Object must have 'type' field";
         return false;
     }
-    
+
     // Generate unique key
     QString key = generateKey(type, index);
-    
-    // Convert to nlohmann::json
+
+    // Convert to librats::Json
     QJsonDocument doc(obj);
     std::string jsonStr = doc.toJson(QJsonDocument::Compact).toStdString();
-    
+
     try {
-        nlohmann::json data = nlohmann::json::parse(jsonStr);
-        
+        librats::Json data = librats::Json::parse(jsonStr);
+
         // Add metadata
         data["_key"] = key.toStdString();
-        data["_peerId"] = client->get_our_peer_id();
-        data["_timestamp"] = QDateTime::currentMSecsSinceEpoch();
-        
-        bool result = client->storage_put_json(key.toStdString(), data);
+        data["_peerId"] = ourPeerId().toStdString();
+        data["_timestamp"] = static_cast<int64_t>(QDateTime::currentMSecsSinceEpoch());
+
+        bool result = storage->put_json(key.toStdString(), data);
         
         if (result) {
             qDebug() << "P2PStoreManager: Stored record with key:" << key;
@@ -146,13 +148,13 @@ QList<StoredRecord> P2PStoreManager::find(const QString& indexPrefix) const
         return results;
     }
     
-    auto* client = p2p_->getRatsClient();
-    
+    auto* storage = p2p_->storage();
+
     // Get all keys with the index prefix
-    std::vector<std::string> keys = client->storage_keys_with_prefix(indexPrefix.toStdString());
-    
+    std::vector<std::string> keys = storage->keys_with_prefix(indexPrefix.toStdString());
+
     for (const auto& key : keys) {
-        auto jsonOpt = client->storage_get_json(key);
+        auto jsonOpt = storage->get_json(key);
         if (jsonOpt) {
             try {
                 StoredRecord record;
@@ -161,7 +163,7 @@ QList<StoredRecord> P2PStoreManager::find(const QString& indexPrefix) const
                 record.peerId = QString::fromStdString((*jsonOpt).value("_peerId", ""));
                 record.timestamp = (*jsonOpt).value("_timestamp", 0LL);
                 
-                // Convert nlohmann::json to QJsonObject
+                // Convert librats::Json to QJsonObject
                 std::string jsonStr = jsonOpt->dump();
                 QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(jsonStr));
                 record.data = doc.object();
@@ -186,9 +188,9 @@ QJsonObject P2PStoreManager::get(const QString& key) const
         return QJsonObject();
     }
     
-    auto* client = p2p_->getRatsClient();
-    auto jsonOpt = client->storage_get_json(key.toStdString());
-    
+    auto* storage = p2p_->storage();
+    auto jsonOpt = storage->get_json(key.toStdString());
+
     if (jsonOpt) {
         try {
             std::string jsonStr = jsonOpt->dump();
@@ -211,7 +213,7 @@ bool P2PStoreManager::has(const QString& key) const
     if (!isAvailable()) {
         return false;
     }
-    return p2p_->getRatsClient()->storage_has(key.toStdString());
+    return p2p_->storage()->has(key.toStdString());
 #else
     Q_UNUSED(key);
     return false;
@@ -224,7 +226,7 @@ bool P2PStoreManager::remove(const QString& key)
     if (!isAvailable()) {
         return false;
     }
-    return p2p_->getRatsClient()->storage_delete(key.toStdString());
+    return p2p_->storage()->remove(key.toStdString());
 #else
     Q_UNUSED(key);
     return false;
@@ -240,7 +242,7 @@ QStringList P2PStoreManager::keysWithPrefix(const QString& prefix) const
         return results;
     }
     
-    std::vector<std::string> keys = p2p_->getRatsClient()->storage_keys_with_prefix(prefix.toStdString());
+    std::vector<std::string> keys = p2p_->storage()->keys_with_prefix(prefix.toStdString());
     for (const auto& key : keys) {
         results.append(QString::fromStdString(key));
     }
@@ -257,7 +259,7 @@ int P2PStoreManager::size() const
     if (!isAvailable()) {
         return 0;
     }
-    return static_cast<int>(p2p_->getRatsClient()->storage_size());
+    return static_cast<int>(p2p_->storage()->size());
 #else
     return 0;
 #endif
@@ -286,9 +288,9 @@ bool P2PStoreManager::storeVote(const QString& hash, bool isGood, const QJsonObj
         return false;
     }
     
-    auto* client = p2p_->getRatsClient();
+    auto* storage = p2p_->storage();
     QString peerId = ourPeerId();
-    
+
     // Create vote record
     // Key format: vote:{hash}:{peerId} - ensures one vote per peer per torrent
     QString key = QString("vote:%1:%2").arg(hash, peerId);
@@ -304,17 +306,17 @@ bool P2PStoreManager::storeVote(const QString& hash, bool isGood, const QJsonObj
         voteData["_torrent"] = torrentData;
     }
     
-    // Convert to nlohmann::json
+    // Convert to librats::Json
     QJsonDocument doc(voteData);
     std::string jsonStr = doc.toJson(QJsonDocument::Compact).toStdString();
     
     try {
-        nlohmann::json data = nlohmann::json::parse(jsonStr);
+        librats::Json data = librats::Json::parse(jsonStr);
         data["_key"] = key.toStdString();
         data["_peerId"] = peerId.toStdString();
-        data["_timestamp"] = QDateTime::currentMSecsSinceEpoch();
-        
-        bool result = client->storage_put_json(key.toStdString(), data);
+        data["_timestamp"] = static_cast<int64_t>(QDateTime::currentMSecsSinceEpoch());
+
+        bool result = storage->put_json(key.toStdString(), data);
         
         if (result) {
             qInfo() << "P2PStoreManager: Stored" << (isGood ? "good" : "bad") 
@@ -348,15 +350,15 @@ VoteCounts P2PStoreManager::getVotes(const QString& hash) const
         return result;
     }
     
-    auto* client = p2p_->getRatsClient();
+    auto* storage = p2p_->storage();
     QString peerId = ourPeerId();
-    
+
     // Find all vote records for this hash
     QString prefix = QString("vote:%1:").arg(hash);
-    std::vector<std::string> keys = client->storage_keys_with_prefix(prefix.toStdString());
-    
+    std::vector<std::string> keys = storage->keys_with_prefix(prefix.toStdString());
+
     for (const auto& key : keys) {
-        auto jsonOpt = client->storage_get_json(key);
+        auto jsonOpt = storage->get_json(key);
         if (jsonOpt) {
             try {
                 std::string vote = (*jsonOpt).value("vote", "");
@@ -396,7 +398,7 @@ bool P2PStoreManager::hasVoted(const QString& hash) const
     }
     
     QString key = QString("vote:%1:%2").arg(hash, ourPeerId());
-    return p2p_->getRatsClient()->storage_has(key.toStdString());
+    return p2p_->storage()->has(key.toStdString());
 #else
     Q_UNUSED(hash);
     return false;
@@ -413,7 +415,7 @@ bool P2PStoreManager::requestSync()
     if (!isAvailable()) {
         return false;
     }
-    return p2p_->getRatsClient()->storage_request_sync();
+    return p2p_->storage()->request_sync();
 #else
     return false;
 #endif
@@ -429,15 +431,15 @@ QJsonObject P2PStoreManager::getStatistics() const
         return stats;
     }
     
-    auto* client = p2p_->getRatsClient();
-    
+    auto* storage = p2p_->storage();
+
     stats["available"] = true;
     stats["synchronized"] = isSynchronized();
     stats["size"] = size();
     stats["peerId"] = ourPeerId();
-    
+
     // Get detailed stats from librats
-    nlohmann::json libStats = client->get_storage_statistics();
+    librats::Json libStats = storage->get_statistics_json();
     std::string statsStr = libStats.dump();
     QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(statsStr));
     
@@ -462,22 +464,22 @@ QJsonObject P2PStoreManager::getStatistics() const
 void P2PStoreManager::setupStorageCallbacks()
 {
 #ifdef RATS_STORAGE
-    if (!p2p_ || !p2p_->getRatsClient()) {
+    if (!p2p_ || !p2p_->storage()) {
         return;
     }
-    
-    auto* client = p2p_->getRatsClient();
-    
+
+    auto* storage = p2p_->storage();
+
     // Setup change callback to emit signals when remote records arrive
-    client->on_storage_change([this](const librats::StorageChangeEvent& event) {
+    storage->set_change_callback([this](const librats::StorageChangeEvent& event) {
         if (!event.is_remote) {
             return;  // We already handle local changes in store()
         }
-        
+
         try {
             // Parse the new data as JSON
             std::string jsonStr(event.new_data.begin(), event.new_data.end());
-            nlohmann::json data = nlohmann::json::parse(jsonStr);
+            librats::Json data = librats::Json::parse(jsonStr);
             
             StoredRecord record;
             record.key = QString::fromStdString(event.key);
@@ -504,7 +506,7 @@ void P2PStoreManager::setupStorageCallbacks()
     });
     
     // Setup sync complete callback
-    client->on_storage_sync_complete([this](bool success, const std::string& error) {
+    storage->set_sync_complete_callback([this](bool success, const std::string& error) {
         QString errorMsg = QString::fromStdString(error);
         qInfo() << "P2PStoreManager: Sync completed, success:" << success 
                 << (errorMsg.isEmpty() ? "" : ", error: " + errorMsg);

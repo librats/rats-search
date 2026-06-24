@@ -12,10 +12,32 @@
 #include <QMutexLocker>
 #include <QRegularExpression>
 
+// Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
+#pragma push_macro("emit")
+#undef emit
 #ifdef RATS_SEARCH_FEATURES
-#include "librats/src/librats.h"
-#include "librats/src/bittorrent.h"
+#include "subsystems/bittorrent.h"
+#include "bittorrent/bt_client.h"
+#include "bittorrent/bt_torrent.h"
+#include "bittorrent/bt_torrent_info.h"
+#include "bittorrent/bt_types.h"
+#include "bittorrent/bt_create_torrent.h"
 #endif
+#pragma pop_macro("emit")
+
+// Resolve the BitTorrent client from the P2P network's Bittorrent subsystem.
+librats::BtClient* TorrentClient::btClient() const
+{
+#ifdef RATS_SEARCH_FEATURES
+    if (!p2pNetwork_) {
+        return nullptr;
+    }
+    librats::Bittorrent* bt = p2pNetwork_->bittorrent();
+    return bt ? bt->client() : nullptr;
+#else
+    return nullptr;
+#endif
+}
 
 // ============================================================================
 // TorrentFileInfo
@@ -119,21 +141,12 @@ bool TorrentClient::initialize(P2PNetwork* p2pNetwork, TorrentDatabase* database
         return false;
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
-    if (!client) {
-        qWarning() << "TorrentClient: RatsClient not available";
+    // BitTorrent is attached to the node at start(); make sure it is up.
+    if (!p2pNetwork_->isBitTorrentEnabled() || !btClient()) {
+        qWarning() << "TorrentClient: BitTorrent subsystem not available";
         return false;
     }
-    
-    // Ensure BitTorrent is enabled using P2PNetwork (uses configured DHT port)
-    if (!p2pNetwork_->isBitTorrentEnabled()) {
-        qInfo() << "TorrentClient: Enabling BitTorrent via P2PNetwork...";
-        if (!p2pNetwork_->enableBitTorrent()) {
-            qWarning() << "TorrentClient: Failed to enable BitTorrent";
-            return false;
-        }
-    }
-    
+
     // Set resume data path to app data directory (not the download folder)
     if (!dataDirectory_.isEmpty()) {
         p2pNetwork_->setResumeDataPath(dataDirectory_);
@@ -157,8 +170,7 @@ bool TorrentClient::isReady() const
     if (!initialized_ || !p2pNetwork_) {
         return false;
     }
-    auto* client = p2pNetwork_->getRatsClient();
-    return client && client->is_bittorrent_enabled();
+    return p2pNetwork_->isBitTorrentEnabled() && btClient() != nullptr;
 #else
     return false;
 #endif
@@ -201,14 +213,15 @@ bool TorrentClient::downloadTorrent(const QString& magnetLink, const QString& sa
         dir.mkpath(".");
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
+    auto* client = btClient();
     
     qInfo() << "TorrentClient: Adding torrent" << hash << "to" << path;
     
-    // Add torrent by hash (uses DHT for peer discovery)
-    // Note: Returns nullptr when metadata needs to be downloaded via BEP 9
-    // This is NOT an error - metadata will be fetched asynchronously
-    auto download = client->add_torrent_by_hash(hash.toStdString(), path.toStdString());
+    // Add torrent by magnet (uses DHT for peer discovery). Returns a magnet
+    // torrent immediately; metadata is fetched asynchronously via BEP 9 and
+    // delivered through the metadata-complete callback.
+    auto download = client->add_magnet("magnet:?xt=urn:btih:" + hash.toStdString(),
+                                       path.toStdString());
     
     // Create ActiveTorrent entry
     ActiveTorrent torrent;
@@ -292,12 +305,12 @@ bool TorrentClient::downloadTorrentFile(const QString& torrentFile, const QStrin
         dir.mkpath(".");
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
+    auto* client = btClient();
     
     qInfo() << "TorrentClient: Adding torrent file" << torrentFile << "to" << path;
     
-    auto download = client->add_torrent(torrentFile.toStdString(), path.toStdString());
-    
+    auto download = client->add_torrent_file(torrentFile.toStdString(), path.toStdString());
+
     if (!download) {
         qWarning() << "TorrentClient: Failed to add torrent file:" << torrentFile;
         return false;
@@ -382,9 +395,9 @@ void TorrentClient::stopTorrent(const QString& infoHash, bool saveResumeData)
     }
     
     // Remove from librats
-    if (p2pNetwork_ && p2pNetwork_->getRatsClient()) {
-        auto* client = p2pNetwork_->getRatsClient();
-        librats::InfoHash infoHashBytes = librats::hex_to_info_hash(hash.toStdString());
+    if (p2pNetwork_ && btClient()) {
+        auto* client = btClient();
+        librats::BtInfoHash infoHashBytes = librats::hex_to_info_hash(hash.toStdString());
         client->remove_torrent(infoHashBytes);
     }
     
@@ -622,12 +635,13 @@ bool TorrentClient::downloadWithInfo(const QString& hash, const QString& name, q
         dir.mkpath(".");
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
+    auto* client = btClient();
     qInfo() << "TorrentClient: Adding torrent with info" << normalizedHash << torrentName.left(50);
     
-    // add_torrent_by_hash returns nullptr when metadata needs to be downloaded via BEP 9
-    // This is NOT an error - metadata will be fetched asynchronously from DHT peers
-    auto download = client->add_torrent_by_hash(normalizedHash.toStdString(), path.toStdString());
+    // add_magnet returns a magnet torrent immediately; metadata is fetched
+    // asynchronously from DHT peers via BEP 9.
+    auto download = client->add_magnet("magnet:?xt=urn:btih:" + normalizedHash.toStdString(),
+                                       path.toStdString());
     
     // Create ActiveTorrent entry (even if download is nullptr - metadata is being fetched)
     {
@@ -696,12 +710,13 @@ bool TorrentClient::restoreTorrent(const QString& hash, const QString& name, con
         dir.mkpath(".");
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
+    auto* client = btClient();
     
     qInfo() << "TorrentClient: Restoring torrent" << normalizedHash.left(8) << name.left(30) << "from" << path;
     
     // Add torrent - librats will automatically try to load resume data from save_path/.resume/{hash}.resume
-    auto download = client->add_torrent_by_hash(normalizedHash.toStdString(), path.toStdString());
+    auto download = client->add_magnet("magnet:?xt=urn:btih:" + normalizedHash.toStdString(),
+                                       path.toStdString());
     
     // Create ActiveTorrent entry
     ActiveTorrent torrent;
@@ -1115,10 +1130,10 @@ void TorrentClient::onUpdateTimer()
     // Check if metadata has been received for pending torrents
     // (complete_metadata_download -> add_torrent creates the TorrentDownload)
     if (!pendingMetadata.isEmpty() && p2pNetwork_) {
-        auto* client = p2pNetwork_->getRatsClient();
+        auto* client = btClient();
         if (client) {
             for (const QString& hash : pendingMetadata) {
-                librats::InfoHash infoHash = librats::hex_to_info_hash(hash.toStdString());
+                librats::BtInfoHash infoHash = librats::hex_to_info_hash(hash.toStdString());
                 auto download = client->get_torrent(infoHash);
                 
                 if (download) {
@@ -1298,7 +1313,7 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
     // Peer connected callback
     // Defer to main thread via QueuedConnection to avoid deadlock when callback
     // is invoked while holding internal torrent mutex (e.g., during stop())
-    download->set_peer_connected_callback([this, hash](const librats::Peer& /*peer*/) {
+    download->set_peer_connected_callback([this, hash](const librats::Address& /*peer*/) {
         QMetaObject::invokeMethod(this, [this, hash]() {
             QMutexLocker lock(&torrentsMutex_);
             auto it = torrents_.find(hash);
@@ -1311,7 +1326,7 @@ void TorrentClient::setupTorrentCallbacks(const QString& hash, std::shared_ptr<l
     // Peer disconnected callback
     // Defer to main thread via QueuedConnection to avoid deadlock when callback
     // is invoked while holding internal torrent mutex (e.g., during stop())
-    download->set_peer_disconnected_callback([this, hash](const librats::Peer& /*peer*/) {
+    download->set_peer_disconnected_callback([this, hash](const librats::Address& /*peer*/) {
         QMetaObject::invokeMethod(this, [this, hash]() {
             QMutexLocker lock(&torrentsMutex_);
             auto it = torrents_.find(hash);
@@ -1341,9 +1356,9 @@ QString TorrentClient::createAndSeedTorrent(const QString& path,
         return QString();
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
+    auto* client = btClient();
     if (!client) {
-        qWarning() << "TorrentClient: RatsClient not available";
+        qWarning() << "TorrentClient: BitTorrent client not available";
         return QString();
     }
     
@@ -1354,7 +1369,7 @@ QString TorrentClient::createAndSeedTorrent(const QString& path,
     }
     
     // Convert progress callback
-    librats::RatsClient::TorrentCreationProgressCallback libCallback = nullptr;
+    librats::PieceHashProgressCallback libCallback = nullptr;
     if (progressCallback) {
         libCallback = [progressCallback](uint32_t current, uint32_t total) {
             progressCallback(static_cast<int>(current), static_cast<int>(total));
@@ -1362,22 +1377,38 @@ QString TorrentClient::createAndSeedTorrent(const QString& path,
     }
     
     qInfo() << "TorrentClient: Creating and seeding torrent from:" << path;
-    
-    // Use librats to create and seed the torrent
-    auto download = client->create_and_seed_torrent(
-        path.toStdString(),
-        trackerList,
-        comment.toStdString(),
-        libCallback
-    );
-    
-    if (!download) {
-        qWarning() << "TorrentClient: Failed to create torrent from:" << path;
+
+    // Build the torrent metadata (this hashes all file content).
+    librats::TorrentCreator creator(path.toStdString());
+    for (const std::string& tracker : trackerList) {
+        creator.add_tracker(tracker);
+    }
+    if (!comment.isEmpty()) {
+        creator.set_comment(comment.toStdString());
+    }
+
+    librats::TorrentCreateError createError;
+    if (!creator.set_piece_hashes(libCallback, &createError)) {
+        qWarning() << "TorrentClient: Failed to hash pieces:" << QString::fromStdString(createError.message);
         return QString();
     }
-    
-    // Get torrent info
-    const auto& info = download->get_torrent_info();
+
+    auto infoOpt = creator.generate_torrent_info(&createError);
+    if (!infoOpt) {
+        qWarning() << "TorrentClient: Failed to create torrent from:" << path
+                   << QString::fromStdString(createError.message);
+        return QString();
+    }
+    const librats::TorrentInfo& info = *infoOpt;
+
+    // The torrent's files live in the parent directory of the source path (the
+    // path's own name becomes the single file / top-level directory entry).
+    auto download = client->add_torrent_for_seeding(info, QFileInfo(path).absolutePath().toStdString());
+    if (!download) {
+        qWarning() << "TorrentClient: Failed to start seeding torrent from:" << path;
+        return QString();
+    }
+
     QString hash = QString::fromStdString(librats::info_hash_to_hex(info.info_hash())).toLower();
     QString name = QString::fromStdString(info.name());
     qint64 totalSize = static_cast<qint64>(info.total_size());
@@ -1456,35 +1487,34 @@ bool TorrentClient::createTorrentFile(const QString& path,
         return false;
     }
     
-    auto* client = p2pNetwork_->getRatsClient();
-    if (!client) {
-        qWarning() << "TorrentClient: RatsClient not available";
-        return false;
-    }
-    
     // Convert QStringList to std::vector<std::string>
     std::vector<std::string> trackerList;
     for (const QString& tracker : trackers) {
         trackerList.push_back(tracker.toStdString());
     }
-    
+
     // Convert progress callback
-    librats::RatsClient::TorrentCreationProgressCallback libCallback = nullptr;
+    librats::PieceHashProgressCallback libCallback = nullptr;
     if (progressCallback) {
         libCallback = [progressCallback](uint32_t current, uint32_t total) {
             progressCallback(static_cast<int>(current), static_cast<int>(total));
         };
     }
-    
+
     qInfo() << "TorrentClient: Creating torrent file from:" << path << "to:" << outputFile;
-    
-    bool result = client->create_torrent_file(
+
+    librats::TorrentCreateError createError;
+    bool result = librats::create_torrent(
         path.toStdString(),
         outputFile.toStdString(),
         trackerList,
         comment.toStdString(),
-        libCallback
+        libCallback,
+        &createError
     );
+    if (!result) {
+        qWarning() << "TorrentClient: create_torrent error:" << QString::fromStdString(createError.message);
+    }
     
     if (result) {
         qInfo() << "TorrentClient: Torrent file created:" << outputFile;

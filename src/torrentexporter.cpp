@@ -15,11 +15,14 @@
 #include <QCoreApplication>
 #include <QStringList>
 
+// Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
+#pragma push_macro("emit")
+#undef emit
 #ifdef RATS_SEARCH_FEATURES
-#include "librats/src/librats.h"
-#include "librats/src/bittorrent.h"
-#include "librats/src/bt_torrent_info.h"
+#include "subsystems/bittorrent.h"
+#include "bittorrent/bt_torrent_info.h"
 #endif
+#pragma pop_macro("emit")
 
 namespace {
 
@@ -194,8 +197,8 @@ void TorrentExporter::fetchMetadataAndSave(QWidget *parent, const TorrentInfo &t
         return;
     }
 
-    auto *client = p2pNetwork_->getRatsClient();
-    if (!client || !client->is_bittorrent_enabled()) {
+    auto *bt = p2pNetwork_->bittorrent();
+    if (!bt || !bt->is_running()) {
         QMessageBox::critical(parent, tr("Export Torrent"), tr("BitTorrent client unavailable."));
         return;
     }
@@ -227,7 +230,7 @@ void TorrentExporter::fetchMetadataAndSave(QWidget *parent, const TorrentInfo &t
     TorrentInfo torrentCopy = torrent;
     const QString cachePath = cacheFilePath(hash);
 
-    client->get_torrent_metadata(hash.toStdString(),
+    bt->get_torrent_metadata(hash.toStdString(),
         [selfPtr, parentPtr, torrentCopy, cachePath, hash]
         (const librats::TorrentInfo &meta, bool success, const std::string &error) {
             // Capture the data we need on the I/O thread, then marshal to GUI thread

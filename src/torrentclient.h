@@ -16,7 +16,7 @@ class P2PNetwork;
 class TorrentDatabase;
 
 namespace librats {
-    class RatsClient;
+    class BtClient;
     class Torrent; // Forward declare Torrent (TorrentDownload is an alias for this)
 }
 
@@ -366,6 +366,8 @@ private slots:
 
 private:
     QString parseInfoHash(const QString& magnetLink) const;
+    /// The BitTorrent client from P2PNetwork's Bittorrent subsystem (null if down).
+    librats::BtClient* btClient() const;
     void setupTorrentCallbacks(const QString& hash, std::shared_ptr<librats::Torrent> download);
     void updateTorrentStatus(const QString& hash);
     void emitProgressJson(const QString& hash, const ActiveTorrent& torrent);

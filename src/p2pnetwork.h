@@ -8,12 +8,21 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QHash>
+#include <QSet>
 #include <QMutex>
 #include <memory>
 #include <functional>
 
 namespace librats {
-    class RatsClient;
+    class Node;
+    class DhtDiscovery;
+    class MdnsDiscovery;
+    class PubSub;
+    class MessageJson;
+    class PortMappingService;
+    class ReconnectionService;
+    class StorageManager;
+    class Bittorrent;
 }
 
 /**
@@ -198,9 +207,19 @@ public:
     void setResumeDataPath(const QString& path);
     
     /**
-     * @brief Get the RatsClient instance (for advanced usage)
+     * @brief Get the underlying librats Node (for advanced usage)
      */
-    librats::RatsClient* getRatsClient() const { return ratsClient_.get(); }
+    librats::Node* node() const { return node_.get(); }
+
+    /**
+     * @brief Get the BitTorrent subsystem (null until start(), or if features off)
+     */
+    librats::Bittorrent* bittorrent() const { return bittorrent_; }
+
+    /**
+     * @brief Get the distributed storage subsystem (null until start(), or if storage off)
+     */
+    librats::StorageManager* storage() const { return storage_; }
     
     // =========================================================================
     // Bootstrap Peers
@@ -244,8 +263,24 @@ private:
     void sendClientInfo(const QString& peerId);
     void handleClientInfo(const QString& peerId, const QJsonObject& data);
     QJsonObject buildOurInfo() const;
-    
-    std::unique_ptr<librats::RatsClient> ratsClient_;
+
+    /// Register a MessageJson dispatcher for a message type (idempotent).
+    void registerDispatcher(const QString& messageType);
+    /// Dispatch an inbound message/topic payload to handlers or the messageReceived signal.
+    void dispatchMessage(const QString& peerId, const QString& messageType, const QJsonObject& data);
+
+    // The librats Node owns these subsystems; the raw pointers are non-owning and
+    // valid for the Node's lifetime (attached before start(), torn down on stop()).
+    std::unique_ptr<librats::Node> node_;
+    librats::DhtDiscovery*       dht_ = nullptr;
+    librats::MdnsDiscovery*      mdns_ = nullptr;
+    librats::PubSub*             pubsub_ = nullptr;
+    librats::MessageJson*        messages_ = nullptr;
+    librats::PortMappingService* portMapping_ = nullptr;
+    librats::ReconnectionService* reconnect_ = nullptr;
+    librats::StorageManager*     storage_ = nullptr;
+    librats::Bittorrent*         bittorrent_ = nullptr;
+
     int port_;
     int dhtPort_;
     int maxPeers_;
@@ -256,6 +291,8 @@ private:
     
     // Registered message handlers
     QHash<QString, MessageHandler> messageHandlers_;
+    // Message types for which a MessageJson dispatcher has already been registered.
+    QSet<QString> registeredDispatchers_;
     
     // Connected peer information
     mutable QMutex peerInfoMutex_;

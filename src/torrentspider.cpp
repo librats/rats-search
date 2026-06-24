@@ -1,9 +1,19 @@
 #include "torrentspider.h"
 #include "torrentdatabase.h"
 #include "p2pnetwork.h"
-#include "librats/src/librats.h"
+// Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
+#pragma push_macro("emit")
+#undef emit
+#ifdef RATS_SEARCH_FEATURES
+#include "subsystems/bittorrent.h"
+#include "bittorrent/bt_torrent_info.h"
+#include "dht/dht.h"
+#include "core/address.h"
+#endif
+#pragma pop_macro("emit")
 #include <QDebug>
 #include <QDateTime>
+#include <QVector>
 #include <set>
 
 TorrentSpider::TorrentSpider(TorrentDatabase *database, P2PNetwork *p2pNetwork, QObject *parent)
@@ -32,12 +42,12 @@ TorrentSpider::~TorrentSpider()
     stop();
 }
 
-librats::RatsClient* TorrentSpider::getRatsClient() const
+librats::Bittorrent* TorrentSpider::bittorrent() const
 {
     if (!p2pNetwork_) {
         return nullptr;
     }
-    return p2pNetwork_->getRatsClient();
+    return p2pNetwork_->bittorrent();
 }
 
 bool TorrentSpider::start()
@@ -56,13 +66,13 @@ bool TorrentSpider::start()
         emit error("P2PNetwork is not running - start it first");
         return false;
     }
-    
-    librats::RatsClient* client = getRatsClient();
-    if (!client) {
-        emit error("RatsClient not available from P2PNetwork");
+
+    librats::Bittorrent* bt = bittorrent();
+    if (!bt) {
+        emit error("BitTorrent subsystem not available from P2PNetwork");
         return false;
     }
-    
+
     qInfo() << "Starting torrent spider...";
     
     try {
@@ -73,47 +83,23 @@ bool TorrentSpider::start()
         }
         
 #ifdef RATS_SEARCH_FEATURES
-        // Enable BitTorrent for metadata fetching if not already enabled
-        if (!p2pNetwork_->isBitTorrentEnabled()) {
-            if (!p2pNetwork_->enableBitTorrent()) {
-                qWarning() << "Failed to enable BitTorrent for metadata fetching";
-                // Continue anyway, we can still discover hashes
-            }
-        }
-        
-        // Enable spider mode with announce callback
-        client->set_spider_mode(true);
-        
-        // Set up spider announce callback to handle announce_peer messages
-        client->set_spider_announce_callback(
-            [this](const std::string& info_hash_hex, const std::string& peer_address) {
-                // Parse peer address (ip:port)
-                // Use rfind to find the LAST colon - important for IPv6 addresses like ::ffff:1.2.3.4:port
-                std::string ip;
-                uint16_t port = 0;
-                size_t colon_pos = peer_address.rfind(':');
-                if (colon_pos != std::string::npos) {
-                    ip = peer_address.substr(0, colon_pos);
-                    try {
-                        port = static_cast<uint16_t>(std::stoi(peer_address.substr(colon_pos + 1)));
-                    } catch (const std::exception& e) {
-                        qWarning() << "Failed to parse port from peer address:" << QString::fromStdString(peer_address);
-                        return;
-                    }
-                }
-                
-                // Convert hex string to array
-                std::array<uint8_t, 20> infoHash;
-                for (size_t i = 0; i < 20 && i * 2 + 1 < info_hash_hex.size(); ++i) {
-                    infoHash[i] = static_cast<uint8_t>(std::stoi(info_hash_hex.substr(i * 2, 2), nullptr, 16));
-                }
-                
+        // Enable spider mode with announce callback. The new core delivers the
+        // info hash already decoded and the peer as a structured Address, so no
+        // string parsing is needed.
+        bt->set_spider_mode(true);
+
+        bt->set_spider_announce_callback(
+            [this](const librats::InfoHash& info_hash, const librats::Address& peer) {
+                std::array<uint8_t, 20> infoHash = info_hash;
+                std::string ip = peer.ip;
+                uint16_t port = peer.port;
+
                 // Call onAnnounce on main thread
                 QMetaObject::invokeMethod(this, [this, infoHash, ip, port]() {
                     onAnnounce(infoHash, ip, port);
                 }, Qt::QueuedConnection);
             });
-        
+
         qInfo() << "Spider mode enabled with announce callback";
 #endif
         
@@ -151,14 +137,15 @@ void TorrentSpider::stop()
     
 #ifdef RATS_SEARCH_FEATURES
     // Disable spider mode
-    librats::RatsClient* client = getRatsClient();
-    if (client) {
-        client->set_spider_mode(false);
+    librats::Bittorrent* bt = bittorrent();
+    if (bt) {
+        bt->set_spider_mode(false);
     }
+    activeFetches_ = 0;
 #endif
-    
-    // Note: We don't stop the RatsClient here - P2PNetwork owns it
-    
+
+    // Note: We don't stop the BitTorrent subsystem here - P2PNetwork owns it
+
     running_ = false;
     
     emit stopped();
@@ -219,9 +206,9 @@ size_t TorrentSpider::getDhtNodeCount() const
 size_t TorrentSpider::getSpiderPoolSize() const
 {
 #ifdef RATS_SEARCH_FEATURES
-    librats::RatsClient* client = getRatsClient();
-    if (client) {
-        return client->get_spider_pool_size();
+    librats::Bittorrent* bt = bittorrent();
+    if (bt) {
+        return bt->spider_pool_size();
     }
 #endif
     return 0;
@@ -230,9 +217,9 @@ size_t TorrentSpider::getSpiderPoolSize() const
 size_t TorrentSpider::getSpiderVisitedCount() const
 {
 #ifdef RATS_SEARCH_FEATURES
-    librats::RatsClient* client = getRatsClient();
-    if (client) {
-        return client->get_spider_visited_count();
+    librats::Bittorrent* bt = bittorrent();
+    if (bt) {
+        return bt->spider_visited_count();
     }
 #endif
     return 0;
@@ -243,12 +230,12 @@ void TorrentSpider::onSpiderWalk()
     if (!running_) {
         return;
     }
-    
+
 #ifdef RATS_SEARCH_FEATURES
     // Trigger spider walk to expand DHT routing table
-    librats::RatsClient* client = getRatsClient();
-    if (client) {
-        client->spider_walk();
+    librats::Bittorrent* bt = bittorrent();
+    if (bt) {
+        bt->spider_walk();
     }
 #endif
 }
@@ -258,11 +245,11 @@ void TorrentSpider::onIgnoreToggle()
 #ifdef RATS_SEARCH_FEATURES
     // Rate limiting logic - toggle spider ignore mode
     // In legacy code, this toggled spider_ignore to manage incoming request rate
-    librats::RatsClient* client = getRatsClient();
-    if (client && client->is_spider_mode()) {
+    librats::Bittorrent* bt = bittorrent();
+    if (bt && bt->is_spider_mode()) {
         // Toggle ignore mode - this limits incoming DHT requests
-        bool currentIgnore = client->is_spider_ignoring();
-        client->set_spider_ignore(!currentIgnore);
+        bool currentIgnore = bt->is_spider_ignoring();
+        bt->set_spider_ignore(!currentIgnore);
     }
 #endif
 }
@@ -272,7 +259,7 @@ void TorrentSpider::processMetadataQueue()
     if (!running_ || !metadataFetchEnabled_) {
         return;
     }
-    
+
     // Process metadata queue
     while (activeFetches_.load() < MAX_CONCURRENT_METADATA_FETCHES) {
         QString queueEntry;
@@ -347,76 +334,52 @@ void TorrentSpider::onAnnounce(const std::array<uint8_t, 20>& infoHash,
 
 void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp, uint16_t peerPort)
 {
-    librats::RatsClient* client = getRatsClient();
-    if (!client) {
+#ifdef RATS_SEARCH_FEATURES
+    librats::Bittorrent* bt = bittorrent();
+    if (!bt) {
         return;
     }
-    
-#ifdef RATS_SEARCH_FEATURES
+
     activeFetches_++;
-    
-    // Use direct peer connection if we have peer address (fast path - no DHT search)
-    // Otherwise fall back to DHT search (slow path)
+
+    // librats manages the temporary torrent, the BEP 9 fetch and the timeout; it
+    // invokes this callback exactly once (success or timeout) on a worker thread.
+    auto onResult = [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success,
+                                     const std::string& error) {
+        activeFetches_--;
+
+        if (!success || !torrentInfo.is_valid()) {
+            qInfo() << "Failed to get metadata for" << infoHash.left(8)
+                    << ":" << QString::fromStdString(error);
+            return;
+        }
+
+        // Extract file list
+        QVector<QPair<QString, qint64>> filesList;
+        for (const auto& file : torrentInfo.files().files()) {
+            filesList.append(qMakePair(QString::fromStdString(file.path),
+                                       static_cast<qint64>(file.size)));
+        }
+
+        // Call handler on main thread
+        QMetaObject::invokeMethod(this, [this, infoHash,
+                                         name = QString::fromStdString(torrentInfo.name()),
+                                         totalSize = static_cast<qint64>(torrentInfo.total_size()),
+                                         files = static_cast<int>(torrentInfo.files().files().size()),
+                                         pieceLength = static_cast<int>(torrentInfo.piece_length()),
+                                         filesList]() {
+            onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
+        }, Qt::QueuedConnection);
+    };
+
     if (!peerIp.isEmpty() && peerPort > 0) {
-        // Fast path: Connect directly to the announcing peer
+        // Fast path: fetch directly from the announcing peer (no DHT search).
         qDebug() << "Fetching metadata for" << infoHash.left(8) << "directly from" << peerIp << ":" << peerPort;
-        
-        client->get_torrent_metadata_from_peer(infoHash.toStdString(), 
-            peerIp.toStdString(), 
-            peerPort,
-            [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success, const std::string& error) {
-                activeFetches_--;
-                
-                if (!success) {
-                    qInfo() << "Failed to get metadata (direct) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
-                    return;
-                }
-                
-                // Extract file list
-                QVector<QPair<QString, qint64>> filesList;
-                for (const auto& file : torrentInfo.files().files()) {
-                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.size)));
-                }
-                
-                // Call handler on main thread
-                QMetaObject::invokeMethod(this, [this, infoHash, 
-                                                 name = QString::fromStdString(torrentInfo.name()),
-                                                 totalSize = static_cast<qint64>(torrentInfo.total_size()),
-                                                 files = static_cast<int>(torrentInfo.files().files().size()),
-                                                 pieceLength = static_cast<int>(torrentInfo.piece_length()),
-                                                 filesList]() {
-                    onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
-                }, Qt::QueuedConnection);
-            });
+        bt->get_torrent_metadata_from_peer(infoHash.toStdString(), peerIp.toStdString(), peerPort, onResult);
     } else {
-        // Slow path: Use DHT to find peers
+        // Slow path: let librats find peers via the DHT.
         qDebug() << "Fetching metadata for" << infoHash.left(8) << "via DHT search";
-        
-        client->get_torrent_metadata(infoHash.toStdString(),
-            [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success, const std::string& error) {
-                activeFetches_--;
-                
-                if (!success) {
-                    qInfo() << "Failed to get metadata (DHT) for" << infoHash.left(8) << ":" << QString::fromStdString(error);
-                    return;
-                }
-                
-                // Extract file list
-                QVector<QPair<QString, qint64>> filesList;
-                for (const auto& file : torrentInfo.files().files()) {
-                    filesList.append(qMakePair(QString::fromStdString(file.path), static_cast<qint64>(file.size)));
-                }
-                
-                // Call handler on main thread
-                QMetaObject::invokeMethod(this, [this, infoHash, 
-                                                 name = QString::fromStdString(torrentInfo.name()),
-                                                 totalSize = static_cast<qint64>(torrentInfo.total_size()),
-                                                 files = static_cast<int>(torrentInfo.files().files().size()),
-                                                 pieceLength = static_cast<int>(torrentInfo.piece_length()),
-                                                 filesList]() {
-                    onMetadataReceived(infoHash, name, totalSize, files, pieceLength, filesList);
-                }, Qt::QueuedConnection);
-            });
+        bt->get_torrent_metadata(infoHash.toStdString(), onResult);
     }
 #else
     Q_UNUSED(infoHash);
