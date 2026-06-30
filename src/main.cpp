@@ -178,7 +178,12 @@ int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QStrin
     // Initialize database
     TorrentDatabase database(dataDir);
     g_database = &database;
-    
+
+    // Configure remote Manticore host before initialize (empty = embedded)
+    if (!config.manticoreHost().isEmpty()) {
+        database.setManticoreHost(config.manticoreHost());
+    }
+
     if (!database.initialize()) {
         qCritical() << "Failed to initialize database";
         return 1;
