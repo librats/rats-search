@@ -1,5 +1,6 @@
 #include "apiserver.h"
 #include "ratsapi.h"
+#include "configmanager.h"
 #include "../p2pnetwork.h"
 #include "../torrentspider.h"
 #include "../torrentdatabase.h"
@@ -862,13 +863,14 @@ QByteArray ApiServer::handleStaticFile(const QString& path) const
     // Get webui directory from config
     QString webuiDir;
     if (d->api) {
-        // Try to get from config manager
-        // For now, use default path
-        webuiDir = QDir::currentPath() + "/webui";
+        if (auto* config = d->api->getConfigManager()) {
+            webuiDir = config->webuiDir();
+        }
     }
     
+    // Fallback to default if not configured
     if (webuiDir.isEmpty()) {
-        return buildHttpResponse(404, "Not Found", "{\"error\":\"WebUI directory not configured\"}");
+        webuiDir = QDir::currentPath() + "/webui";
     }
     
     // Map path to file

@@ -344,6 +344,11 @@ public:
      * @brief Get the torrent spider
      */
     TorrentSpider* getSpider() const;
+
+    /**
+     * @brief Get the config manager
+     */
+    ConfigManager* getConfigManager() const;
     
     /**
      * @brief Check/update tracker info for a torrent

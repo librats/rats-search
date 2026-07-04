@@ -1428,6 +1428,11 @@ TorrentSpider* RatsAPI::getSpider() const
     return d->spider;
 }
 
+ConfigManager* RatsAPI::getConfigManager() const
+{
+    return d->config;
+}
+
 void RatsAPI::checkTrackers(const QString& hash, ApiCallback callback)
 {
     if (hash.length() != 40) {
