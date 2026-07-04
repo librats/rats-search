@@ -176,6 +176,42 @@ Example console session:
 ./RatsSearch -c -p 4445 -d 4446 -s
 ```
 
+### Web Interface
+
+Rats Search includes a web interface for searching torrents and viewing statistics.
+
+#### Starting with Web UI
+
+```bash
+# Console mode with web interface
+./RatsSearch --console --webui-dir ./webui
+
+# Or specify custom directory
+./RatsSearch --console --webui-dir /path/to/webui
+```
+
+#### Accessing the Interface
+
+Open your browser and navigate to:
+```
+http://localhost:8095
+```
+
+#### Features
+
+- **Search**: Search torrents by name
+- **Details**: View torrent information and file list
+- **Statistics**: Monitor P2P network status and database stats
+
+#### API Endpoints
+
+The web interface uses these API endpoints:
+
+- `GET /api/search.torrents?text=<query>&limit=<n>`
+- `GET /api/torrent?hash=<hash>&includeFiles=true`
+- `GET /api/statistics`
+- `GET /api/p2p.status`
+
 ## Configuration
 
 After first launch, a configuration file `rats.json` will be created in the data directory:
