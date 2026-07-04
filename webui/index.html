@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rats Search</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <h1>Rats Search</h1>
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    v-model="searchQuery" 
+                    @keyup.enter="search"
+                    placeholder="Search torrents..."
+                >
+                <button @click="search" :disabled="searching">
+                    {{ searching ? 'Searching...' : 'Search' }}
+                </button>
+            </div>
+        </header>
+
+        <main class="main">
+            <!-- Statistics Dashboard -->
+            <section class="stats" v-if="stats">
+                <h2>Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ stats.torrents }}</span>
+                        <span class="stat-label">Torrents</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">{{ stats.files }}</span>
+                        <span class="stat-label">Files</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">{{ formatSize(stats.size) }}</span>
+                        <span class="stat-label">Total Size</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">{{ p2pStatus.connectedPeers }}</span>
+                        <span class="stat-label">Peers</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value">{{ p2pStatus.dhtNodes }}</span>
+                        <span class="stat-label">DHT Nodes</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search Results -->
+            <section class="results" v-if="results.length > 0">
+                <h2>Search Results ({{ results.length }})</h2>
+                <div class="torrent-list">
+                    <div 
+                        class="torrent-item" 
+                        v-for="torrent in results" 
+                        :key="torrent.hash"
+                        @click="showDetails(torrent)"
+                    >
+                        <div class="torrent-name">{{ torrent.name }}</div>
+                        <div class="torrent-meta">
+                            <span>{{ formatSize(torrent.size) }}</span>
+                            <span>{{ torrent.seeders }} seeders</span>
+                            <span>{{ torrent.leechers }} leechers</span>
+                            <span class="torrent-type" v-if="torrent.contentType">{{ torrent.contentType }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- No Results -->
+            <section class="no-results" v-if="searched && results.length === 0 && !searching">
+                <p>No torrents found for "{{ lastQuery }}"</p>
+            </section>
+        </main>
+
+        <!-- Torrent Details Modal -->
+        <div class="modal-overlay" v-if="selectedTorrent" @click.self="selectedTorrent = null">
+            <div class="modal">
+                <button class="modal-close" @click="selectedTorrent = null">&times;</button>
+                <h2>{{ selectedTorrent.name }}</h2>
+                <div class="modal-info">
+                    <div class="info-row">
+                        <span class="info-label">Hash:</span>
+                        <span class="info-value">{{ selectedTorrent.hash }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Size:</span>
+                        <span class="info-value">{{ formatSize(selectedTorrent.size) }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Seeders:</span>
+                        <span class="info-value">{{ selectedTorrent.seeders }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Leechers:</span>
+                        <span class="info-value">{{ selectedTorrent.leechers }}</span>
+                    </div>
+                    <div class="info-row" v-if="selectedTorrent.contentType">
+                        <span class="info-label">Type:</span>
+                        <span class="info-value">{{ selectedTorrent.contentType }}</span>
+                    </div>
+                </div>
+
+                <!-- Files List -->
+                <div class="files-section" v-if="torrentFiles.length > 0">
+                    <h3>Files ({{ torrentFiles.length }})</h3>
+                    <div class="files-list">
+                        <div class="file-item" v-for="(file, index) in torrentFiles" :key="index">
+                            <span class="file-path">{{ file.path }}</span>
+                            <span class="file-size">{{ formatSize(file.size) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
