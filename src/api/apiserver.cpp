@@ -255,6 +255,8 @@ bool ApiServer::start(int httpPort, int wsPort)
                         req.path.endsWith(".html") ||
                         req.path.endsWith(".css") ||
                         req.path.endsWith(".js") ||
+                        req.path.endsWith(".json") ||
+                        req.path.endsWith(".svg") ||
                         req.path.endsWith(".ico") ||
                         req.path.endsWith(".png") ||
                         req.path.endsWith(".jpg")) {
