@@ -15,7 +15,7 @@ class TorrentDatabase;
 class P2PNetwork;
 
 namespace librats {
-    class RatsClient;
+    class Bittorrent;
 }
 
 /**
@@ -130,9 +130,9 @@ private slots:
 
 private:
     /**
-     * @brief Get RatsClient from P2PNetwork
+     * @brief Get the BitTorrent subsystem from P2PNetwork (null if unavailable)
      */
-    librats::RatsClient* getRatsClient() const;
+    librats::Bittorrent* bittorrent() const;
 
     /**
      * @brief Handle announce_peer callback from DHT
@@ -154,7 +154,7 @@ private:
     /**
      * @brief Handle metadata retrieval result
      */
-    void onMetadataReceived(const QString& infoHash, 
+    void onMetadataReceived(const QString& infoHash,
                            const QString& name,
                            qint64 size,
                            int files,

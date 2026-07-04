@@ -1,7 +1,11 @@
 #include "trackerwrapper.h"
 #include <QDebug>
 #include <QtConcurrent>
-#include <tracker.h>
+// librats' EventBus::emit collides with Qt's `emit` macro — neutralise it here.
+#pragma push_macro("emit")
+#undef emit
+#include "bittorrent/tracker.h"
+#pragma pop_macro("emit")
 
 // ============================================================================
 // Constructor / Destructor

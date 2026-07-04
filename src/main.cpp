@@ -26,7 +26,10 @@
 #include "api/translationmanager.h"
 #include "autostartmanager.h"
 #include "startupinfo.h"
-#include "librats/src/logger.h"
+#pragma push_macro("emit")
+#undef emit
+#include "util/logger.h"
+#pragma pop_macro("emit")
 #include "version.h"
 
 #ifdef _WIN32
