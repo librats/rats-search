@@ -208,9 +208,9 @@ http://localhost:8095
 The web interface uses these API endpoints:
 
 - `GET /api/search.torrents?text=<query>&limit=<n>`
-- `GET /api/torrent?hash=<hash>&includeFiles=true`
-- `GET /api/statistics`
-- `GET /api/p2p.status`
+- `GET /api/search.torrent?hash=<hash>&includeFiles=true`
+- `GET /api/stats.database`
+- `GET /api/stats.p2pStatus`
 
 ## Configuration
 
