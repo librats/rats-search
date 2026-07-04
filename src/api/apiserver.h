@@ -104,6 +104,13 @@ public:
      */
     QByteArray handleMetrics() const;
 
+    /**
+     * @brief Serve static file from webui directory
+     * @param path Request path (e.g., "/css/style.css")
+     * @return HTTP response with file content
+     */
+    QByteArray handleStaticFile(const QString& path) const;
+
 signals:
     void started();
     void stopped();

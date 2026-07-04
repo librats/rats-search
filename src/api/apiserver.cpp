@@ -18,6 +18,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <limits>
 
 // ============================================================================
@@ -243,6 +244,21 @@ bool ApiServer::start(int httpPort, int wsPort)
                     // Prometheus metrics endpoint
                     if (req.path == "/metrics") {
                         socket->write(handleMetrics());
+                        socket->disconnectFromHost();
+                        return;
+                    }
+                    
+                    // Serve static files from webui directory
+                    if (req.path == "/" || 
+                        req.path.startsWith("/css/") || 
+                        req.path.startsWith("/js/") ||
+                        req.path.endsWith(".html") ||
+                        req.path.endsWith(".css") ||
+                        req.path.endsWith(".js") ||
+                        req.path.endsWith(".ico") ||
+                        req.path.endsWith(".png") ||
+                        req.path.endsWith(".jpg")) {
+                        socket->write(handleStaticFile(req.path));
                         socket->disconnectFromHost();
                         return;
                     }
@@ -837,5 +853,58 @@ QByteArray ApiServer::handleMetrics() const
     
     QString body = metrics.join("\n") + "\n";
     return buildHttpResponse(200, "OK", body.toUtf8(), "text/plain; version=0.0.4; charset=utf-8");
+}
+
+QByteArray ApiServer::handleStaticFile(const QString& path) const
+{
+    // Get webui directory from config
+    QString webuiDir;
+    if (d->api) {
+        // Try to get from config manager
+        // For now, use default path
+        webuiDir = QDir::currentPath() + "/webui";
+    }
+    
+    if (webuiDir.isEmpty()) {
+        return buildHttpResponse(404, "Not Found", "{\"error\":\"WebUI directory not configured\"}");
+    }
+    
+    // Map path to file
+    QString filePath;
+    if (path == "/" || path.isEmpty()) {
+        filePath = webuiDir + "/index.html";
+    } else {
+        filePath = webuiDir + path;
+    }
+    
+    // Security: prevent directory traversal
+    if (!filePath.startsWith(webuiDir)) {
+        return buildHttpResponse(403, "Forbidden", "{\"error\":\"Access denied\"}");
+    }
+    
+    QFile file(filePath);
+    if (!file.exists()) {
+        return buildHttpResponse(404, "Not Found", "{\"error\":\"File not found\"}");
+    }
+    
+    if (!file.open(QIODevice::ReadOnly)) {
+        return buildHttpResponse(500, "Internal Server Error", "{\"error\":\"Cannot read file\"}");
+    }
+    
+    QByteArray content = file.readAll();
+    file.close();
+    
+    // Determine content type
+    QString contentType = "text/plain";
+    if (filePath.endsWith(".html")) contentType = "text/html";
+    else if (filePath.endsWith(".css")) contentType = "text/css";
+    else if (filePath.endsWith(".js")) contentType = "application/javascript";
+    else if (filePath.endsWith(".json")) contentType = "application/json";
+    else if (filePath.endsWith(".png")) contentType = "image/png";
+    else if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) contentType = "image/jpeg";
+    else if (filePath.endsWith(".svg")) contentType = "image/svg+xml";
+    else if (filePath.endsWith(".ico")) contentType = "image/x-icon";
+    
+    return buildHttpResponse(200, "OK", content, contentType);
 }
 
