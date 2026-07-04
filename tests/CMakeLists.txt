@@ -60,6 +60,7 @@ add_rats_test(test_manticore_queries)
 
 # API endpoint tests
 add_rats_test(test_metrics_endpoint)
+add_rats_test(test_webui)
 
 # Copy libmysql.dll next to test executables so the QMYSQL driver can load
 if(WIN32)
@@ -77,7 +78,7 @@ endif()
 # Custom target to run all tests
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector test_manticore_queries test_metrics_endpoint
+    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector test_manticore_queries test_metrics_endpoint test_webui
     COMMENT "Running all tests..."
 )
 
