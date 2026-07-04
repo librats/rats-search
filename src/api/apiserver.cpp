@@ -878,9 +878,14 @@ QByteArray ApiServer::handleStaticFile(const QString& path) const
     }
     
     // Security: prevent directory traversal
-    if (!filePath.startsWith(webuiDir)) {
+    QString cleanPath = QDir(filePath).cleanPath();
+    QString cleanWebuiDir = QDir(webuiDir).cleanPath();
+    if (!cleanPath.startsWith(cleanWebuiDir + "/") && cleanPath != cleanWebuiDir) {
         return buildHttpResponse(403, "Forbidden", "{\"error\":\"Access denied\"}");
     }
+    
+    // Use the clean path for file operations
+    filePath = cleanPath;
     
     QFile file(filePath);
     if (!file.exists()) {
