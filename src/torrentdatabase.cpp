@@ -25,7 +25,12 @@ bool TorrentDatabase::initialize()
     
     // Create manager
     manager_ = std::make_unique<ManticoreManager>(dataDirectory_, this);
-    
+
+    // Pass remote hostname (empty = embedded mode) before start
+    if (!manticoreHost_.isEmpty()) {
+        manager_->setHostname(manticoreHost_);
+    }
+
     connect(manager_.get(), &ManticoreManager::error, this, [this](const QString& msg) {
         emit databaseError(msg);
     });

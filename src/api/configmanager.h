@@ -49,6 +49,11 @@ class ConfigManager : public QObject
     Q_PROPERTY(bool autoStart READ autoStart WRITE setAutoStart NOTIFY autoStartChanged)
     Q_PROPERTY(bool checkUpdatesOnStartup READ checkUpdatesOnStartup WRITE setCheckUpdatesOnStartup NOTIFY checkUpdatesOnStartupChanged)
     Q_PROPERTY(QString dataDirectory READ dataDirectory WRITE setDataDirectory NOTIFY dataDirectoryChanged)
+
+    // Database
+    Q_PROPERTY(QString manticoreHost READ manticoreHost WRITE setManticoreHost NOTIFY manticoreHostChanged)
+
+    // Legal
     Q_PROPERTY(bool agreementAccepted READ agreementAccepted WRITE setAgreementAccepted NOTIFY agreementAcceptedChanged)
 
 public:
@@ -212,7 +217,14 @@ public:
     
     bool agreementAccepted() const;
     void setAgreementAccepted(bool accepted);
-    
+
+    // =========================================================================
+    // Database Settings
+    // =========================================================================
+
+    QString manticoreHost() const;
+    void setManticoreHost(const QString& host);
+
     // =========================================================================
     // Generic Access (for API)
     // =========================================================================
@@ -261,7 +273,10 @@ signals:
     void checkUpdatesOnStartupChanged(bool enabled);
     void dataDirectoryChanged(const QString& path);
     void agreementAcceptedChanged(bool accepted);
-    
+
+    // Database signals
+    void manticoreHostChanged(const QString& host);
+
     // Filter signals
     void filtersMaxFilesChanged(int max);
     void filtersNamingRegExpChanged(const QString& regexp);
