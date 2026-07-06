@@ -51,6 +51,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN groupadd -r rats && useradd -r -g rats -d /app -s /sbin/nologin rats
+
 WORKDIR /app
 
 # Copy built binary
@@ -68,6 +71,12 @@ RUN chmod +x /app/RatsSearch /app/searchd /app/indexer /app/indextool
 
 # Persistent data directory for database, config, and logs
 VOLUME /data
+
+# Ensure data directory is owned by rats user
+RUN mkdir -p /data && chown rats:rats /data
+
+# Switch to non-root user
+USER rats
 
 # Default HTTP API port
 EXPOSE 8095
