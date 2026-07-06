@@ -5,21 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rats Search</title>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        [v-cloak] { display: none !important; }
+        .boot-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            background: #1a1a2e; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 16px;
+            transition: opacity 0.3s;
+        }
+        body.light-theme .boot-screen { background: #f5f5f5; }
+        .boot-logo { font-size: 48px; }
+        .boot-title { font-size: 20px; font-weight: 600; color: #e94560; }
+        body.light-theme .boot-title { color: #d63851; }
+        .boot-spinner {
+            width: 32px; height: 32px; border: 3px solid #0f3460;
+            border-top-color: #e94560; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        body.light-theme .boot-spinner { border-color: #ddd; border-top-color: #e94560; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
-    <div id="app">
+    <div class="boot-screen" id="boot">
+        <div class="boot-logo">🐀</div>
+        <div class="boot-title">Rats Search</div>
+        <div class="boot-spinner"></div>
+    </div>
+    <div id="app" v-cloak @click="hideContextMenu" @contextmenu.prevent="hideContextMenu">
         <header class="header">
             <div class="header-content">
                 <h1>Rats Search</h1>
                 <div class="search-box">
-                    <input 
-                        type="text" 
-                        v-model="searchQuery" 
-                        @keyup.enter="search"
-                        placeholder="Search torrents..."
-                    >
+                    <div class="search-input-wrap">
+                        <input 
+                            type="text" 
+                            v-model="searchQuery" 
+                            @keyup.enter="search"
+                            @keyup.escape="searchQuery = ''; document.activeElement.blur()"
+                            :placeholder="t('search.placeholder')"
+                        >
+                        <span class="search-hint">/</span>
+                    </div>
                     <button @click="search" :disabled="searching">
-                        {{ searching ? 'Searching...' : 'Search' }}
+                        {{ searching ? t('search.searching') : t('search.btn') }}
                     </button>
                 </div>
                 <button class="theme-btn" @click="toggleTheme" :title="darkMode ? 'Switch to light theme' : 'Switch to dark theme'">
@@ -28,289 +57,671 @@
             </div>
         </header>
 
-        <main class="main">
-            <!-- Tabs -->
-            <div class="tabs">
-                <button :class="['tab', { active: activeTab === 'top' && !searched }]" @click="switchTab('top')">Top</button>
-                <button :class="['tab', { active: activeTab === 'feed' && !searched }]" @click="switchTab('feed')">Feed</button>
-                <button :class="['tab', { active: activeTab === 'downloads' }]" @click="switchTab('downloads')">Downloads</button>
-                <button :class="['tab', { active: activeTab === 'favorites' }]" @click="switchTab('favorites')">Favorites</button>
-                <button :class="['tab', { active: activeTab === 'settings' }]" @click="switchTab('settings')">Settings</button>
-            </div>
-
-            <!-- Top Torrents -->
-            <section class="results" v-if="activeTab === 'top' && topTorrents.length > 0 && !searched">
-                <h2>Top Torrents</h2>
-                <div class="torrent-list">
-                    <div 
-                        class="torrent-item" 
-                        v-for="torrent in topTorrents" 
-                        :key="torrent.hash"
-                        @click="showDetails(torrent)"
-                    >
-                        <div class="torrent-name">{{ torrent.name }}</div>
-                        <div class="torrent-meta">
-                            <span>{{ formatSize(torrent.size) }}</span>
-                            <span>{{ torrent.files }} files</span>
-                            <span>{{ torrent.seeders }} seeders</span>
-                            <span>{{ torrent.leechers }} leechers</span>
-                            <span class="torrent-type" v-if="torrent.contentType">{{ torrent.contentType }}</span>
-                        </div>
+        <main class="main" @dragover.prevent="onDragOver" @drop.prevent>
+            <div class="content-wrapper" :class="{ 'has-panel': selectedTorrent }">
+                <!-- Left Content -->
+                <div class="content-left">
+                    <!-- Tabs -->
+                    <div class="tabs">
+                        <button :class="['tab', { active: activeTab === 'top' && !searched }]" @click="switchTab('top')">{{ t('tabs.top') }}</button>
+                        <button :class="['tab', { active: activeTab === 'feed' && !searched }]" @click="switchTab('feed')">{{ t('tabs.feed') }}</button>
+                        <button :class="['tab', { active: activeTab === 'activity' && !searched }]" @click="switchTab('activity')">
+                            {{ t('tabs.activity') }}
+                            <span class="activity-badge" v-if="activityQueue.length > 0">{{ activityQueue.length }}</span>
+                        </button>
+                        <button :class="['tab', { active: activeTab === 'downloads' }]" @click="switchTab('downloads')">{{ t('tabs.downloads') }}</button>
+                        <button :class="['tab', { active: activeTab === 'favorites' }]" @click="switchTab('favorites')">{{ t('tabs.favorites') }}</button>
+                        <button :class="['tab', { active: activeTab === 'settings' }]" @click="switchTab('settings')">{{ t('tabs.settings') }}</button>
                     </div>
-                </div>
-            </section>
 
-            <!-- Feed -->
-            <section class="results" v-if="activeTab === 'feed' && feedTorrents.length > 0 && !searched">
-                <h2>Feed</h2>
-                <div class="torrent-list">
-                    <div 
-                        class="torrent-item" 
-                        v-for="torrent in feedTorrents" 
-                        :key="torrent.hash"
-                        @click="showDetails(torrent)"
-                    >
-                        <div class="torrent-name">{{ torrent.name }}</div>
-                        <div class="torrent-meta">
-                            <span>{{ formatSize(torrent.size) }}</span>
-                            <span>{{ torrent.files }} files</span>
-                            <span>{{ torrent.seeders }} seeders</span>
-                            <span>{{ torrent.leechers }} leechers</span>
-                            <span class="torrent-type" v-if="torrent.contentType">{{ torrent.contentType }}</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Downloads -->
-            <section class="results" v-if="activeTab === 'downloads' && !searched">
-                <h2>Downloads</h2>
-                <div v-if="downloads.length === 0" class="no-results">
-                    <p>No active downloads</p>
-                </div>
-                <div class="torrent-list" v-else>
-                    <div 
-                        class="torrent-item download-item" 
-                        v-for="dl in downloads" 
-                        :key="dl.hash"
-                    >
-                        <div class="torrent-name">{{ dl.name || dl.hash }}</div>
-                        <div class="download-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" :style="{ width: (dl.progress || 0) + '%' }"></div>
+                    <!-- Top Torrents -->
+                    <section class="results" v-if="activeTab === 'top' && topTorrents.length > 0 && !searched">
+                        <h2>{{ t('tabs.top') }}</h2>
+                        <div class="torrent-table">
+                            <div class="table-header">
+                                <div class="th th-name" @click="sortBy('top', 'name')">
+                                    Name <span class="sort-arrow" v-if="sortKey === 'name'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-type" @click="sortBy('top', 'contentType')">
+                                    Type <span class="sort-arrow" v-if="sortKey === 'contentType'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-size" @click="sortBy('top', 'size')">
+                                    Size <span class="sort-arrow" v-if="sortKey === 'size'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-seed" @click="sortBy('top', 'seeders')">
+                                    Seeders <span class="sort-arrow" v-if="sortKey === 'seeders'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-leech" @click="sortBy('top', 'leechers')">
+                                    Leechers <span class="sort-arrow" v-if="sortKey === 'leechers'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
                             </div>
-                            <span class="progress-text">{{ (dl.progress || 0).toFixed(1) }}%</span>
+                            <div 
+                                class="table-row" 
+                                v-for="torrent in sortedTopTorrents" 
+                                :key="torrent.hash"
+                                @click="showDetails(torrent)"
+                                @contextmenu.prevent="openContextMenu($event, torrent)"
+                                :class="{ selected: selectedTorrent && selectedTorrent.hash === torrent.hash }"
+                            >
+                                <div class="td td-name">
+                                    <span class="td-text">{{ torrent.name }}</span>
+                                </div>
+                                <div class="td td-type">
+                                    <span class="type-tag" :style="{ background: getTypeColor(torrent.contentType) }" v-if="torrent.contentType">{{ torrent.contentType }}</span>
+                                </div>
+                                <div class="td td-size">{{ formatSize(torrent.size) }}</div>
+                                <div class="td td-seed" :class="getSeedersClass(torrent.seeders)">{{ torrent.seeders || 0 }}</div>
+                                <div class="td td-leech" :class="getLeechersClass(torrent.leechers)">{{ torrent.leechers || 0 }}</div>
+                            </div>
                         </div>
-                        <div class="torrent-meta">
-                            <span>{{ formatSize(dl.downloaded || 0) }} / {{ formatSize(dl.totalSize || dl.size || 0) }}</span>
-                            <span>{{ formatSpeed(dl.downloadSpeed) }}</span>
-                            <span>{{ dl.seeders || 0 }} seeders</span>
-                            <button class="small-btn" @click.stop="pauseDownload(dl.hash)" v-if="!dl.paused">Pause</button>
-                            <button class="small-btn" @click.stop="resumeDownload(dl.hash)" v-else>Resume</button>
-                            <button class="small-btn danger" @click.stop="cancelDownload(dl.hash)">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                    </section>
 
-            <!-- Favorites -->
-            <section class="results" v-if="activeTab === 'favorites' && !searched">
-                <h2>Favorites</h2>
-                <div v-if="favorites.length === 0" class="no-results">
-                    <p>No favorites yet. Click the star icon on a torrent to add it.</p>
-                </div>
-                <div class="torrent-list" v-else>
-                    <div 
-                        class="torrent-item" 
-                        v-for="fav in favorites" 
-                        :key="fav.hash"
-                        @click="showDetails(fav)"
-                    >
-                        <div class="torrent-name">
-                            <span class="fav-icon" @click.stop="removeFavorite(fav.hash)">★</span>
-                            {{ fav.name }}
+                    <!-- Feed -->
+                    <section class="results" v-if="activeTab === 'feed' && feedTorrents.length > 0 && !searched">
+                        <h2>{{ t('tabs.feed') }}</h2>
+                        <div class="torrent-table">
+                            <div class="table-header">
+                                <div class="th th-name" @click="sortBy('feed', 'name')">
+                                    Name <span class="sort-arrow" v-if="sortKey === 'name'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-type" @click="sortBy('feed', 'contentType')">
+                                    Type <span class="sort-arrow" v-if="sortKey === 'contentType'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-size" @click="sortBy('feed', 'size')">
+                                    Size <span class="sort-arrow" v-if="sortKey === 'size'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-seed" @click="sortBy('feed', 'seeders')">
+                                    Seeders <span class="sort-arrow" v-if="sortKey === 'seeders'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-leech" @click="sortBy('feed', 'leechers')">
+                                    Leechers <span class="sort-arrow" v-if="sortKey === 'leechers'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                            </div>
+                            <div 
+                                class="table-row" 
+                                v-for="torrent in sortedFeedTorrents" 
+                                :key="torrent.hash"
+                                @click="showDetails(torrent)"
+                                @contextmenu.prevent="openContextMenu($event, torrent)"
+                                :class="{ selected: selectedTorrent && selectedTorrent.hash === torrent.hash }"
+                            >
+                                <div class="td td-name">
+                                    <span class="td-text">{{ torrent.name }}</span>
+                                </div>
+                                <div class="td td-type">
+                                    <span class="type-tag" :style="{ background: getTypeColor(torrent.contentType) }" v-if="torrent.contentType">{{ torrent.contentType }}</span>
+                                </div>
+                                <div class="td td-size">{{ formatSize(torrent.size) }}</div>
+                                <div class="td td-seed" :class="getSeedersClass(torrent.seeders)">{{ torrent.seeders || 0 }}</div>
+                                <div class="td td-leech" :class="getLeechersClass(torrent.leechers)">{{ torrent.leechers || 0 }}</div>
+                            </div>
                         </div>
-                        <div class="torrent-meta">
-                            <span>{{ formatSize(fav.size) }}</span>
-                            <span>{{ fav.seeders }} seeders</span>
-                            <span>{{ fav.leechers }} leechers</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                    </section>
 
-            <!-- Settings -->
-            <section class="results" v-if="activeTab === 'settings' && !searched">
-                <h2>Settings</h2>
-                <div class="settings-form" v-if="config">
-                    <div class="setting-group">
-                        <h3>Network</h3>
-                        <div class="setting-row">
-                            <label>P2P Port:</label>
-                            <input type="number" v-model.number="config.p2pPort" min="1024" max="65535">
+                    <!-- Activity -->
+                    <section class="results" v-if="activeTab === 'activity' && !searched">
+                        <h2>
+                            {{ t('tabs.activity') }}
+                            <button class="small-btn" style="margin-left: 10px; font-size: 12px;" @click="activityPaused = !activityPaused">
+                                {{ activityPaused ? t('activity.resume') : t('activity.pause') }}
+                            </button>
+                        </h2>
+                        <div v-if="activityQueue.length === 0" class="no-results">
+                            <p>{{ t('activity.waiting') }}</p>
                         </div>
-                        <div class="setting-row">
-                            <label>DHT Port:</label>
-                            <input type="number" v-model.number="config.dhtPort" min="1024" max="65535">
+                        <div class="torrent-table" v-else>
+                            <div class="table-header">
+                                <div class="th th-name">Name</div>
+                                <div class="th th-type">Type</div>
+                                <div class="th th-size">Size</div>
+                                <div class="th th-seed">Seeders</div>
+                                <div class="th th-leech">Leechers</div>
+                            </div>
+                            <div 
+                                class="table-row activity-row" 
+                                v-for="torrent in activityQueue" 
+                                :key="torrent.hash"
+                                @click="showDetails(torrent)"
+                                @contextmenu.prevent="openContextMenu($event, torrent)"
+                                :class="{ selected: selectedTorrent && selectedTorrent.hash === torrent.hash }"
+                            >
+                                <div class="td td-name">
+                                    <span class="td-text">{{ torrent.name }}</span>
+                                </div>
+                                <div class="td td-type">
+                                    <span class="type-tag" :style="{ background: getTypeColor(torrent.contentType) }" v-if="torrent.contentType">{{ torrent.contentType }}</span>
+                                </div>
+                                <div class="td td-size">{{ formatSize(torrent.size) }}</div>
+                                <div class="td td-seed" :class="getSeedersClass(torrent.seeders)">{{ torrent.seeders || 0 }}</div>
+                                <div class="td td-leech" :class="getLeechersClass(torrent.leechers)">{{ torrent.leechers || 0 }}</div>
+                            </div>
                         </div>
-                        <div class="setting-row">
-                            <label>Max Peers:</label>
-                            <input type="number" v-model.number="config.p2pConnections" min="10" max="1000">
-                        </div>
-                        <div class="setting-row">
-                            <label>HTTP Port:</label>
-                            <input type="number" v-model.number="config.httpPort" min="1024" max="65535">
-                        </div>
-                    </div>
-                    <div class="setting-group">
-                        <h3>Downloads</h3>
-                        <div class="setting-row">
-                            <label>Download Path:</label>
-                            <input type="text" v-model="config.downloadPath">
-                        </div>
-                    </div>
-                    <div class="setting-group">
-                        <h3>Features</h3>
-                        <div class="setting-row">
-                            <label>
-                                <input type="checkbox" v-model="config.p2p"> P2P Network
-                            </label>
-                        </div>
-                        <div class="setting-row">
-                            <label>
-                                <input type="checkbox" v-model="config.indexer"> Spider (DHT Indexer)
-                            </label>
-                        </div>
-                        <div class="setting-row">
-                            <label>
-                                <input type="checkbox" v-model="config.p2pReplication"> P2P Replication
-                            </label>
-                        </div>
-                    </div>
-                    <button class="save-btn" @click="saveSettings">Save Settings</button>
-                </div>
-            </section>
+                    </section>
 
-            <!-- Search Results -->
-            <section class="results" v-if="results.length > 0 && searched">
-                <h2>Search Results ({{ results.length }})</h2>
-                <div class="torrent-list">
-                    <div 
-                        class="torrent-item" 
-                        v-for="torrent in results" 
-                        :key="torrent.hash"
-                        @click="showDetails(torrent)"
-                    >
-                        <div class="torrent-name">
-                            <span class="fav-icon" :class="{ active: isFavorite(torrent.hash) }" @click.stop="toggleFavorite(torrent)">☆</span>
-                            {{ torrent.name }}
+                    <!-- Downloads -->
+                    <section class="results" v-if="activeTab === 'downloads' && !searched">
+                        <h2>{{ t('tabs.downloads') }}</h2>
+                        <div v-if="downloads.length === 0" class="no-results">
+                            <p>{{ t('downloads.noActive') }}</p>
                         </div>
-                        <div class="torrent-meta">
-                            <span>{{ formatSize(torrent.size) }}</span>
-                            <span>{{ torrent.files }} files</span>
-                            <span>{{ torrent.seeders }} seeders</span>
-                            <span>{{ torrent.leechers }} leechers</span>
-                            <span class="torrent-type" v-if="torrent.contentType">{{ torrent.contentType }}</span>
+                        <div class="torrent-list" v-else>
+                            <div 
+                                class="torrent-item download-item" 
+                                v-for="dl in downloads" 
+                                :key="dl.hash"
+                            >
+                                <div class="torrent-name">{{ dl.name || dl.hash }}</div>
+                                <div class="download-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" :style="{ width: (dl.progress || 0) + '%' }"></div>
+                                    </div>
+                                    <span class="progress-text">{{ (dl.progress || 0).toFixed(1) }}%</span>
+                                </div>
+                                <div class="torrent-meta">
+                                    <span>{{ formatSize(dl.downloaded || 0) }} / {{ formatSize(dl.totalSize || dl.size || 0) }}</span>
+                                    <span>{{ formatSpeed(dl.downloadSpeed) }}</span>
+                                    <span>{{ dl.seeders || 0 }} seeders</span>
+                                    <button class="small-btn" @click.stop="pauseDownload(dl.hash)" v-if="!dl.paused">{{ t('downloads.pause') }}</button>
+                                    <button class="small-btn" @click.stop="resumeDownload(dl.hash)" v-else>{{ t('downloads.resume') }}</button>
+                                    <button class="small-btn danger" @click.stop="cancelDownload(dl.hash)">{{ t('downloads.cancel') }}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Favorites -->
+                    <section class="results" v-if="activeTab === 'favorites' && !searched">
+                        <h2>{{ t('tabs.favorites') }}</h2>
+                        <div v-if="favorites.length === 0" class="no-results">
+                            <p>{{ t('favorites.empty') }}</p>
+                        </div>
+                        <div class="torrent-table" v-else>
+                            <div class="table-header">
+                                <div class="th th-name" @click="sortBy('favorites', 'name')">
+                                    Name <span class="sort-arrow" v-if="sortKey === 'name'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-type" @click="sortBy('favorites', 'contentType')">
+                                    Type <span class="sort-arrow" v-if="sortKey === 'contentType'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-size" @click="sortBy('favorites', 'size')">
+                                    Size <span class="sort-arrow" v-if="sortKey === 'size'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-seed" @click="sortBy('favorites', 'seeders')">
+                                    Seeders <span class="sort-arrow" v-if="sortKey === 'seeders'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-leech" @click="sortBy('favorites', 'leechers')">
+                                    Leechers <span class="sort-arrow" v-if="sortKey === 'leechers'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                            </div>
+                            <div 
+                                class="table-row" 
+                                v-for="fav in sortedFavorites" 
+                                :key="fav.hash"
+                                @click="showDetails(fav)"
+                                @contextmenu.prevent="openContextMenu($event, fav)"
+                                :class="{ selected: selectedTorrent && selectedTorrent.hash === fav.hash }"
+                            >
+                                <div class="td td-name">
+                                    <span class="fav-mini active" @click.stop="removeFavorite(fav.hash)">★</span>
+                                    <span class="td-text">{{ fav.name }}</span>
+                                </div>
+                                <div class="td td-type">
+                                    <span class="type-tag" :style="{ background: getTypeColor(fav.contentType) }" v-if="fav.contentType">{{ fav.contentType }}</span>
+                                </div>
+                                <div class="td td-size">{{ formatSize(fav.size) }}</div>
+                                <div class="td td-seed" :class="getSeedersClass(fav.seeders)">{{ fav.seeders || 0 }}</div>
+                                <div class="td td-leech" :class="getLeechersClass(fav.leechers)">{{ fav.leechers || 0 }}</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Settings -->
+                    <section class="results" v-if="activeTab === 'settings' && !searched">
+                        <h2>{{ t('tabs.settings') }}</h2>
+                        <div class="settings-form" v-if="config">
+                            <div class="settings-tabs">
+                                <button :class="['stab', { active: settingsTab === 'general' }]" @click="settingsTab = 'general'">{{ t('settings.general') }}</button>
+                                <button :class="['stab', { active: settingsTab === 'network' }]" @click="settingsTab = 'network'">{{ t('settings.network') }}</button>
+                                <button :class="['stab', { active: settingsTab === 'indexer' }]" @click="settingsTab = 'indexer'">{{ t('settings.indexer') }}</button>
+                                <button :class="['stab', { active: settingsTab === 'filters' }]" @click="settingsTab = 'filters'">{{ t('settings.filters') }}</button>
+                                <button :class="['stab', { active: settingsTab === 'storage' }]" @click="settingsTab = 'storage'">{{ t('settings.storage') }}</button>
+                            </div>
+
+                            <!-- General -->
+                            <div class="settings-page" v-if="settingsTab === 'general'">
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.appearance') }}</h3>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.language') }}</label>
+                                        <select v-model="config.language">
+                                            <option value="en">English</option>
+                                            <option value="ru">Русский</option>
+                                            <option value="de">Deutsch</option>
+                                            <option value="es">Español</option>
+                                            <option value="fr">Français</option>
+                                        </select>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.darkMode"> {{ t('settings.darkMode') }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.startup') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.autoStart"> {{ t('settings.autoStart') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.startMinimized"> {{ t('settings.startMinimized') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.trayOnMinimize"> {{ t('settings.minimizeToTray') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.trayOnClose"> {{ t('settings.closeToTray') }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.updates') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.checkUpdatesOnStartup"> {{ t('settings.checkUpdates') }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Network -->
+                            <div class="settings-page" v-if="settingsTab === 'network'">
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.ports') }}</h3>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.p2pPort') }}</label>
+                                        <input type="number" v-model.number="config.p2pPort" min="1024" max="65535">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.dhtPort') }}</label>
+                                        <input type="number" v-model.number="config.dhtPort" min="1024" max="65535">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.httpPort') }}</label>
+                                        <input type="number" v-model.number="config.httpPort" min="1024" max="65535">
+                                    </div>
+                                    <div class="setting-hint">{{ t('settings.portsHint') }}</div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.p2pNetwork') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.p2p"> {{ t('settings.enableP2p') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.maxConnections') }}</label>
+                                        <input type="number" v-model.number="config.p2pConnections" min="10" max="1000">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.p2pReplication"> {{ t('settings.p2pReplication') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.p2pReplicationServer"> {{ t('settings.p2pReplicationServer') }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.restApi') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.restApi"> {{ t('settings.enableRestApi') }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Indexer -->
+                            <div class="settings-page" v-if="settingsTab === 'indexer'">
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.dhtIndexer') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.indexer"> {{ t('settings.enableIndexer') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.trackers"> {{ t('settings.enableTrackers') }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.spiderPerf') }}</h3>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.walkInterval') }}</label>
+                                        <input type="number" v-model.number="config.spider.walkInterval" min="1" max="500">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.nodesUsage') }}</label>
+                                        <input type="number" v-model.number="config.spider.nodesUsage" min="0" max="1000">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.packageLimit') }}</label>
+                                        <input type="number" v-model.number="config.spider.packagesLimit" min="0" max="5000">
+                                    </div>
+                                    <div class="setting-hint">{{ t('settings.spiderHint') }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Filters -->
+                            <div class="settings-page" v-if="settingsTab === 'filters'">
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.nameFilters') }}</h3>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.regex') }}</label>
+                                        <input type="text" v-model="config.filters.namingRegExp" :placeholder="t('settings.regexPlaceholder')">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.filters.namingRegExpNegative"> {{ t('settings.negativeRegex') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.filters.adultFilter"> {{ t('settings.adultFilter') }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.sizeLimits') }}</h3>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.maxFiles') }}</label>
+                                        <input type="number" v-model.number="config.filters.maxFiles" min="0" max="50000">
+                                    </div>
+                                    <div class="setting-hint">{{ t('settings.maxFilesHint') }}</div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.minSize') }}</label>
+                                        <input type="number" v-model.number="config.filters.sizeMin" min="0" max="999999">
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.maxSize') }}</label>
+                                        <input type="number" v-model.number="config.filters.sizeMax" min="0" max="999999">
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.contentTypeFilter') }}</h3>
+                                    <div class="setting-hint">{{ t('settings.contentTypeHint') }}</div>
+                                    <div class="type-filter-grid">
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('video')" @change="toggleContentType('video', $event)"> Video</label>
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('audio')" @change="toggleContentType('audio', $event)"> Audio</label>
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('pictures')" @change="toggleContentType('pictures', $event)"> Pictures</label>
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('books')" @change="toggleContentType('books', $event)"> Books</label>
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('software')" @change="toggleContentType('software', $event)"> Apps/Games</label>
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('archive')" @change="toggleContentType('archive', $event)"> Archives</label>
+                                        <label><input type="checkbox" :checked="isContentTypeEnabled('disc')" @change="toggleContentType('disc', $event)"> Discs/ISO</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Storage -->
+                            <div class="settings-page" v-if="settingsTab === 'storage'">
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.downloads') }}</h3>
+                                    <div class="setting-row">
+                                        <label>{{ t('settings.defaultDir') }}</label>
+                                        <input type="text" v-model="config.downloadPath">
+                                    </div>
+                                    <div class="setting-hint">{{ t('settings.downloadHint') }}</div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.cleanupGroup') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.cleanup"> {{ t('settings.autoCleanup') }}
+                                        </label>
+                                    </div>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.recheckFilesOnAdding"> {{ t('settings.recheckFiles') }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <h3>{{ t('settings.spaceQuota') }}</h3>
+                                    <div class="setting-row">
+                                        <label>
+                                            <input type="checkbox" v-model="config.spaceQuota"> {{ t('settings.enableQuota') }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-footer">
+                                <button class="save-btn" @click="saveSettings">{{ t('settings.saveBtn') }}</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Search Results -->
+                    <section class="results" v-if="results.length > 0 && searched">
+                        <h2>{{ t('search.results') }} ({{ results.length }})</h2>
+                        <div class="torrent-table">
+                            <div class="table-header">
+                                <div class="th th-name" @click="sortBy('search', 'name')">
+                                    Name <span class="sort-arrow" v-if="sortKey === 'name'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-type" @click="sortBy('search', 'contentType')">
+                                    Type <span class="sort-arrow" v-if="sortKey === 'contentType'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-size" @click="sortBy('search', 'size')">
+                                    Size <span class="sort-arrow" v-if="sortKey === 'size'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-seed" @click="sortBy('search', 'seeders')">
+                                    Seeders <span class="sort-arrow" v-if="sortKey === 'seeders'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                                <div class="th th-leech" @click="sortBy('search', 'leechers')">
+                                    Leechers <span class="sort-arrow" v-if="sortKey === 'leechers'">{{ sortDir === 1 ? '▲' : '▼' }}</span>
+                                </div>
+                            </div>
+                            <div 
+                                class="table-row" 
+                                v-for="torrent in sortedResults" 
+                                :key="torrent.hash"
+                                @click="showDetails(torrent)"
+                                @contextmenu.prevent="openContextMenu($event, torrent)"
+                                :class="{ selected: selectedTorrent && selectedTorrent.hash === torrent.hash }"
+                            >
+                                <div class="td td-name">
+                                    <span class="fav-mini" :class="{ active: isFavorite(torrent.hash) }" @click.stop="toggleFavorite(torrent)">☆</span>
+                                    <span class="td-text">{{ torrent.name }}</span>
+                                </div>
+                                <div class="td td-type">
+                                    <span class="type-tag" :style="{ background: getTypeColor(torrent.contentType) }" v-if="torrent.contentType">{{ torrent.contentType }}</span>
+                                </div>
+                                <div class="td td-size">{{ formatSize(torrent.size) }}</div>
+                                <div class="td td-seed" :class="getSeedersClass(torrent.seeders)">{{ torrent.seeders || 0 }}</div>
+                                <div class="td td-leech" :class="getLeechersClass(torrent.leechers)">{{ torrent.leechers || 0 }}</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- No Results -->
+                    <section class="no-results" v-if="searched && results.length === 0 && !searching">
+                        <p>{{ t('search.noResults') }} "{{ lastQuery }}"</p>
+                    </section>
+                </div>
+
+                <!-- Right Details Panel -->
+                <div class="details-panel" v-if="selectedTorrent">
+                    <div class="details-header">
+                        <span class="details-type-icon" :class="'type-' + (selectedTorrent.contentType || 'unknown')">
+                            {{ getTypeIcon(selectedTorrent.contentType) }}
+                        </span>
+                        <div class="details-title-wrap">
+                            <div class="details-title">{{ selectedTorrent.name }}</div>
+                            <div class="details-type" v-if="selectedTorrent.contentType">{{ selectedTorrent.contentType }}</div>
+                        </div>
+                        <button class="details-close" @click="selectedTorrent = null">&times;</button>
+                    </div>
+
+                    <div class="details-body">
+                        <div class="details-section">
+                            <div class="details-stats">
+                                <div class="stat-block">
+                                    <div class="stat-num seeders">{{ selectedTorrent.seeders || 0 }}</div>
+                                    <div class="stat-lbl">{{ t('details.seeders') }}</div>
+                                </div>
+                                <div class="stat-block">
+                                    <div class="stat-num leechers">{{ selectedTorrent.leechers || 0 }}</div>
+                                    <div class="stat-lbl">{{ t('details.leechers') }}</div>
+                                </div>
+                                <div class="stat-block">
+                                    <div class="stat-num">{{ selectedTorrent.completed || 0 }}</div>
+                                    <div class="stat-lbl">{{ t('details.completed') }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="details-section">
+                            <div class="details-rating" v-if="selectedTorrent.good !== undefined">
+                                <div class="rating-bar-wrap">
+                                    <div class="rating-bar">
+                                        <div class="rating-fill" :style="{ width: getRatingPercent() + '%' }"></div>
+                                    </div>
+                                    <span class="rating-text">{{ getRatingText() }}</span>
+                                </div>
+                                <div class="voting-btns">
+                                    <button class="vote-btn good" @click="voteGood" :class="{ active: lastVote === 'good' }">👍 Good</button>
+                                    <button class="vote-btn bad" @click="voteBad" :class="{ active: lastVote === 'bad' }">👎 Bad</button>
+                                    <span class="votes-count" v-if="selectedTorrent.good || selectedTorrent.bad">
+                                        {{ selectedTorrent.good || 0 }} / {{ selectedTorrent.bad || 0 }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="details-section">
+                            <div class="details-row">
+                                <span class="details-label">{{ t('details.size') }}</span>
+                                <span class="details-value">{{ formatSize(selectedTorrent.size) }}</span>
+                            </div>
+                            <div class="details-row">
+                                <span class="details-label">{{ t('details.files') }}</span>
+                                <span class="details-value">{{ selectedTorrent.files || torrentFiles.length || 0 }}</span>
+                            </div>
+                            <div class="details-row" v-if="selectedTorrent.date">
+                                <span class="details-label">Date</span>
+                                <span class="details-value">{{ formatDate(selectedTorrent.date) }}</span>
+                            </div>
+                            <div class="details-row">
+                                <span class="details-label">{{ t('details.hash') }}</span>
+                                <span class="details-value hash-val">{{ selectedTorrent.hash }}</span>
+                            </div>
+                        </div>
+
+                        <div class="details-section">
+                            <div class="details-magnet">
+                                <a :href="getMagnetLink(selectedTorrent)" class="magnet-link" title="Open magnet link">
+                                    {{ getMagnetLink(selectedTorrent).substring(0, 50) }}...
+                                </a>
+                                <button class="copy-btn" @click="copyMagnetLink(selectedTorrent)">{{ t('details.copy') }}</button>
+                            </div>
+                        </div>
+
+                        <div class="details-section details-actions">
+                            <button class="action-btn primary" @click="startDownload(selectedTorrent)">{{ t('details.download') }}</button>
+                            <button class="action-btn" @click="exportTorrent(selectedTorrent)">{{ t('details.export') }}</button>
+                            <button class="action-btn" :class="{ active: isFavorite(selectedTorrent.hash) }" @click="toggleFavorite(selectedTorrent)">
+                                {{ isFavorite(selectedTorrent.hash) ? '★ ' + t('details.favorited') : '☆ ' + t('details.favorite') }}
+                            </button>
+                            <button class="action-btn" @click="copyHash(selectedTorrent)">{{ t('details.copyHash') }}</button>
+                        </div>
+
+                        <!-- Files -->
+                        <div class="details-section" v-if="torrentFiles.length > 0">
+                            <div class="details-section-title">{{ t('details.files') }} ({{ torrentFiles.length }})</div>
+                            <div class="files-tree">
+                                <div class="file-entry" v-for="(file, index) in torrentFiles" :key="index">
+                                    <span class="file-idx">{{ index + 1 }}.</span>
+                                    <span class="file-path">{{ file.path || file.name || 'Unknown' }}</span>
+                                    <span class="file-sz">{{ formatSize(file.size) }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </section>
-
-            <!-- No Results -->
-            <section class="no-results" v-if="searched && results.length === 0 && !searching">
-                <p>No torrents found for "{{ lastQuery }}"</p>
-            </section>
+            </div>
         </main>
 
         <footer class="footer">
-            <div class="stats-grid" v-if="stats">
+                <div class="stats-grid" v-if="stats">
                 <div class="stat-card">
                     <span class="stat-value">{{ stats.torrents }}</span>
-                    <span class="stat-label"> Torrents</span>
+                    <span class="stat-label"> {{ t('footer.torrents') }}</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-value">{{ stats.files }}</span>
-                    <span class="stat-label"> Files</span>
+                    <span class="stat-label"> {{ t('footer.files') }}</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-value">{{ formatSize(stats.size) }}</span>
-                    <span class="stat-label"> Total Size</span>
+                    <span class="stat-label"> {{ t('footer.totalSize') }}</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-value">{{ p2pStatus.connectedPeers }}</span>
-                    <span class="stat-label"> Peers</span>
+                    <span class="stat-label"> {{ t('footer.peers') }}</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-value">{{ p2pStatus.dhtNodes }}</span>
-                    <span class="stat-label"> DHT Nodes</span>
+                    <span class="stat-label"> {{ t('footer.dhtNodes') }}</span>
                 </div>
             </div>
         </footer>
 
-        <!-- Torrent Details Modal -->
-        <div class="modal-overlay" v-if="selectedTorrent" @click.self="selectedTorrent = null">
-            <div class="modal">
-                <button class="modal-close" @click="selectedTorrent = null">&times;</button>
-                <h2>
-                    <span class="fav-icon modal-fav" :class="{ active: isFavorite(selectedTorrent.hash) }" @click="toggleFavorite(selectedTorrent)">☆</span>
-                    {{ selectedTorrent.name }}
-                </h2>
-                <div class="modal-info">
-                    <div class="info-row">
-                        <span class="info-label">Hash:</span>
-                        <span class="info-value hash-value">{{ selectedTorrent.hash }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Size:</span>
-                        <span class="info-value">{{ formatSize(selectedTorrent.size) }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Seeders:</span>
-                        <span class="info-value">{{ selectedTorrent.seeders }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Leechers:</span>
-                        <span class="info-value">{{ selectedTorrent.leechers }}</span>
-                    </div>
-                    <div class="info-row" v-if="selectedTorrent.contentType">
-                        <span class="info-label">Type:</span>
-                        <span class="info-value">{{ selectedTorrent.contentType }}</span>
-                    </div>
-                    <div class="info-row magnet-row">
-                        <span class="info-label">Magnet:</span>
-                        <span class="info-value">
-                            <a :href="getMagnetLink(selectedTorrent)" class="magnet-link" title="Open magnet link">
-                                {{ getMagnetLink(selectedTorrent).substring(0, 60) }}...
-                            </a>
-                            <button class="copy-btn" @click="copyMagnetLink(selectedTorrent)" title="Copy magnet link">
-                                Copy
-                            </button>
-                        </span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Actions:</span>
-                        <span class="info-value">
-                            <button class="action-btn" @click="exportTorrent(selectedTorrent)">Download .torrent</button>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Files List -->
-                <div class="files-section" v-if="torrentFiles.length > 0">
-                    <h3>Files ({{ torrentFiles.length }})</h3>
-                    <div class="files-list">
-                        <div class="file-item" v-for="(file, index) in torrentFiles" :key="index">
-                            <span class="file-index">{{ index + 1 }}.</span>
-                            <span class="file-path">{{ file.path || file.name || 'Unknown' }}</span>
-                            <span class="file-size">{{ formatSize(file.size) }}</span>
-                        </div>
-                    </div>
-                </div>
+        <!-- Context Menu -->
+        <div class="context-menu" v-if="contextMenu.visible" :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @click.stop>
+            <div class="context-menu-item" @click="contextOpenMagnet">{{ t('context.openMagnet') }}</div>
+            <div class="context-menu-item" @click="contextCopyHash">{{ t('context.copyHash') }}</div>
+            <div class="context-menu-item" @click="contextCopyMagnet">{{ t('context.copyMagnet') }}</div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" @click="contextToggleFavorite">
+                {{ contextMenu.torrent && isFavorite(contextMenu.torrent.hash) ? t('context.removeFav') : t('context.addToFav') }}
             </div>
+            <div class="context-menu-item" @click="contextExport">{{ t('context.export') }}</div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" @click="contextShowDetails">{{ t('context.details') }}</div>
+        </div>
+
+        <!-- Drop Zone Overlay -->
+        <div class="drop-overlay" v-if="dragging" @dragover.prevent @dragleave.prevent="dragging = false" @drop.prevent="handleDrop">
+            <div class="drop-content">
+                <div class="drop-icon">+</div>
+                <div class="drop-text">Drop .torrent file here</div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container">
+            <transition-group name="toast">
+                <div v-for="toast in toasts" :key="toast.id" :class="['toast', 'toast-' + toast.type]">
+                    {{ toast.message }}
+                </div>
+            </transition-group>
         </div>
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="/js/i18n.js"></script>
     <script src="/js/app.js"></script>
 </body>
 </html>
