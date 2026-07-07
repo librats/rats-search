@@ -1,0 +1,59 @@
+@echo off
+chcp 65001 >nul
+echo Rats Search Updater
+echo ===================
+echo.
+echo Waiting for application to close...
+timeout /t 3 /nobreak >nul
+
+:waitloop
+tasklist /FI "IMAGENAME eq @APP_EXE@" 2>NUL | find /I "@APP_EXE@" >NUL
+if not errorlevel 1 (
+    timeout /t 1 /nobreak >nul
+    goto waitloop
+)
+
+echo Waiting for searchd to exit...
+:waitsearchd
+tasklist /FI "IMAGENAME eq @SEARCHD_EXE@" 2>NUL | find /I "@SEARCHD_EXE@" >NUL
+if not errorlevel 1 (
+    echo @SEARCHD_EXE@ is still running, attempting to stop...
+    taskkill /F /IM @SEARCHD_EXE@ >nul 2>&1
+    timeout /t 2 /nobreak >nul
+    tasklist /FI "IMAGENAME eq @SEARCHD_EXE@" 2>NUL | find /I "@SEARCHD_EXE@" >NUL
+    if not errorlevel 1 (
+        timeout /t 1 /nobreak >nul
+        goto waitsearchd
+    )
+)
+
+echo Updating files...
+
+set "SOURCE_DIR=@SOURCE_DIR@"
+set "DEST_DIR=@DEST_DIR@"
+
+rem Find the actual extracted directory (could be nested, e.g. RatsSearch-Windows-x64\)
+for /d %%D in ("%SOURCE_DIR%\*") do (
+    if exist "%%D\@APP_EXE@" (
+        set "SOURCE_DIR=%%D"
+    )
+)
+
+echo Copying from %SOURCE_DIR% to %DEST_DIR%
+xcopy /E /Y /I "%SOURCE_DIR%\*" "%DEST_DIR%\" >nul 2>&1
+
+if errorlevel 1 (
+    echo Update failed! Error copying files.
+    pause
+    exit /b 1
+)
+
+echo Update complete!
+echo Starting application...
+echo.
+start "" "%DEST_DIR%\@APP_EXE@"
+
+rem Clean up temp directory after a delay
+timeout /t 5 /nobreak >nul
+rd /s /q "@TEMP_DIR@" 2>nul
+exit /b 0

@@ -12,5 +12,13 @@
         <file>styles/dark.qss</file>
         <file>styles/light.qss</file>
     </qresource>
+    <qresource prefix="/content">
+        <file alias="extensions.json">content/extensions.json</file>
+        <file alias="badwords.json">content/badwords.json</file>
+    </qresource>
+    <qresource prefix="/update">
+        <file alias="windows_updater.bat.in">update/windows_updater.bat.in</file>
+        <file alias="unix_updater.sh.in">update/unix_updater.sh.in</file>
+    </qresource>
 </RCC>
 

@@ -1,51 +1,36 @@
 # Rats Search Test Suite
 cmake_minimum_required(VERSION 3.16)
 
-# Find Qt6 Test
-find_package(Qt6 REQUIRED COMPONENTS Test Core Gui Widgets Sql Concurrent Network)
+# Find Qt6 Test (other Qt modules come transitively from ratscore)
+find_package(Qt6 REQUIRED COMPONENTS Test)
 
 # Enable Qt testing
 enable_testing()
 
-# Include source directory
-set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
-
-# Create a static library with testable sources (avoids recompiling for each test)
-add_library(rats_testable STATIC
-    ${SRC_DIR}/searchresultmodel.cpp
-    ${SRC_DIR}/torrentdatabase.cpp
-    ${SRC_DIR}/sphinxql.cpp
-    ${SRC_DIR}/manticoremanager.cpp
-    ${SRC_DIR}/contentdetector.cpp
-    ${SRC_DIR}/api/updatemanager.cpp
-    ${SRC_DIR}/api/configmanager.cpp
-)
-target_include_directories(rats_testable PUBLIC ${SRC_DIR} ${CMAKE_BINARY_DIR})
-target_link_libraries(rats_testable PUBLIC
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Sql
-    Qt6::Concurrent
-    Qt6::Network
-)
-
-# Helper function to add a test with minimal boilerplate
+# Helper function to add a test with minimal boilerplate.
+#
+# Tests link directly against ratscore (the new layered core library defined in
+# the top-level CMakeLists). ratscore carries every rewritten class plus the
+# src/ include directory, so no separate "testable" library is needed.
 function(add_rats_test TEST_NAME)
-    add_executable(${TEST_NAME} ${TEST_NAME}.cpp)
-    target_link_libraries(${TEST_NAME} PRIVATE Qt6::Test rats_testable)
+    add_executable(${TEST_NAME} ${TEST_NAME}.cpp ${ARGN})
+    target_link_libraries(${TEST_NAME} PRIVATE Qt6::Test ratscore)
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()
 
-# Define all tests - just one line each!
-add_rats_test(test_torrentinfo)
-add_rats_test(test_searchresultmodel)
-add_rats_test(test_sphinxql)
-add_rats_test(test_utils)
-add_rats_test(test_updatemanager)
-add_rats_test(test_contentdetector)
+# Unit tests (pure, no external process required)
+add_rats_test(test_domain)
+add_rats_test(test_query)
+add_rats_test(test_infohash)
+add_rats_test(test_update_service)
 
-# Integration test: starts real Manticore and verifies all query patterns
+# Content classifier needs the :/content/*.json Qt resources. Those live in the
+# main resources.qrc (they are not compiled into ratscore), so compile the qrc
+# straight into this test executable (CMAKE_AUTORCC is ON globally).
+add_rats_test(test_content_classifier ${CMAKE_SOURCE_DIR}/resources/resources.qrc)
+
+# Integration test: starts a real Manticore instance and drives the new
+# data layer (Manticore + Database + TorrentRepository).
 add_rats_test(test_manticore_queries)
 
 # Copy libmysql.dll next to test executables so the QMYSQL driver can load
@@ -64,7 +49,8 @@ endif()
 # Custom target to run all tests
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    DEPENDS test_torrentinfo test_searchresultmodel test_sphinxql test_utils test_updatemanager test_contentdetector test_manticore_queries
+    DEPENDS test_domain test_query test_infohash test_update_service
+            test_content_classifier test_manticore_queries
     COMMENT "Running all tests..."
 )
 

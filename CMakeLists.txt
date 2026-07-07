@@ -152,83 +152,62 @@ else()
     endif()
 endif()
 
-# Source files
-set(SOURCES
-    src/main.cpp
-    src/legacymigration.cpp
-    src/mainwindow.cpp
-    src/settingsdialog.cpp
-    src/torrentdatabase.cpp
-    src/torrentspider.cpp
-    src/p2pnetwork.cpp
-    src/searchresultmodel.cpp
-    src/torrentclient.cpp
-    src/torrentexporter.cpp
-    src/manticoremanager.cpp
-    src/sphinxql.cpp
-    src/torrentitemdelegate.cpp
-    src/torrentdetailspanel.cpp
-    src/torrentfileswidget.cpp
-    src/contentdetector.cpp
-    src/autostartmanager.cpp
-    src/startupinfo.cpp
-    # New tab widgets (migrated from legacy)
-    src/toptorrentswidget.cpp
-    src/feedwidget.cpp
-    src/downloadswidget.cpp
-    src/activitywidget.cpp
-    src/favoritesmanager.cpp
-    src/favoriteswidget.cpp
-    # API layer (replaces old searchapi.cpp and searchengine.cpp)
-    src/api/ratsapi.cpp
-    src/api/configmanager.cpp
-    src/api/feedmanager.cpp
-    src/api/apiserver.cpp
-    src/api/updatemanager.cpp
-    src/api/translationmanager.cpp
-    src/api/p2pstoremanager.cpp
-    src/api/trackerwrapper.cpp
-    src/api/trackerinfoscraper.cpp
-    src/api/migrationmanager.cpp
+file(GLOB_RECURSE RATS_CORE_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/domain/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/data/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/net/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/services/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/peer/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rest/*.cpp
+)
+file(GLOB_RECURSE RATS_CORE_HEADERS CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/domain/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/data/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/net/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/services/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/peer/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rest/*.h
 )
 
-# Header files
-set(HEADERS
-    src/mainwindow.h
-    src/utils.h
-    src/settingsdialog.h
-    src/torrentdatabase.h
-    src/torrentspider.h
-    src/p2pnetwork.h
-    src/searchresultmodel.h
-    src/torrentclient.h
-    src/torrentexporter.h
-    src/manticoremanager.h
-    src/sphinxql.h
-    src/torrentitemdelegate.h
-    src/torrentdetailspanel.h
-    src/torrentfileswidget.h
-    src/contentdetector.h
-    src/autostartmanager.h
-    src/startupinfo.h
-    # New tab widgets (migrated from legacy)
-    src/toptorrentswidget.h
-    src/feedwidget.h
-    src/downloadswidget.h
-    src/activitywidget.h
-    src/favoritesmanager.h
-    src/favoriteswidget.h
-    # API layer (replaces old searchapi.h and searchengine.h)
-    src/api/ratsapi.h
-    src/api/configmanager.h
-    src/api/feedmanager.h
-    src/api/apiserver.h
-    src/api/updatemanager.h
-    src/api/translationmanager.h
-    src/api/p2pstoremanager.h
-    src/api/trackerwrapper.h
-    src/api/trackerinfoscraper.h
-    src/api/migrationmanager.h
+add_library(ratscore STATIC ${RATS_CORE_SOURCES} ${RATS_CORE_HEADERS})
+
+# Mirror the on-disk layer layout in IDEs (VS Solution Explorer / Xcode groups).
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files"
+    FILES ${RATS_CORE_SOURCES} ${RATS_CORE_HEADERS})
+
+target_include_directories(ratscore PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+# Core deliberately does NOT link Qt6::Widgets — the domain/data/net/service
+# layers must stay free of any GUI dependency. Widgets live only in the ui layer.
+target_link_libraries(ratscore PUBLIC
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Network
+    Qt6::Sql
+    Qt6::Concurrent
+    Qt6::WebSockets
+    rats
+)
+
+# The GUI / executable layer — everything the app binary compiles beyond the
+# ratscore library: pre-Application bootstrap helpers (src/bootstrap) and the Qt
+# Widgets presentation layer (src/ui). Globbed with CONFIGURE_DEPENDS just like
+# ratscore, so adding a file re-runs CMake automatically. main.cpp — the sole
+# file at the src/ root — is listed explicitly on the executable below.
+file(GLOB_RECURSE RATS_GUI_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bootstrap/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/*.cpp
+)
+file(GLOB_RECURSE RATS_GUI_HEADERS CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bootstrap/*.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/*.h
 )
 
 # Resources
@@ -263,13 +242,18 @@ endif()
 
 # Create executable
 add_executable(${PROJECT_NAME} WIN32 MACOSX_BUNDLE
-    ${SOURCES}
-    ${HEADERS}
+    src/main.cpp
+    ${RATS_GUI_SOURCES}
+    ${RATS_GUI_HEADERS}
     ${RESOURCES}
     ${TRANSLATION_QRC}
     ${QM_FILES}
     ${WIN_RC_FILE}
 )
+
+# Mirror the on-disk layout in IDEs for the executable's own sources.
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "Source Files"
+    FILES src/main.cpp ${RATS_GUI_SOURCES} ${RATS_GUI_HEADERS})
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -281,12 +265,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Concurrent
     Qt6::WebSockets
     rats
+    ratscore
 )
 
-# Include directories
+# Include directories. src/ui is on the path so GUI files can include each other
+# by bare name; ratscore headers are reached via the src/ prefix (e.g.
+# "app/application.h", "domain/torrent.h").
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/api
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
