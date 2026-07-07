@@ -13,12 +13,21 @@
 // librats for torrent parsing and DHT metadata lookup
 // Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
 #pragma push_macro("emit")
+#pragma push_macro("slots")
+#pragma push_macro("signals")
 #undef emit
+#undef slots
+#undef signals
 #ifdef RATS_SEARCH_FEATURES
 #include "subsystems/bittorrent.h"
-#include "bittorrent/bt_torrent_info.h"
-#include "bittorrent/bt_create_torrent.h"
+#include "bittorrent/client.h"
+#include "bittorrent/torrent_info.h"
+#include "bittorrent/torrent_creator.h"
+#include "bittorrent/types.h"
+namespace { namespace bt = librats::bittorrent; }
 #endif
+#pragma pop_macro("signals")
+#pragma pop_macro("slots")
 #pragma pop_macro("emit")
 
 #include <QDebug>
@@ -117,8 +126,8 @@ RatsAPI::~RatsAPI()
 // ============================================================================
 
 #ifdef RATS_SEARCH_FEATURES
-TorrentInfo RatsAPI::createTorrentFromLibrats(const QString& hash, 
-                                               const librats::TorrentInfo& libratsTorrent)
+TorrentInfo RatsAPI::createTorrentFromLibrats(const QString& hash,
+                                               const librats::bittorrent::TorrentInfo& libratsTorrent)
 {
     TorrentInfo torrent;
     torrent.hash = hash.toLower();
@@ -755,7 +764,7 @@ void RatsAPI::searchTorrents(const QString& text,
                     qInfo() << "Search: Hash" << hash.left(8) << "not in DB, trying DHT lookup...";
 
                     bt->get_torrent_metadata(hash.toStdString(),
-                        [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
+                        [this, hash, callback](const librats::bittorrent::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
                             if (success && libratsTorrent.is_valid()) {
                                 qInfo() << "DHT search lookup succeeded for" << hash.left(8);
                                 
@@ -906,9 +915,9 @@ void RatsAPI::getTorrent(const QString& hash,
 
                     // Use get_torrent_metadata to fetch via DHT/BEP9
                     bt->get_torrent_metadata(hash.toStdString(),
-                        [this, hash, callback](const librats::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
+                        [this, hash, callback](const librats::bittorrent::TorrentInfo& libratsTorrent, bool success, const std::string& error) {
                             if (success && libratsTorrent.is_valid()) {
-                                qInfo() << "DHT: Metadata received for" << hash.left(16) 
+                                qInfo() << "DHT: Metadata received for" << hash.left(16)
                                         << "name:" << QString::fromStdString(libratsTorrent.name()).left(40);
                                 
                                 // Use helper to create and insert torrent
@@ -1652,22 +1661,17 @@ void RatsAPI::addTorrentFile(const QString& filePath, ApiCallback callback)
     
     // Parse torrent data using librats TorrentInfo
     std::vector<uint8_t> data(torrentData.begin(), torrentData.end());
-    
-    librats::TorrentInfo libratsTorrent;
-    if (!libratsTorrent.load_from_data(data)) {
+
+    auto libratsTorrentOpt = bt::TorrentInfo::from_bytes(data);
+    if (!libratsTorrentOpt || !libratsTorrentOpt->is_valid()) {
         if (callback) callback(ApiResponse::fail("Failed to parse torrent file"));
         return;
     }
-    
-    if (!libratsTorrent.is_valid()) {
-        if (callback) callback(ApiResponse::fail("Invalid torrent file"));
-        return;
-    }
-    
+    const bt::TorrentInfo& libratsTorrent = *libratsTorrentOpt;
+
     // Convert info hash to hex string
-    QString hash = QString::fromStdString(
-        librats::info_hash_to_hex(libratsTorrent.info_hash()));
-    
+    QString hash = QString::fromStdString(libratsTorrent.info_hash_hex());
+
     // Use helper to create TorrentInfo from librats
     TorrentInfo torrent = createTorrentFromLibrats(hash, libratsTorrent);
     
@@ -1729,7 +1733,19 @@ void RatsAPI::createTorrent(const QString& path,
     
     QString hash;
     QString torrentFilePath;  // Path where .torrent file is saved
-    
+
+    // Sanitize a torrent name into a safe .torrent filename (shared by both paths).
+    auto sanitizeFileName = [](QString name) {
+        name.replace(QRegularExpression("[<>:\"/\\\\|?*]"), "_");
+        if (name.length() > 200) {
+            name = name.left(200);
+        }
+        return name;
+    };
+
+    // Holds the librats-created info in the non-seeding path so we don't hash twice.
+    std::optional<bt::TorrentInfo> createdInfo;
+
     if (startSeeding && d->torrentClient && d->torrentClient->isReady()) {
         // Create and start seeding using TorrentClient
         TorrentClient::CreationProgressCallback tcCallback = nullptr;
@@ -1738,96 +1754,82 @@ void RatsAPI::createTorrent(const QString& path,
                 progressCallback(current, total);
             };
         }
-        
-        hash = d->torrentClient->createAndSeedTorrent(path, trackers, comment, tcCallback);
-        
+
+        // The torrent name equals the source basename, so we can derive the .torrent
+        // path up front and let createAndSeedTorrent write it from the same hashing
+        // pass (no second full hash).
+        QString baseName = sanitizeFileName(QFileInfo(path).fileName());
+        QString candidatePath = baseName.isEmpty()
+            ? QString()
+            : torrentsDir + "/" + baseName + ".torrent";
+
+        hash = d->torrentClient->createAndSeedTorrent(path, trackers, comment,
+                                                      candidatePath, tcCallback);
+
         if (hash.isEmpty()) {
             if (callback) callback(ApiResponse::fail("Failed to create torrent"));
             return;
         }
-        
-        // Also save .torrent file to torrents directory
-        // Get the torrent name for the filename
-        ActiveTorrent active = d->torrentClient->getTorrent(hash);
-        QString torrentName = active.name.isEmpty() ? hash : active.name;
-        
-        // Sanitize filename (remove invalid characters)
-        torrentName.replace(QRegularExpression("[<>:\"/\\\\|?*]"), "_");
-        if (torrentName.length() > 200) {
-            torrentName = torrentName.left(200);
-        }
-        
-        torrentFilePath = torrentsDir + "/" + torrentName + ".torrent";
-        
-        // Use TorrentClient to create the .torrent file
-        bool fileSaved = d->torrentClient->createTorrentFile(
-            path, torrentFilePath, trackers, comment, nullptr);
-        
-        if (!fileSaved) {
-            qWarning() << "Failed to save .torrent file to:" << torrentFilePath;
-            torrentFilePath.clear();  // Clear path since save failed
-        } else {
+
+        if (!candidatePath.isEmpty() && QFile::exists(candidatePath)) {
+            torrentFilePath = candidatePath;
             qInfo() << "Saved .torrent file to:" << torrentFilePath;
+        } else {
+            // Degenerate (empty basename) or write failed: fall back to a hash-named
+            // file. This re-hashes, but only in this uncommon case.
+            QString fallback = torrentsDir + "/" + hash + ".torrent";
+            if (d->torrentClient->createTorrentFile(path, fallback, trackers, comment, nullptr)) {
+                torrentFilePath = fallback;
+                qInfo() << "Saved .torrent file to:" << torrentFilePath;
+            } else {
+                qWarning() << "Failed to save .torrent file for:" << hash.left(8);
+            }
         }
     } else {
-        // Just create the torrent info without seeding
-        // Use librats directly
-        librats::TorrentCreatorConfig config;
-        config.comment = comment.toStdString();
-        config.created_by = "Rats Search";
-        
-        librats::TorrentCreator creator(path.toStdString(), config);
-        
-        if (creator.num_files() == 0) {
-            if (callback) callback(ApiResponse::fail("No files found at path"));
-            return;
-        }
-        
+        // Just create the torrent info without seeding — use librats directly.
+        bt::TorrentCreator creator;
+        creator.set_comment(comment.toStdString());
+        creator.set_created_by("Rats Search");
         for (const QString& tracker : trackers) {
             creator.add_tracker(tracker.toStdString());
         }
-        
-        // Convert progress callback
-        librats::PieceHashProgressCallback hashCallback = nullptr;
+
+        // Drive the progress bar while pieces are hashed.
+        bt::PieceHashProgress onProgress;
         if (progressCallback) {
-            hashCallback = [progressCallback](uint32_t current, uint32_t total) {
-                progressCallback(static_cast<int>(current), static_cast<int>(total));
+            onProgress = [progressCallback](std::uint32_t done, std::uint32_t total) {
+                progressCallback(static_cast<int>(done), static_cast<int>(total));
             };
         }
-        
-        librats::TorrentCreateError error;
-        if (!creator.set_piece_hashes(hashCallback, &error)) {
-            if (callback) callback(ApiResponse::fail("Failed to compute piece hashes: " + QString::fromStdString(error.message)));
+
+        std::string error;
+        createdInfo = creator.create_from_path(path.toStdString(), &error, onProgress);
+        if (!createdInfo) {
+            if (callback) callback(ApiResponse::fail("Failed to generate torrent: " + QString::fromStdString(error)));
             return;
         }
-        
-        auto torrentInfoOpt = creator.generate_torrent_info(&error);
-        if (!torrentInfoOpt) {
-            if (callback) callback(ApiResponse::fail("Failed to generate torrent: " + QString::fromStdString(error.message)));
-            return;
-        }
-        
-        hash = QString::fromStdString(torrentInfoOpt->info_hash_hex()).toLower();
-        
+
+        hash = QString::fromStdString(createdInfo->info_hash_hex()).toLower();
+
         // Save .torrent file to torrents directory
-        QString torrentName = QString::fromStdString(torrentInfoOpt->name());
+        QString torrentName = QString::fromStdString(createdInfo->name());
         if (torrentName.isEmpty()) {
             torrentName = hash;
         }
-        
-        // Sanitize filename
-        torrentName.replace(QRegularExpression("[<>:\"/\\\\|?*]"), "_");
-        if (torrentName.length() > 200) {
-            torrentName = torrentName.left(200);
-        }
-        
+        torrentName = sanitizeFileName(torrentName);
+
         torrentFilePath = torrentsDir + "/" + torrentName + ".torrent";
-        
-        if (!creator.save_to_file(torrentFilePath.toStdString(), &error)) {
-            qWarning() << "Failed to save .torrent file:" << QString::fromStdString(error.message);
-            torrentFilePath.clear();
-        } else {
+
+        const auto& torrentBytes = creator.torrent_file();
+        QFile torrentFileOut(torrentFilePath);
+        if (torrentFileOut.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            torrentFileOut.write(reinterpret_cast<const char*>(torrentBytes.data()),
+                                 static_cast<qint64>(torrentBytes.size()));
+            torrentFileOut.close();
             qInfo() << "Saved .torrent file to:" << torrentFilePath;
+        } else {
+            qWarning() << "Failed to save .torrent file:" << torrentFilePath;
+            torrentFilePath.clear();
         }
     }
     
@@ -1851,21 +1853,15 @@ void RatsAPI::createTorrent(const QString& path,
             torrent.filesList.append(tf);
         }
     } else {
-        // Recreate TorrentInfo from librats (we don't have it from above due to scope)
-        librats::TorrentCreatorConfig config;
-        librats::TorrentCreator creator(path.toStdString(), config);
-        
-        librats::TorrentCreateError error;
-        creator.set_piece_hashes(nullptr, &error);
-        auto torrentInfoOpt = creator.generate_torrent_info(&error);
-        
-        if (torrentInfoOpt) {
-            torrent.name = QString::fromStdString(torrentInfoOpt->name());
-            torrent.size = static_cast<qint64>(torrentInfoOpt->total_size());
-            torrent.files = static_cast<int>(torrentInfoOpt->num_files());
-            torrent.piecelength = static_cast<int>(torrentInfoOpt->piece_length());
-            
-            const auto& files = torrentInfoOpt->files().files();
+        // Reuse the TorrentInfo already produced by the non-seeding branch above
+        // instead of re-hashing the whole payload a second time.
+        if (createdInfo) {
+            torrent.name = QString::fromStdString(createdInfo->name());
+            torrent.size = static_cast<qint64>(createdInfo->total_size());
+            torrent.files = static_cast<int>(createdInfo->num_files());
+            torrent.piecelength = static_cast<int>(createdInfo->piece_length());
+
+            const auto& files = createdInfo->files().files();
             for (const auto& f : files) {
                 TorrentFile tf;
                 tf.path = QString::fromStdString(f.path);

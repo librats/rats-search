@@ -1,11 +1,70 @@
 #include "trackerwrapper.h"
 #include <QDebug>
 #include <QtConcurrent>
-// librats' EventBus::emit collides with Qt's `emit` macro — neutralise it here.
+// librats' BitTorrent headers use `emit`/`slots`/`signals` as ordinary identifiers,
+// which collide with Qt's keyword macros — neutralise them across the includes.
 #pragma push_macro("emit")
+#pragma push_macro("slots")
+#pragma push_macro("signals")
 #undef emit
+#undef slots
+#undef signals
 #include "bittorrent/tracker.h"
+#include "bittorrent/types.h"
+#pragma pop_macro("signals")
+#pragma pop_macro("slots")
 #pragma pop_macro("emit")
+
+namespace {
+namespace bt = librats::bittorrent;
+
+// A small set of well-known public trackers, used by scrapeMultiple(). The new
+// librats core no longer bundles a default list, so we keep one here.
+const QStringList kDefaultTrackers = {
+    QStringLiteral("udp://tracker.opentrackr.org:1337/announce"),
+    QStringLiteral("udp://open.tracker.cl:1337/announce"),
+    QStringLiteral("udp://tracker.openbittorrent.com:6969/announce"),
+    QStringLiteral("udp://exodus.desync.com:6969/announce"),
+    QStringLiteral("udp://tracker.torrent.eu.org:451/announce"),
+    QStringLiteral("udp://open.demonii.com:1337/announce"),
+    QStringLiteral("udp://explodie.org:6969/announce"),
+    QStringLiteral("udp://tracker.moeking.me:6969/announce"),
+};
+
+// Announce to a single tracker to read the torrent's seeder/leecher counts. An
+// announce with numwant=0 doubles as a scrape: the tracker still reports the swarm
+// counts (BEP 3 complete/incomplete, BEP 15 seeders/leechers).
+TrackerResult announceOne(const std::string& url, const std::string& hashHex, int timeoutMs)
+{
+    TrackerResult result;
+    result.tracker = QString::fromStdString(url);
+
+    auto infoHash = bt::info_hash_from_hex(hashHex);
+    if (!infoHash) {
+        result.error = QStringLiteral("Invalid hash");
+        return result;
+    }
+
+    bt::TrackerRequest req;
+    req.info_hash = *infoHash;
+    req.peer_id   = bt::generate_peer_id();
+    req.port      = 6881;
+    req.event     = bt::TrackerEvent::None;
+    req.left      = 0;
+    req.numwant   = 0;  // counts only, no peer list
+
+    bt::TrackerResponse resp = bt::announce_to_tracker(url, req, timeoutMs);
+    if (resp.success) {
+        result.success   = true;
+        result.seeders   = static_cast<int>(resp.complete);
+        result.leechers  = static_cast<int>(resp.incomplete);
+        result.completed = 0;  // not reported by an announce
+    } else {
+        result.error = QString::fromStdString(resp.failure_reason);
+    }
+    return result;
+}
+} // namespace
 
 // ============================================================================
 // Constructor / Destructor
@@ -54,18 +113,8 @@ void TrackerWrapper::scrape(const QString& trackerUrl, const QString& hash,
     // Run the blocking scrape operation in a separate thread
     // Using (void) cast to suppress nodiscard warning - we don't need the QFuture
     (void)QtConcurrent::run([this, tracker_url_std, hash_std, hash, callback, timeout]() {
-        TrackerResult result;
-        
-        librats::scrape_tracker(tracker_url_std, hash_std, 
-            [&result](const librats::ScrapeResult& sr) {
-                result.tracker = QString::fromStdString(sr.tracker);
-                result.seeders = static_cast<int>(sr.seeders);
-                result.leechers = static_cast<int>(sr.leechers);
-                result.completed = static_cast<int>(sr.completed);
-                result.success = sr.success;
-                result.error = QString::fromStdString(sr.error);
-            }, timeout);
-        
+        TrackerResult result = announceOne(tracker_url_std, hash_std, timeout);
+
         // Emit signal and call callback in main thread
         QMetaObject::invokeMethod(this, [this, hash, result, callback]() {
             emit scrapeResult(hash, result);
@@ -138,14 +187,7 @@ int TrackerWrapper::pendingCount() const
 
 QStringList TrackerWrapper::defaultTrackers()
 {
-    QStringList result;
-    
-    std::vector<std::string> trackers = librats::get_default_trackers();
-    for (const auto& tracker : trackers) {
-        result.append(QString::fromStdString(tracker));
-    }
-    
-    return result;
+    return kDefaultTrackers;
 }
 
 // ============================================================================
@@ -182,18 +224,18 @@ void TrackerWrapper::doScrapeMultiple(const QString& hash,
     
     // Run the blocking scrape operation in a separate thread
     (void)QtConcurrent::run([this, hash_std, hash, callback, timeout]() {
+        // Announce to each default tracker and keep the best (highest seeder count)
+        // successful result — different trackers see different slices of the swarm.
         TrackerResult result;
-        
-        librats::scrape_multiple_trackers(hash_std, 
-            [&result](const librats::ScrapeResult& sr) {
-                result.tracker = QString::fromStdString(sr.tracker);
-                result.seeders = static_cast<int>(sr.seeders);
-                result.leechers = static_cast<int>(sr.leechers);
-                result.completed = static_cast<int>(sr.completed);
-                result.success = sr.success;
-                result.error = QString::fromStdString(sr.error);
-            }, timeout);
-        
+        for (const QString& trackerUrl : kDefaultTrackers) {
+            TrackerResult one = announceOne(trackerUrl.toStdString(), hash_std, timeout);
+            if (one.success && (!result.success || one.seeders > result.seeders)) {
+                result = one;
+            } else if (!result.success && !one.error.isEmpty()) {
+                result.error = one.error;  // remember a reason if nothing succeeds
+            }
+        }
+
         // Emit signal and call callback in main thread
         QMetaObject::invokeMethod(this, [this, hash, result, callback]() {
             // Decrement active requests

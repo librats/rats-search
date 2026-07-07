@@ -3,13 +3,19 @@
 #include "p2pnetwork.h"
 // Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
 #pragma push_macro("emit")
+#pragma push_macro("slots")
+#pragma push_macro("signals")
 #undef emit
+#undef slots
+#undef signals
 #ifdef RATS_SEARCH_FEATURES
 #include "subsystems/bittorrent.h"
-#include "bittorrent/bt_torrent_info.h"
+#include "bittorrent/torrent_info.h"
 #include "dht/dht.h"
 #include "core/address.h"
 #endif
+#pragma pop_macro("signals")
+#pragma pop_macro("slots")
 #pragma pop_macro("emit")
 #include <QDebug>
 #include <QDateTime>
@@ -91,7 +97,7 @@ bool TorrentSpider::start()
         bt->set_spider_announce_callback(
             [this](const librats::InfoHash& info_hash, const librats::Address& peer) {
                 std::array<uint8_t, 20> infoHash = info_hash;
-                std::string ip = peer.ip;
+                std::string ip = peer.ip.to_string();
                 uint16_t port = peer.port;
 
                 // Call onAnnounce on main thread
@@ -344,7 +350,7 @@ void TorrentSpider::fetchMetadata(const QString& infoHash, const QString& peerIp
 
     // librats manages the temporary torrent, the BEP 9 fetch and the timeout; it
     // invokes this callback exactly once (success or timeout) on a worker thread.
-    auto onResult = [this, infoHash](const librats::TorrentInfo& torrentInfo, bool success,
+    auto onResult = [this, infoHash](const librats::bittorrent::TorrentInfo& torrentInfo, bool success,
                                      const std::string& error) {
         activeFetches_--;
 

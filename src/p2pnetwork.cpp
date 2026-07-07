@@ -4,7 +4,11 @@
 // `emit` keyword macro. Neutralise the macro across all librats includes, then
 // restore it so rats-search's own `emit signal` statements keep working.
 #pragma push_macro("emit")
+#pragma push_macro("slots")
+#pragma push_macro("signals")
 #undef emit
+#undef slots
+#undef signals
 #include "node/node.h"
 #include "peer/peer.h"
 #include "peer/peer_id.h"
@@ -24,6 +28,8 @@
 #ifdef RATS_STORAGE
 #include "storage/storage.h"
 #endif
+#pragma pop_macro("signals")
+#pragma pop_macro("slots")
 #pragma pop_macro("emit")
 
 #include <QTimer>
@@ -558,14 +564,10 @@ void P2PNetwork::disableBitTorrent()
 
 void P2PNetwork::setResumeDataPath(const QString& path)
 {
-#ifdef RATS_SEARCH_FEATURES
-    if (bittorrent_ && bittorrent_->client()) {
-        bittorrent_->client()->set_resume_data_path(path.toStdString());
-        qInfo() << "Resume data path set to:" << path;
-    }
-#else
+    // The new librats BitTorrent core stores each torrent's fast-resume record next
+    // to its download (in {save_path}/.resume/), so there is no global resume-data
+    // directory to configure. Kept for API compatibility; no-op.
     Q_UNUSED(path);
-#endif
 }
 
 bool P2PNetwork::connectToPeer(const QString& address)

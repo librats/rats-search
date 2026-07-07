@@ -17,11 +17,17 @@
 
 // Neutralise Qt's `emit` macro across librats includes (EventBus::emit collides).
 #pragma push_macro("emit")
+#pragma push_macro("slots")
+#pragma push_macro("signals")
 #undef emit
+#undef slots
+#undef signals
 #ifdef RATS_SEARCH_FEATURES
 #include "subsystems/bittorrent.h"
-#include "bittorrent/bt_torrent_info.h"
+#include "bittorrent/torrent_info.h"
 #endif
+#pragma pop_macro("signals")
+#pragma pop_macro("slots")
 #pragma pop_macro("emit")
 
 namespace {
@@ -82,7 +88,7 @@ QByteArray buildTorrentBytes(const QByteArray &infoDictBytes,
 }
 
 #ifdef RATS_SEARCH_FEATURES
-QStringList trackersFromLibrats(const librats::TorrentInfo &t)
+QStringList trackersFromLibrats(const librats::bittorrent::TorrentInfo &t)
 {
     QStringList list;
     for (const std::string &url : t.all_trackers()) {
@@ -232,7 +238,7 @@ void TorrentExporter::fetchMetadataAndSave(QWidget *parent, const TorrentInfo &t
 
     bt->get_torrent_metadata(hash.toStdString(),
         [selfPtr, parentPtr, torrentCopy, cachePath, hash]
-        (const librats::TorrentInfo &meta, bool success, const std::string &error) {
+        (const librats::bittorrent::TorrentInfo &meta, bool success, const std::string &error) {
             // Capture the data we need on the I/O thread, then marshal to GUI thread
             QString errMsg = QString::fromStdString(error);
 

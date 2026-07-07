@@ -22,7 +22,7 @@ class TrackerInfoScraper;
 
 // librats forward declarations (only when RATS_SEARCH_FEATURES enabled)
 #ifdef RATS_SEARCH_FEATURES
-namespace librats {
+namespace librats::bittorrent {
     class TorrentInfo;
 }
 #endif
@@ -629,7 +629,7 @@ private:
     
 #ifdef RATS_SEARCH_FEATURES
     /**
-     * @brief Create TorrentInfo from librats::TorrentInfo
+     * @brief Create TorrentInfo from librats::bittorrent::TorrentInfo
      * 
      * Converts librats torrent metadata to our TorrentInfo structure.
      * Used for DHT metadata lookups and .torrent file parsing.
@@ -638,8 +638,8 @@ private:
      * @param libratsTorrent librats torrent info
      * @return Populated TorrentInfo
      */
-    static TorrentInfo createTorrentFromLibrats(const QString& hash, 
-                                                 const librats::TorrentInfo& libratsTorrent);
+    static TorrentInfo createTorrentFromLibrats(const QString& hash,
+                                                 const librats::bittorrent::TorrentInfo& libratsTorrent);
 #endif
     
     /**
