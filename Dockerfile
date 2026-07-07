@@ -51,6 +51,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Remove default ubuntu user (may conflict with host UID 1000)
+RUN userdel -f ubuntu 2>/dev/null; rm -rf /home/ubuntu || true
+
 # Create non-root user
 RUN groupadd -r rats && useradd -r -g rats -d /app -s /sbin/nologin rats
 
@@ -83,11 +86,8 @@ EXPOSE 8095
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8095/healthz || exit 1
 
-# Entrypoint runs as root to fix /data ownership, then switches to rats user
+# Entrypoint runs as root to fix /data ownership, then drops to rats user
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
-# Switch to non-root user
-USER rats
-
-# Run in console mode with spider enabled and 30 max peers
+# CMD runs inside entrypoint (switched to rats user there)
 CMD ["/app/RatsSearch", "--console", "--spider", "--max-peers", "30", "--data-dir", "/data", "--webui-dir", "/app/webui"]
