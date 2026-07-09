@@ -1,0 +1,9 @@
+# Basic
+BasedOnStyle: WebKit
+ColumnLimit: 120
+
+# Don't indet body of namespace
+NamespaceIndentation: None
+
+AllowShortFunctionsOnASingleLine: Inline
+PackConstructorInitializers: NextLine

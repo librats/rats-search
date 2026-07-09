@@ -1,0 +1,280 @@
+#ifndef RATS_APP_CONFIG_STORE_H
+#define RATS_APP_CONFIG_STORE_H
+
+#include <QJsonObject>
+#include <QObject>
+#include <QSettings>
+#include <QVariant>
+
+namespace rats {
+namespace app {
+
+/**
+ * @brief ConfigStore - Application configuration management
+ *
+ * Manages application configuration with:
+ * - Type-safe getters/setters
+ * - Automatic persistence
+ * - Change notifications
+ * - Validation
+ *
+ * Configuration is organized into sections:
+ * - Network: ports, P2P settings
+ * - Spider: indexing settings
+ * - Filters: content filtering
+ * - Client: download settings
+ * - UI: interface preferences
+ *
+ * Internally every write is routed through the single generic setValue(key,
+ * value) entry point. A small static metadata table (see config_store.cpp)
+ * describes, per key: the optional clamp range, the optional per-key NOTIFY
+ * signal and the optional group signal (filtersChanged). Typed setters are thin
+ * wrappers over setValue, so dedup, clamping, dirty tracking and signal
+ * emission happen in exactly one place. Nested keys use dotted addressing
+ * internally
+ * ("spider.walkInterval", "filters.maxFiles") while the on-disk JSON keeps the
+ * original nested-object layout for backwards compatibility.
+ */
+class ConfigStore : public QObject {
+    Q_OBJECT
+
+    // Network settings
+    Q_PROPERTY(int httpPort READ httpPort WRITE setHttpPort NOTIFY httpPortChanged)
+    Q_PROPERTY(int p2pPort READ p2pPort WRITE setP2pPort NOTIFY p2pPortChanged)
+    Q_PROPERTY(int dhtPort READ dhtPort WRITE setDhtPort NOTIFY dhtPortChanged)
+
+    // P2P settings
+    Q_PROPERTY(bool p2pEnabled READ p2pEnabled WRITE setP2pEnabled NOTIFY p2pEnabledChanged)
+    Q_PROPERTY(int p2pConnections READ p2pConnections WRITE setP2pConnections NOTIFY p2pConnectionsChanged)
+    Q_PROPERTY(bool p2pReplication READ p2pReplication WRITE setP2pReplication NOTIFY p2pReplicationChanged)
+
+    // Indexer settings
+    Q_PROPERTY(bool indexerEnabled READ indexerEnabled WRITE setIndexerEnabled NOTIFY indexerEnabledChanged)
+    Q_PROPERTY(bool trackersEnabled READ trackersEnabled WRITE setTrackersEnabled NOTIFY trackersEnabledChanged)
+
+    // UI settings
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
+    Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
+    Q_PROPERTY(bool trayOnClose READ trayOnClose WRITE setTrayOnClose NOTIFY trayOnCloseChanged)
+    Q_PROPERTY(bool trayOnMinimize READ trayOnMinimize WRITE setTrayOnMinimize NOTIFY trayOnMinimizeChanged)
+    Q_PROPERTY(bool startMinimized READ startMinimized WRITE setStartMinimized NOTIFY startMinimizedChanged)
+    Q_PROPERTY(bool autoStart READ autoStart WRITE setAutoStart NOTIFY autoStartChanged)
+    Q_PROPERTY(bool checkUpdatesOnStartup READ checkUpdatesOnStartup WRITE setCheckUpdatesOnStartup NOTIFY
+            checkUpdatesOnStartupChanged)
+    Q_PROPERTY(QString dataDirectory READ dataDirectory WRITE setDataDirectory NOTIFY dataDirectoryChanged)
+    Q_PROPERTY(bool agreementAccepted READ agreementAccepted WRITE setAgreementAccepted NOTIFY agreementAcceptedChanged)
+
+public:
+    explicit ConfigStore(const QString& configPath = QString(), QObject* parent = nullptr);
+    ~ConfigStore();
+
+    /**
+     * @brief Load configuration from file
+     */
+    bool load();
+
+    /**
+     * @brief Save configuration to file
+     */
+    bool save();
+
+    /**
+     * @brief Reset to default values
+     */
+    void reset();
+
+    // =========================================================================
+    // Network Settings
+    // =========================================================================
+
+    int httpPort() const;
+    void setHttpPort(int port);
+
+    int p2pPort() const;
+    void setP2pPort(int port);
+
+    int dhtPort() const;
+    void setDhtPort(int port);
+
+    // =========================================================================
+    // P2P Settings
+    // =========================================================================
+
+    bool p2pEnabled() const;
+    void setP2pEnabled(bool enabled);
+
+    int p2pConnections() const;
+    void setP2pConnections(int connections);
+
+    bool p2pReplication() const;
+    void setP2pReplication(bool enabled);
+
+    bool p2pReplicationServer() const;
+    void setP2pReplicationServer(bool enabled);
+
+    // =========================================================================
+    // Indexer Settings
+    // =========================================================================
+
+    bool indexerEnabled() const;
+    void setIndexerEnabled(bool enabled);
+
+    bool trackersEnabled() const;
+    void setTrackersEnabled(bool enabled);
+
+    bool restApiEnabled() const;
+    void setRestApiEnabled(bool enabled);
+
+    bool upnpEnabled() const;
+
+    // =========================================================================
+    // Spider Settings
+    // =========================================================================
+
+    int spiderWalkInterval() const;
+    void setSpiderWalkInterval(int interval);
+
+    // =========================================================================
+    // Filter Settings
+    // =========================================================================
+
+    int filtersMaxFiles() const;
+    void setFiltersMaxFiles(int max);
+
+    QString filtersNamingRegExp() const;
+    void setFiltersNamingRegExp(const QString& regexp);
+
+    bool filtersNamingRegExpNegative() const;
+    void setFiltersNamingRegExpNegative(bool negative);
+
+    bool filtersAdultFilter() const;
+    void setFiltersAdultFilter(bool enabled);
+
+    qint64 filtersSizeMin() const;
+    void setFiltersSizeMin(qint64 min);
+
+    qint64 filtersSizeMax() const;
+    void setFiltersSizeMax(qint64 max);
+
+    QString filtersContentType() const;
+    void setFiltersContentType(const QString& type);
+
+    // =========================================================================
+    // Client Settings
+    // =========================================================================
+
+    QString downloadPath() const;
+    void setDownloadPath(const QString& path);
+
+    // =========================================================================
+    // UI Settings
+    // =========================================================================
+
+    QString language() const;
+    void setLanguage(const QString& lang);
+
+    bool darkMode() const;
+    void setDarkMode(bool enabled);
+
+    bool trayOnClose() const;
+    void setTrayOnClose(bool enabled);
+
+    bool trayOnMinimize() const;
+    void setTrayOnMinimize(bool enabled);
+
+    bool startMinimized() const;
+    void setStartMinimized(bool enabled);
+
+    bool autoStart() const;
+    void setAutoStart(bool enabled);
+
+    bool checkUpdatesOnStartup() const;
+    void setCheckUpdatesOnStartup(bool enabled);
+
+    QString dataDirectory() const;
+    void setDataDirectory(const QString& path);
+
+    bool agreementAccepted() const;
+    void setAgreementAccepted(bool accepted);
+
+    // =========================================================================
+    // Generic Access (for API)
+    // =========================================================================
+
+    /**
+     * @brief Get all config as JSON
+     */
+    QJsonObject toJson() const;
+
+    /**
+     * @brief Update from JSON (bulk update)
+     * @param options Key-value pairs to update
+     * @return List of changed keys
+     */
+    QStringList fromJson(const QJsonObject& options);
+
+    /**
+     * @brief Get a specific value
+     */
+    QVariant value(const QString& key, const QVariant& defaultValue = QVariant()) const;
+
+    /**
+     * @brief Set a specific value
+     *
+     * The single write path for the whole store: dedupes (no-op if unchanged),
+     * clamps per the metadata table, sets the dirty flag and emits the key's
+     * specific signal plus any group signal.
+     * @return true if value was changed
+     */
+    bool setValue(const QString& key, const QVariant& value);
+
+signals:
+    void configChanged(const QStringList& changedKeys);
+
+    // Individual property signals
+    void httpPortChanged(int port);
+    void p2pPortChanged(int port);
+    void dhtPortChanged(int port);
+    void p2pEnabledChanged(bool enabled);
+    void p2pConnectionsChanged(int connections);
+    void p2pReplicationChanged(bool enabled);
+    void indexerEnabledChanged(bool enabled);
+    void trackersEnabledChanged(bool enabled);
+    void languageChanged(const QString& lang);
+    void darkModeChanged(bool enabled);
+    void trayOnCloseChanged(bool enabled);
+    void trayOnMinimizeChanged(bool enabled);
+    void startMinimizedChanged(bool enabled);
+    void autoStartChanged(bool enabled);
+    void checkUpdatesOnStartupChanged(bool enabled);
+    void dataDirectoryChanged(const QString& path);
+    void agreementAcceptedChanged(bool accepted);
+
+    // Filter signals
+    void filtersMaxFilesChanged(int max);
+    void filtersNamingRegExpChanged(const QString& regexp);
+    void filtersNamingRegExpNegativeChanged(bool negative);
+    void filtersAdultFilterChanged(bool enabled);
+    void filtersSizeMinChanged(qint64 min);
+    void filtersSizeMaxChanged(qint64 max);
+    void filtersContentTypeChanged(const QString& type);
+    void filtersChanged(); // Generic signal when any filter changes
+
+private:
+    void setDefaults();
+    void validateAndClamp();
+
+    // Nested-aware JSON accessors. Dotted keys ("filters.maxFiles") address a
+    // value inside a nested object; plain keys address the top level.
+    QJsonValue readJsonValue(const QString& key) const;
+    void writeJsonValue(const QString& key, const QJsonValue& jsonValue);
+
+    QString configPath_;
+    QJsonObject config_;
+    bool dirty_ = false;
+};
+
+} // namespace app
+} // namespace rats
+
+#endif // RATS_APP_CONFIG_STORE_H

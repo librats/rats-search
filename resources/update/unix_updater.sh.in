@@ -1,0 +1,93 @@
+#!/bin/bash
+echo 'Rats Search Updater'
+echo '==================='
+echo
+echo 'Waiting for application to close...'
+sleep 3
+
+# Wait for the app to exit
+while pgrep -x '@APP_NAME@' > /dev/null; do
+    sleep 1
+done
+
+# Wait for searchd to exit (it runs as a separate process)
+if pgrep -x '@SEARCHD_NAME@' > /dev/null; then
+    echo 'Waiting for searchd to exit...'
+    kill $(pgrep -x '@SEARCHD_NAME@') 2>/dev/null
+    for i in $(seq 1 @SEARCHD_WAIT_SECONDS@); do
+        pgrep -x '@SEARCHD_NAME@' > /dev/null || break
+        sleep 1
+    done
+    # Force kill if still running
+    if pgrep -x '@SEARCHD_NAME@' > /dev/null; then
+        kill -9 $(pgrep -x '@SEARCHD_NAME@') 2>/dev/null
+        sleep 1
+    fi
+fi
+
+echo 'Updating files...'
+
+SOURCE_DIR='@SOURCE_DIR@'
+DEST_DIR='@DEST_DIR@'
+# Non-empty only in AppImage update mode; selects the branch below at runtime so
+# a single template covers both regular and AppImage installations.
+APPIMAGE_FILE='@APPIMAGE_FILE@'
+
+if [ -n "$APPIMAGE_FILE" ]; then
+    # AppImage update: replace the .AppImage file directly.
+    # Find new AppImage in source directory (might be nested)
+    NEW_APPIMAGE=''
+    for f in "$SOURCE_DIR"/*.AppImage; do
+        [ -f "$f" ] && NEW_APPIMAGE="$f" && break
+    done
+    if [ -z "$NEW_APPIMAGE" ]; then
+        for dir in "$SOURCE_DIR"/*/; do
+            for f in "${dir}"*.AppImage; do
+                [ -f "$f" ] && NEW_APPIMAGE="$f" && break 2
+            done
+        done
+    fi
+
+    if [ -n "$NEW_APPIMAGE" ]; then
+        echo "Replacing AppImage: $APPIMAGE_FILE"
+        echo "With: $NEW_APPIMAGE"
+        cp -f "$NEW_APPIMAGE" "$APPIMAGE_FILE"
+        chmod +x "$APPIMAGE_FILE"
+        echo 'AppImage replaced successfully'
+    else
+        echo 'ERROR: New AppImage not found in update package'
+        echo 'Contents of source directory:'
+        find "$SOURCE_DIR" -type f
+        exit 1
+    fi
+    EXE_PATH="$APPIMAGE_FILE"
+else
+    # Regular (non-AppImage) installation: copy all files to app directory.
+    # Find the actual source directory (might be nested)
+    for dir in "$SOURCE_DIR"/*/; do
+        if [ -f "${dir}@APP_NAME@" ]; then
+            SOURCE_DIR="${dir%/}"
+            break
+        fi
+    done
+
+    # Copy all files
+    cp -rf "$SOURCE_DIR"/* "$DEST_DIR/" 2>/dev/null
+
+    # Make executable
+    chmod +x "$DEST_DIR/@APP_NAME@" 2>/dev/null
+    chmod +x "$DEST_DIR/@SEARCHD_NAME@" 2>/dev/null
+    chmod +x "$DEST_DIR/indexer" 2>/dev/null
+    EXE_PATH="$DEST_DIR/@APP_NAME@"
+fi
+
+echo 'Update complete!'
+echo 'Starting application...'
+
+# Start the updated application
+"$EXE_PATH" &
+
+# Clean up
+sleep 5
+rm -rf '@TEMP_DIR@'
+exit 0

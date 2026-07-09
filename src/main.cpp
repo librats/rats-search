@@ -1,107 +1,67 @@
 #include <QApplication>
-#include <QCoreApplication>
 #include <QCommandLineParser>
-#include <QDir>
-#include <QStandardPaths>
-#include <QSettings>
+#include <QCoreApplication>
 #include <QDebug>
-#include <QTextStream>
+#include <QDir>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QTimer>
-#include <QElapsedTimer>
-#include <QSocketNotifier>
-#include "legacymigration.h"
-#include <iostream>
-#include <csignal>
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
+#include <csignal>
+#include <iostream>
+#include <memory>
+
+#include "app/application.h"
+#include "app/config_store.h"
+#include "bootstrap/legacymigration.h"
+#include "bootstrap/startupinfo.h"
 #include "mainwindow.h"
-#include "torrentdatabase.h"
-#include "torrentspider.h"
-#include "p2pnetwork.h"
-#include "api/ratsapi.h"
-#include "api/configmanager.h"
-#include "api/apiserver.h"
-#include "api/translationmanager.h"
-#include "autostartmanager.h"
-#include "startupinfo.h"
-#pragma push_macro("emit")
-#undef emit
 #include "util/logger.h"
-#pragma pop_macro("emit")
 #include "version.h"
 
 #ifdef _WIN32
 #include <windows.h>
-#include <io.h>
-#include <fcntl.h>
 #endif
 
-// Global pointers for signal handling
-static TorrentDatabase* g_database = nullptr;
-static TorrentSpider* g_spider = nullptr;
-static P2PNetwork* g_p2p = nullptr;
-static QCoreApplication* g_app = nullptr;
-static bool g_shutdownRequested = false;
-
-// Get saved data directory from QSettings (stored separately from main config)
-// This solves the chicken-and-egg problem: config is in dataDirectory,
-// but we need to know dataDirectory to read config
-QString getSavedDataDirectory()
+// ============================================================================
+// Data directory persistence (QSettings).
+//
+// Chicken-and-egg: the config lives inside the data directory, but we need to
+// know the data directory before we can read config. So the chosen path is
+// stored separately in QSettings.
+// ============================================================================
+static QString getSavedDataDirectory()
 {
-    QSettings settings("RatsSearch", "RatsSearch");
-    return settings.value("dataDirectory").toString();
+    return QSettings(QStringLiteral("RatsSearch"), QStringLiteral("RatsSearch"))
+        .value(QStringLiteral("dataDirectory"))
+        .toString();
 }
 
-// Save data directory to QSettings
-void saveDataDirectory(const QString& path)
+static void saveDataDirectory(const QString& path)
 {
-    QSettings settings("RatsSearch", "RatsSearch");
-    settings.setValue("dataDirectory", path);
+    QSettings(QStringLiteral("RatsSearch"), QStringLiteral("RatsSearch"))
+        .setValue(QStringLiteral("dataDirectory"), path);
 }
 
-#ifdef _WIN32
-// Allocate and attach a console on Windows for stdout/stderr
-void attachConsoleOnWindows()
+#if defined(_WIN32) && !defined(NDEBUG)
+// Attach a console on Windows so stdout/stderr are visible in Debug builds.
+static void attachConsoleOnWindows()
 {
-    // Try to attach to parent console first (if run from cmd.exe)
-    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-        // If no parent console, allocate a new one
+    if (!AttachConsole(ATTACH_PARENT_PROCESS))
         AllocConsole();
-    }
-    
-    // Redirect stdout
     FILE* fp;
     freopen_s(&fp, "CONOUT$", "w", stdout);
     freopen_s(&fp, "CONOUT$", "w", stderr);
     freopen_s(&fp, "CONIN$", "r", stdin);
-    
-    // Make cout, wcout, cin, wcin, wcerr, cerr, wclog and clog point to console as well
     std::ios::sync_with_stdio();
-    
-    // Clear the error state for each of the C++ standard stream objects
-    std::cout.clear();
-    std::cerr.clear();
-    std::cin.clear();
-    
-    std::wcout.clear();
-    std::wcerr.clear();
-    std::wcin.clear();
 }
 #endif
 
-// Custom Qt message handler using librats logger
-void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+// Route Qt logging through the librats logger (single log file/sink).
+static void customMessageHandler(QtMsgType type, const QMessageLogContext&, const QString& msg)
 {
-    Q_UNUSED(context);
-    QByteArray localMsg = msg.toLocal8Bit();
-    std::string message = localMsg.constData();
-    
-    // Get librats logger instance
+    const std::string message = msg.toLocal8Bit().constData();
     auto& logger = librats::Logger::getInstance();
-    
-    // Map Qt message types to librats log levels
     switch (type) {
     case QtDebugMsg:
         logger.log(librats::LogLevel::DEBUG, "RatsSearch", message);
@@ -118,565 +78,160 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
     case QtFatalMsg:
         logger.log(librats::LogLevel::ERROR, "RatsSearch", "[FATAL] " + message);
         abort();
-        break;
     }
 }
 
-// Signal handler for graceful shutdown
-void signalHandler(int signum)
+// ---- graceful Ctrl+C shutdown (console) ------------------------------------
+static QCoreApplication* g_app = nullptr;
+static bool g_shutdownRequested = false;
+
+static void signalHandler(int)
 {
-    if (g_shutdownRequested) {
-        std::cerr << "Force shutdown..." << std::endl;
-        exit(1);
-    }
-    
+    if (g_shutdownRequested)
+        std::exit(1);
     g_shutdownRequested = true;
     std::cout << "\nShutting down..." << std::endl;
-    
-    // Schedule shutdown on Qt event loop
-    if (g_app) {
-        QMetaObject::invokeMethod(g_app, []() {
-            if (g_spider) {
-                g_spider->stop();
-            }
-            if (g_p2p) {
-                g_p2p->stop();
-            }
-            if (g_database) {
-                g_database->close();
-            }
-            QCoreApplication::quit();
-        }, Qt::QueuedConnection);
-    }
-    
-    Q_UNUSED(signum);
+    if (g_app)
+        QMetaObject::invokeMethod(g_app, []() { QCoreApplication::quit(); }, Qt::QueuedConnection);
 }
 
-// Console mode main loop - uses the existing QCoreApplication from main()
-int runConsoleMode(QCoreApplication& app, int p2pPort, int dhtPort, const QString& dataDir, bool enableSpider, int maxPeers, const QString& webuiDir)
+// ============================================================================
+// Shared startup, used identically by console and GUI modes.
+// ============================================================================
+static void addCommonOptions(QCommandLineParser& parser, QCommandLineOption& port, QCommandLineOption& dhtPort,
+    QCommandLineOption& dataDir, QCommandLineOption& maxPeers, QCommandLineOption& spider, QCommandLineOption& console)
 {
+    parser.setApplicationDescription(QStringLiteral("Rats Search - BitTorrent P2P Search Engine"));
+    parser.addHelpOption();
+    parser.addVersionOption();
+    parser.addOption(console);
+    parser.addOption(port);
+    parser.addOption(dhtPort);
+    parser.addOption(dataDir);
+    parser.addOption(maxPeers);
+    parser.addOption(spider);
+}
+
+static QString resolveDataDirectory(QCommandLineParser& parser, const QCommandLineOption& dataDirOption)
+{
+    QString dataDir;
+    if (parser.isSet(dataDirOption)) {
+        dataDir = parser.value(dataDirOption);
+        saveDataDirectory(dataDir); // remember an explicit override for next launch
+    } else {
+        dataDir = getSavedDataDirectory();
+        if (dataDir.isEmpty())
+            dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    }
+    return dataDir;
+}
+
+static void configureLogging(const QString& dataDir)
+{
+    auto& logger = librats::Logger::getInstance();
+    const QString logFilePath = dataDir + QStringLiteral("/rats-search.log");
+    logger.set_log_file_path(logFilePath.toStdString());
+    logger.set_log_rotation_size(0);
+    logger.set_log_retention_count(2);
+    logger.set_rotate_on_startup(true); // must precede set_file_logging_enabled()
+    logger.set_file_logging_enabled(true);
+#ifdef NDEBUG
+    logger.set_log_level(librats::LogLevel::INFO);
+#else
+    logger.set_log_level(librats::LogLevel::DEBUG);
+#endif
+    qInfo() << "Log file:" << logFilePath;
+    logStartupInfo(dataDir);
+}
+
+// Console mode on the new rats:: architecture: build the composition root,
+// start it, and run the event loop until interrupted. No widgets.
+static int runConsoleApplication(QCoreApplication& app, rats::app::Application::Options options)
+{
+    options.headless = true;
     g_app = &app;
-    
-    qInfo() << "Rats Search Console Mode";
-    qInfo() << "Version:" << RATSSEARCH_VERSION_STRING << "(" << RATSSEARCH_GIT_DESCRIBE << ")";
-    qInfo() << "Data directory:" << dataDir;
-    
-    // Create configuration manager first to get default ports
-    ConfigManager config(dataDir + "/rats.json");
-    config.load();
-    config.setWebuiDir(webuiDir);
-    
-    // Apply CLI overrides or use config defaults
-    int actualP2pPort = (p2pPort > 0) ? p2pPort : config.p2pPort();
-    int actualDhtPort = (dhtPort > 0) ? dhtPort : config.dhtPort();
-    
-    int actualMaxPeers = (maxPeers > 0) ? qBound(10, maxPeers, 1000) : config.p2pConnections();
-    
-    qInfo() << "P2P port:" << actualP2pPort << (p2pPort > 0 ? "(CLI)" : "(config)");
-    qInfo() << "DHT port:" << actualDhtPort << (dhtPort > 0 ? "(CLI)" : "(config)");
-    qInfo() << "Max peers:" << actualMaxPeers << (maxPeers > 0 ? "(CLI)" : "(config)");
-    
-    // Initialize database
-    TorrentDatabase database(dataDir);
-    g_database = &database;
-    
-    if (!database.initialize()) {
-        qCritical() << "Failed to initialize database";
-        return 1;
-    }
-    
-    // Initialize P2P network (single owner of RatsClient)
-    P2PNetwork p2p(actualP2pPort, actualDhtPort, dataDir, actualMaxPeers);
-    g_p2p = &p2p;
-    
-    if (!p2p.start()) {
-        qWarning() << "Failed to start P2P network";
-    }
-    
-    // Initialize spider - uses RatsClient from P2PNetwork
-    TorrentSpider spider(&database, &p2p);
-    g_spider = &spider;
-    
-    if (enableSpider) {
-        if (!spider.start()) {
-            qWarning() << "Failed to start spider";
-        }
-    }
-    
-    // Create RatsAPI
-    RatsAPI api;
-    api.initialize(&database, &p2p, nullptr, &config);
-    api.setSpider(&spider);
-    
-    // Update P2P network with our database stats (like GUI mode does in initializeServicesDeferred)
-    {
-        auto stats = database.getStatistics();
-        p2p.updateOurStats(stats.totalTorrents, stats.totalFiles, stats.totalSize);
-        qInfo() << "Initial P2P stats: torrents:" << stats.totalTorrents 
-                << "files:" << stats.totalFiles << "size:" << stats.totalSize;
-    }
-    
-    // Connect to tracker checking for all indexed torrents (like MainWindow does in GUI mode)
-    // Lambda that calls checkTrackers for any indexed torrent
-    auto onTorrentIndexed = [&api](const QString& hash, const QString& name) {
-        Q_UNUSED(name);
-        api.checkTrackers(hash, [hash](const ApiResponse& response) {
-            if (response.success) {
-                QJsonObject data = response.data.toObject();
-                if (data["status"].toString() == "success") {
-                    qInfo() << "Tracker check for" << hash.left(8) 
-                            << "- seeders:" << data["seeders"].toInt()
-                             << "leechers:" << data["leechers"].toInt();
-                }
-            }
-        });
-    };
-    
-    if (config.trackersEnabled()) {
-        // From spider (DHT announce scraping)
-        QObject::connect(&spider, &TorrentSpider::torrentIndexed, onTorrentIndexed);
-        // From RatsAPI (DHT metadata fetch, P2P replication, .torrent import)
-        QObject::connect(&api, &RatsAPI::torrentIndexed, onTorrentIndexed);
-        qInfo() << "Tracker checking enabled for indexed torrents";
-    }
-    
-    // Connect informational signals for logging
-    QObject::connect(&api, &RatsAPI::replicationStarted, []() {
-        qInfo() << "P2P replication started";
-    });
-    QObject::connect(&api, &RatsAPI::replicationStopped, []() {
-        qInfo() << "P2P replication stopped";
-    });
-    QObject::connect(&api, &RatsAPI::cleanupProgress, [](int current, int total, const QString& phase) {
-        if (current % 100 == 0 || current == total) {  // Log every 100 items or at completion
-            qInfo() << "Cleanup" << phase << ":" << current << "/" << total;
-        }
-    });
-    QObject::connect(&api, &RatsAPI::feedUpdated, [](const QJsonArray& feed) {
-        qInfo() << "Feed updated, items:" << feed.size();
-    });
-    
-    // Start API server if enabled
-    std::unique_ptr<ApiServer> apiServer;
-    if (config.restApiEnabled()) {
-        apiServer = std::make_unique<ApiServer>(&api);
-        if (apiServer->start(config.httpPort())) {
-            qInfo() << "API server started on port" << config.httpPort();
-        }
-    }
-    
-    // Print statistics periodically and update P2P stats for peers
-    QTimer statsTimer;
-    QObject::connect(&statsTimer, &QTimer::timeout, [&]() {
-        auto stats = database.getStatistics();
-        p2p.updateOurStats(stats.totalTorrents, stats.totalFiles, stats.totalSize);
-        qInfo() << "Stats - Torrents:" << stats.totalTorrents 
-                << "Files:" << stats.totalFiles
-                << "Size:" << (stats.totalSize / (1024*1024*1024)) << "GB"
-                << "Peers:" << p2p.getPeerCount()
-                << "DHT nodes:" << p2p.getDhtNodeCount();
-    });
-    statsTimer.start(30000);  // Every 30 seconds
-    
-    // Setup signal handlers
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
-    
-    qInfo() << "Console mode running. Press Ctrl+C to stop.";
-    
-    // Interactive command loop using non-blocking stdin
-    // Use QSocketNotifier to get notified when stdin has data ready
-    QTextStream in(stdin);
-    
-#ifndef _WIN32
-    // On Unix-like systems, use QSocketNotifier for non-blocking stdin
-    QSocketNotifier stdinNotifier(STDIN_FILENO, QSocketNotifier::Read);
-    
-    QObject::connect(&stdinNotifier, &QSocketNotifier::activated, [&]() {
-        QString line = in.readLine().trimmed();
-        if (line.isEmpty()) return;
-        
-        QStringList parts = line.split(' ', Qt::SkipEmptyParts);
-        QString cmd = parts.isEmpty() ? "" : parts[0].toLower();
-        
-        if (cmd == "quit" || cmd == "exit") {
-            signalHandler(0);
-        }
-        else if (cmd == "stats") {
-            auto stats = database.getStatistics();
-            std::cout << "Torrents: " << stats.totalTorrents << std::endl;
-            std::cout << "Files: " << stats.totalFiles << std::endl;
-            std::cout << "Size: " << (stats.totalSize / (1024*1024*1024)) << " GB" << std::endl;
-            std::cout << "Peers: " << p2p.getPeerCount() << std::endl;
-            std::cout << "DHT nodes: " << p2p.getDhtNodeCount() << std::endl;
-            if (enableSpider) {
-                std::cout << "Indexed: " << spider.getIndexedCount() << std::endl;
-                std::cout << "Pending: " << spider.getPendingCount() << std::endl;
-            }
-        }
-        else if (cmd == "search" && parts.size() > 1) {
-            QString query = parts.mid(1).join(' ');
-            std::cout << "Searching for: " << query.toStdString() << std::endl;
-            
-            SearchOptions options;
-            options.query = query;
-            options.limit = 10;
-            
-            auto results = database.searchTorrents(options);
-            std::cout << "Found " << results.size() << " results:" << std::endl;
-            
-            for (const TorrentInfo& t : results) {
-                std::cout << "  " << t.hash.left(8).toStdString() << " "
-                          << t.name.toStdString() << " (" 
-                          << (t.size / (1024*1024)) << " MB, "
-                          << t.seeders << " seeders)" << std::endl;
-            }
-        }
-        else if (cmd == "recent") {
-            int limit = (parts.size() > 1) ? parts[1].toInt() : 10;
-            auto results = database.getRecentTorrents(limit);
-            
-            std::cout << "Recent torrents:" << std::endl;
-            for (const TorrentInfo& t : results) {
-                std::cout << "  " << t.hash.left(8).toStdString() << " "
-                          << t.name.toStdString() << std::endl;
-            }
-        }
-        else if (cmd == "top") {
-            QString type = (parts.size() > 1) ? parts[1] : "";
-            auto results = database.getTopTorrents(type, "", 0, 10);
-            
-            std::cout << "Top torrents:" << std::endl;
-            for (const TorrentInfo& t : results) {
-                std::cout << "  " << t.seeders << " seeders - "
-                          << t.name.toStdString() << std::endl;
-            }
-        }
-        else if (cmd == "spider") {
-            if (parts.size() > 1 && parts[1] == "start") {
-                if (!spider.isRunning()) {
-                    spider.start();
-                    std::cout << "Spider started" << std::endl;
-                }
-            }
-            else if (parts.size() > 1 && parts[1] == "stop") {
-                spider.stop();
-                std::cout << "Spider stopped" << std::endl;
-            }
-            else {
-                std::cout << "Spider is " << (spider.isRunning() ? "running" : "stopped") << std::endl;
-                std::cout << "Indexed: " << spider.getIndexedCount() << std::endl;
-            }
-        }
-        else if (cmd == "peers") {
-            if (parts.size() > 1) {
-                bool ok;
-                int n = parts[1].toInt(&ok);
-                if (ok && n >= 10 && n <= 1000) {
-                    p2p.setMaxPeers(n);
-                    config.setP2pConnections(n);
-                    config.save();
-                    std::cout << "Max peers set to " << n << " (saved to config)" << std::endl;
-                } else {
-                    std::cout << "Invalid value. Range: 10-1000" << std::endl;
-                }
-            } else {
-                std::cout << "Connected peers: " << p2p.getPeerCount() << std::endl;
-                std::cout << "Max peers: " << config.p2pConnections() << std::endl;
-            }
-        }
-        else if (cmd == "help") {
-            std::cout << "Commands:" << std::endl;
-            std::cout << "  stats        - Show statistics" << std::endl;
-            std::cout << "  search <q>   - Search torrents" << std::endl;
-            std::cout << "  recent [n]   - Show recent torrents" << std::endl;
-            std::cout << "  top [type]   - Show top torrents" << std::endl;
-            std::cout << "  spider start - Start spider" << std::endl;
-            std::cout << "  spider stop  - Stop spider" << std::endl;
-            std::cout << "  peers [n]    - Show/set max P2P connections (10-1000)" << std::endl;
-            std::cout << "  quit         - Exit" << std::endl;
-        }
-        else if (!cmd.isEmpty()) {
-            std::cout << "Unknown command: " << cmd.toStdString() << ". Type 'help' for commands." << std::endl;
-        }
-    });
-#else
-    // On Windows, stdin notification is tricky - skip interactive commands
-    // The application will still work, just without interactive console
-    qInfo() << "Interactive commands not available on Windows console mode.";
-    qInfo() << "Use Ctrl+C to stop.";
-#endif
-    
+
+    auto application = std::make_unique<rats::app::Application>(std::move(options));
+    if (!application->start()) {
+        qCritical() << "Failed to start application";
+        return 1;
+    }
+    qInfo() << "Rats Search (console) running. Press Ctrl+C to quit.";
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, application.get(), [a = application.get()]() { a->stop(); });
     return app.exec();
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
 #if defined(_WIN32) && !defined(NDEBUG)
-    // Attach console on Windows to see stdout/stderr (Debug builds only)
     attachConsoleOnWindows();
 #endif
-    
-    // Install custom message handler for Qt logging
     qInstallMessageHandler(customMessageHandler);
-    
-    // Parse command line before creating QApplication
-    // to check if we need console mode
+
+    // QApplication vs QCoreApplication must be chosen before construction, so we
+    // pre-scan argv for the console flag.
     bool consoleMode = false;
     for (int i = 1; i < argc; ++i) {
-        if (QString(argv[i]) == "--console" || QString(argv[i]) == "-c") {
+        const QString arg = QString::fromLocal8Bit(argv[i]);
+        if (arg == QLatin1String("--console") || arg == QLatin1String("-c")) {
             consoleMode = true;
             break;
         }
     }
-    
-    // Create appropriate application type
-    if (consoleMode) {
-        QCoreApplication app(argc, argv);
-        
-        // Set application information
-        QCoreApplication::setApplicationName("Rats Search");
-        QCoreApplication::setOrganizationName("");  // Empty to avoid nested folder
-        QCoreApplication::setApplicationVersion("2.0.0");
-        
-        // Command line parser
-        QCommandLineParser parser;
-        parser.setApplicationDescription("Rats Search - BitTorrent P2P Search Engine (Console Mode)");
-        parser.addHelpOption();
-        parser.addVersionOption();
-        
-        QCommandLineOption consoleOption(QStringList() << "c" << "console",
-            "Run in console mode (no GUI)");
-        parser.addOption(consoleOption);
-        
-        QCommandLineOption portOption(QStringList() << "p" << "port",
-            "P2P listen port (overrides config setting)", "port");
-        parser.addOption(portOption);
-        
-        QCommandLineOption dhtPortOption(QStringList() << "d" << "dht-port",
-            "DHT port (overrides config setting)", "dht-port");
-        parser.addOption(dhtPortOption);
-        
-        QCommandLineOption dataDirectoryOption(QStringList() << "data-dir",
-            "Data directory for database and config", "path");
-        parser.addOption(dataDirectoryOption);
-        
-        QCommandLineOption spiderOption(QStringList() << "s" << "spider",
-            "Enable torrent spider (default: disabled in console mode)");
-        parser.addOption(spiderOption);
-        
-        QCommandLineOption maxPeersOption(QStringList() << "m" << "max-peers",
-            "Maximum P2P connections (overrides config setting, range: 10-1000)", "max-peers");
-        parser.addOption(maxPeersOption);
-        
-        QCommandLineOption webuiDirOption(QStringList() << "w" << "webui-dir",
-            "Directory for web UI files", "path");
-        parser.addOption(webuiDirOption);
-        
-        parser.process(app);
-        
-        // Get command line options (0 means not specified - use config default)
-        int p2pPort = parser.isSet(portOption) ? parser.value(portOption).toInt() : 0;
-        int dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
-        int maxPeers = parser.isSet(maxPeersOption) ? parser.value(maxPeersOption).toInt() : 0;
-        bool enableSpider = parser.isSet(spiderOption);
-        
-        QString dataDir;
-        if (parser.isSet(dataDirectoryOption)) {
-            dataDir = parser.value(dataDirectoryOption);
-            // Save command-line override to settings for future runs
-            saveDataDirectory(dataDir);
-        } else {
-            // Try to load saved data directory from QSettings
-            dataDir = getSavedDataDirectory();
-            if (dataDir.isEmpty()) {
-                // Fallback to standard location
-                dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-            }
-        }
-        
-        // Create data directory if it doesn't exist
-        QDir dir;
-        if (!dir.mkpath(dataDir)) {
-            qCritical() << "Failed to create data directory:" << dataDir;
-            return 1;
-        }
-        
-        // Migrate legacy v1.x database if this is first run of v2.0
-        migrateLegacyDatabase(dataDir);
-        
-        // Enable file logging
-        auto& logger = librats::Logger::getInstance();
-        QString logFilePath = dataDir + "/rats-search.log";
-        logger.set_log_file_path(logFilePath.toStdString());
-        logger.set_log_rotation_size(0);  // No rotation
-        logger.set_log_retention_count(2); // Keep 3 log files
-        logger.set_rotate_on_startup(true); // Improtant to call before set_file_logging_enabled()
-        logger.set_file_logging_enabled(true);
-#ifdef NDEBUG
-        logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
-#else
-        logger.set_log_level(librats::LogLevel::DEBUG);  // Debug: all messages
-#endif
-        
-        qInfo() << "Log file:" << logFilePath;
-        
-        // Log system and data directory info for debugging
-        logStartupInfo(dataDir);
-        
-        QString webuiDir;
-        if (parser.isSet(webuiDirOption)) {
-            webuiDir = parser.value(webuiDirOption);
-        } else {
-            webuiDir = dataDir + "/webui";
-        }
-        
-        return runConsoleMode(app, p2pPort, dhtPort, dataDir, enableSpider, maxPeers, webuiDir);
+
+    std::unique_ptr<QCoreApplication> qapp;
+    if (consoleMode)
+        qapp = std::make_unique<QCoreApplication>(argc, argv);
+    else
+        qapp = std::make_unique<QApplication>(argc, argv);
+
+    QCoreApplication::setApplicationName(QStringLiteral("Rats Search"));
+    QCoreApplication::setOrganizationName(QString()); // empty avoids a nested folder
+    QCoreApplication::setApplicationVersion(QStringLiteral(RATSSEARCH_VERSION_STRING));
+
+    QCommandLineOption consoleOption(QStringList() << "c" << "console", QStringLiteral("Run without a GUI"));
+    QCommandLineOption portOption(QStringList() << "p" << "port", QStringLiteral("P2P listen port"), "port");
+    QCommandLineOption dhtPortOption(QStringList() << "d" << "dht-port", QStringLiteral("DHT port"), "dht-port");
+    QCommandLineOption dataDirOption(QStringList() << "data-dir", QStringLiteral("Data directory"), "path");
+    QCommandLineOption maxPeersOption(QStringList() << "m" << "max-peers", QStringLiteral("Max P2P connections"), "n");
+    QCommandLineOption spiderOption(QStringList() << "s" << "spider", QStringLiteral("Force-enable the DHT spider"));
+    QCommandLineParser parser;
+    addCommonOptions(parser, portOption, dhtPortOption, dataDirOption, maxPeersOption, spiderOption, consoleOption);
+    parser.process(*qapp);
+
+    const QString dataDir = resolveDataDirectory(parser, dataDirOption);
+    if (!QDir().mkpath(dataDir)) {
+        qCritical() << "Failed to create data directory:" << dataDir;
+        return 1;
     }
-    else {
-        // GUI mode
-        QElapsedTimer startupTimer;
-        startupTimer.start();
-        
-        QApplication app(argc, argv);
-        qInfo() << "QApplication created:" << startupTimer.elapsed() << "ms";
-        
-        // Set application information
-        QApplication::setApplicationName("Rats Search");
-        QApplication::setOrganizationName("");  // Empty to avoid nested folder
-        QApplication::setApplicationVersion("2.0.0");
-        
-        // Command line parser
-        QCommandLineParser parser;
-        parser.setApplicationDescription("Rats Search - BitTorrent P2P Search Engine");
-        parser.addHelpOption();
-        parser.addVersionOption();
-        
-        QCommandLineOption portOption(QStringList() << "p" << "port",
-            "P2P listen port (overrides config setting)", "port");
-        parser.addOption(portOption);
-        
-        QCommandLineOption dhtPortOption(QStringList() << "d" << "dht-port",
-            "DHT port (overrides config setting)", "dht-port");
-        parser.addOption(dhtPortOption);
-        
-        QCommandLineOption dataDirectoryOption(QStringList() << "data-dir",
-            "Data directory for database and config", "path");
-        parser.addOption(dataDirectoryOption);
-        
-        QCommandLineOption webuiDirOption(QStringList() << "w" << "webui-dir",
-            "Directory for web UI files", "path");
-        parser.addOption(webuiDirOption);
-        
-        parser.process(app);
-        
-        // Get command line options (0 means not specified - use config default)
-        int p2pPort = parser.isSet(portOption) ? parser.value(portOption).toInt() : 0;
-        int dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
-        
-        QString dataDir;
-        if (parser.isSet(dataDirectoryOption)) {
-            dataDir = parser.value(dataDirectoryOption);
-            // Save command-line override to settings for future runs
-            saveDataDirectory(dataDir);
-        } else {
-            // Try to load saved data directory from QSettings
-            dataDir = getSavedDataDirectory();
-            if (dataDir.isEmpty()) {
-                // Fallback to standard location
-                dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-            }
-        }
-        
-        // Create data directory if it doesn't exist
-        QDir dir;
-        if (!dir.mkpath(dataDir)) {
-            qCritical() << "Failed to create data directory:" << dataDir;
-            return 1;
-        }
-        
-        // Migrate legacy v1.x database if this is first run of v2.0
-        migrateLegacyDatabase(dataDir);
-        
-        // Enable file logging
-        auto& logger = librats::Logger::getInstance();
-        QString logFilePath = dataDir + "/rats-search.log";
-        logger.set_log_file_path(logFilePath.toStdString());
-        logger.set_log_rotation_size(0);  // No rotation
-        logger.set_log_retention_count(2); // Keep 3 log files
-        logger.set_rotate_on_startup(true); // Improtant to call before set_file_logging_enabled()
-        logger.set_file_logging_enabled(true);
-#ifdef NDEBUG
-        logger.set_log_level(librats::LogLevel::INFO);   // Release: INFO and above
-#else
-        logger.set_log_level(librats::LogLevel::DEBUG);  // Debug: all messages
-#endif
-        
-        qInfo() << "Rats Search starting...";
-        qInfo() << "Log file:" << logFilePath;
-        if (p2pPort > 0) qInfo() << "P2P port (CLI override):" << p2pPort;
-        if (dhtPort > 0) qInfo() << "DHT port (CLI override):" << dhtPort;
-        
-        // Log system and data directory info for debugging
-        logStartupInfo(dataDir);
-        
-        // Initialize translation system
-        qint64 translationStart = startupTimer.elapsed();
-        auto& translationManager = TranslationManager::instance();
-        translationManager.initialize(&app, dataDir + "/translations");
-        
-        // Load saved language preference
-        ConfigManager tempConfig(dataDir + "/rats.json");
-        tempConfig.load();
-        QString savedLanguage = tempConfig.language();
-        if (savedLanguage.isEmpty()) {
-            // Try system language
-            savedLanguage = TranslationManager::systemLanguage();
-        }
-        translationManager.setLanguage(savedLanguage);
-        qInfo() << "Translation init took:" << (startupTimer.elapsed() - translationStart) << "ms";
-        qInfo() << "Language:" << savedLanguage;
-        
-        // Sync autostart state with OS (updates registry/desktop file if exe path changed)
-        if (tempConfig.autoStart()) {
-            if (!AutoStartManager::isEnabled()) {
-                AutoStartManager::enable();
-                qInfo() << "Autostart re-synced with OS";
-            }
-        }
-        
-        QString webuiDir;
-        if (parser.isSet(webuiDirOption)) {
-            webuiDir = parser.value(webuiDirOption);
-        } else {
-            webuiDir = dataDir + "/webui";
-        }
-        tempConfig.setWebuiDir(webuiDir);
-        
-        // Create main window (UI setup only, services deferred)
-        qint64 windowStart = startupTimer.elapsed();
-        MainWindow mainWindow(p2pPort, dhtPort, dataDir);
-        qInfo() << "MainWindow created:" << (startupTimer.elapsed() - windowStart) << "ms";
-        
-        // Show window immediately (services start in background)
-        // Check if user wants to start minimized (to tray or taskbar)
-        bool startMinimized = tempConfig.startMinimized();
-        if (startMinimized) {
-            // If tray-on-minimize is enabled, hide to tray completely
-            if (tempConfig.trayOnMinimize()) {
-                qInfo() << "Starting minimized to system tray";
-                // Don't show the window at all - it will appear in tray
-                // MainWindow constructor already creates the tray icon
-            } else {
-                qInfo() << "Starting minimized to taskbar";
-                mainWindow.showMinimized();
-            }
-        } else {
-            mainWindow.show();
-        }
-        qInfo() << "Window shown, total startup:" << startupTimer.elapsed() << "ms";
-        qInfo() << "Heavy initialization continues in background...";
-        
-        return app.exec();
+    migrateLegacyDatabase(dataDir); // one-time v1.x -> v2.0 import
+    configureLogging(dataDir);
+
+    rats::app::Application::Options options;
+    options.dataDirectory = dataDir;
+    options.clientVersion = QCoreApplication::applicationVersion();
+    options.p2pPort = parser.isSet(portOption) ? parser.value(portOption).toInt() : 0;
+    options.dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
+    options.maxPeers = parser.isSet(maxPeersOption) ? parser.value(maxPeersOption).toInt() : 0;
+    options.forceSpider = parser.isSet(spiderOption);
+
+    if (consoleMode)
+        return runConsoleApplication(*qapp, std::move(options));
+
+    // ---- GUI mode --------------------------------------------------------
+    auto application = std::make_unique<rats::app::Application>(std::move(options));
+    if (!application->start()) {
+        qCritical() << "Failed to start application";
+        return 1;
     }
+
+    MainWindow window(application.get());
+    if (!application->config()->startMinimized())
+        window.show();
+
+    const int rc = qapp->exec();
+    application->stop();
+    return rc;
 }
