@@ -343,7 +343,7 @@ void ApiRouter::registerMethods()
                 progress["processed"] = processed;
                 progress["removed"] = removed;
                 progress["total"] = total;
-                emit event("torrent.remove.progress", progress);
+                emit event("torrentRemoveProgress", progress);
             }
         }
 
@@ -375,7 +375,7 @@ void ApiRouter::registerMethods()
                         app_->torrents()->remove(t.hash);
                 }
             }
-            emit event("torrent.cleanup.progress",
+            emit event("torrentCleanupProgress",
                 QJsonObject {
                     { "scanned", scanned }, { "matched", matched }, { "total", static_cast<double>(total) } });
         }

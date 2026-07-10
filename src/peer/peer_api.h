@@ -34,11 +34,11 @@ public:
     explicit PeerApi(app::Application* app, QObject* parent = nullptr);
 
 signals:
-    // A remote peer sent search hits (torrent_search_result). Query is empty —
+    // A remote peer sent search hits (searchTorrent_response). Query is empty —
     // the wire protocol never echoes it back — and torrents is the raw wire array
     // with remote/peer provenance stamped on.
     void remoteSearchResults(const QString& query, const QJsonArray& torrents);
-    // A remote peer sent a file-search hit (searchFiles_result).
+    // A remote peer sent a file-search hit (searchFiles_response).
     void remoteFileSearchResults(const QString& query, const QJsonArray& torrents);
     // A remote peer answered a single-torrent request (torrent_response). Emitted
     // even when the torrent already exists locally, so callers awaiting a fetch

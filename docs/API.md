@@ -252,7 +252,7 @@ GET http://localhost:8095/api/torrent.remove?hashes=["29ebe63...","abc123..."]
 |-----------|------|----------|---------|-------------|
 | `hashes` | array | yes | | Array of 40-character info hashes to remove |
 
-Emits `torrent.remove.progress` WebSocket events during a large removal.
+Emits `torrentRemoveProgress` WebSocket events during a large removal.
 
 **Response:**
 
@@ -279,7 +279,7 @@ GET http://localhost:8095/api/torrent.cleanup?dryRun=true
 |-----------|------|----------|---------|-------------|
 | `dryRun` | bool | no | `false` | Only count the matches; remove nothing |
 
-Emits `torrent.cleanup.progress` WebSocket events while it sweeps.
+Emits `torrentCleanupProgress` WebSocket events while it sweeps.
 
 **Response:**
 
@@ -616,8 +616,8 @@ Push events are broadcast to all connected WebSocket clients as `{ "event": name
 | `feedUpdated` | The feed changed | `{ "feed": [ …torrent objects… ] }` |
 | `configChanged` | One or more config keys were written | The full config object plus `"changedKeys": ["filters.adultFilter"]` |
 | `remoteSearchResults` | A peer answered a P2P search | `{ "searchId": "…", "torrents": [ …torrent objects… ] }` |
-| `torrent.remove.progress` | Progress of a bulk `torrent.remove` | `{ "processed": 100, "removed": 98, "total": 500 }` |
-| `torrent.cleanup.progress` | Progress of a `torrent.cleanup` sweep | `{ "scanned": 5000, "matched": 120, "total": 12045 }` |
+| `torrentRemoveProgress` | Progress of a bulk `torrent.remove` | `{ "processed": 100, "removed": 98, "total": 500 }` |
+| `torrentCleanupProgress` | Progress of a `torrent.cleanup` sweep | `{ "scanned": 5000, "matched": 120, "total": 12045 }` |
 
 ---
 

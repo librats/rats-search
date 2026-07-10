@@ -694,7 +694,7 @@ void MainWindow::performSearch(const QString& query)
         msg["limit"] = 50;
         msg["orderBy"] = sort;
         msg["orderDesc"] = req.descending;
-        app_->transport()->broadcastMessage("torrent_search", msg);
+        app_->transport()->broadcastMessage("searchTorrent", msg);
         app_->transport()->broadcastMessage("searchFiles", msg);
     }
 
