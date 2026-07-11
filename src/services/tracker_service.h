@@ -33,6 +33,10 @@ public:
     void setCountScrapingEnabled(bool enabled);
     void setInfoScrapingEnabled(bool enabled);
 
+    // Stop forwarding scrapes and tear down the underlying scrapers. Called on
+    // shutdown so no fresh tracker work is issued while the app is closing.
+    void stop();
+
     // Explicit requests (also used by the API "tracker.check" method).
     void checkCounts(const QString& hash);
     void checkInfo(const QString& hash, const QString& name);

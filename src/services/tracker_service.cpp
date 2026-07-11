@@ -24,6 +24,16 @@ void TrackerService::setInfoScrapingEnabled(bool enabled)
     infoEnabled_ = enabled;
 }
 
+void TrackerService::stop()
+{
+    // Stop forwarding first so a late torrentIndexed / API call issues nothing,
+    // then drain the scrapers (blocking announces / in-flight HTTP).
+    countEnabled_ = false;
+    infoEnabled_ = false;
+    swarmScraper_->stop();
+    siteScraper_->stop();
+}
+
 void TrackerService::checkCounts(const QString& hash)
 {
     if (countEnabled_)

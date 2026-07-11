@@ -9,6 +9,8 @@
 #include <QString>
 #include <QVector>
 
+#include <atomic>
+
 class QNetworkAccessManager;
 
 namespace rats::net {
@@ -50,6 +52,11 @@ public:
     // per-hash cooldown window are dropped. Whether scraping happens at all is
     // decided by the caller (TrackerService).
     void scrape(const QString& infoHash, const QString& name);
+
+    // Stop scraping: reject further scrape() calls and abort every in-flight
+    // network request so shutdown is not held up waiting on tracker websites.
+    // Idempotent; must be called on this object's thread.
+    void stop();
 
     static constexpr int kTimeoutMs = 20000; // 20 s per request
     static constexpr int kCooldownSecs = 3600; // 1 h per-hash cooldown
@@ -98,6 +105,9 @@ private:
     static constexpr int kMaxDescriptionLength = 5000; // description clamp
 
     QNetworkAccessManager* networkManager_;
+
+    // Set by stop(): rejects new scrapes while the app is shutting down.
+    std::atomic<bool> stopping_{ false };
 
     // Per-hash cooldown bookkeeping.
     mutable QMutex recentChecksMutex_;

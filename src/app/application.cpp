@@ -271,10 +271,14 @@ void Application::stop()
     qInfo() << "[Application] stopping";
 
     d_->apiServer->stop();
+    // Stop the crawler (the source of new torrents) and the tracker scrapers early
+    // so no fresh tracker requests are issued during shutdown, and in-flight
+    // announces / HTTP requests are drained rather than left blocking teardown.
+    d_->crawler->stop();
+    d_->trackers->stop();
     d_->downloads->saveSession(d_->options.dataDirectory + QStringLiteral("/torrents_session.json"));
     d_->feed->save();
     d_->replication->stop();
-    d_->crawler->stop();
     d_->transport->stop();
     d_->manticore->stop();
 

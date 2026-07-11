@@ -50,6 +50,11 @@ private:
     QProgressBar* progressBar_;
     QPushButton* pauseButton_;
     QPushButton* cancelButton_;
+
+    // Once a torrent is completed its presentation is sticky: later progress
+    // updates (which carry paused=false and a non-completed style) must not
+    // revert the "Completed" look. Guards updateProgress()/setPaused().
+    bool completed_ = false;
 };
 
 /**

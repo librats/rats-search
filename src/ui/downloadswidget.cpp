@@ -85,6 +85,12 @@ void DownloadItemWidget::setupUi(const QString& name, qint64 size)
 
 void DownloadItemWidget::updateProgress(qint64 downloaded, qint64 total, int speed, double progress)
 {
+    // A completed torrent keeps its "Completed" presentation; a routine progress
+    // tick must not rewrite the status back to "size / size" with an active look.
+    if (completed_) {
+        return;
+    }
+
     progressBar_->setValue(static_cast<int>(progress * 100));
 
     QString status = QString("%1 / %2").arg(rats::ui::formatSize(downloaded), rats::ui::formatSize(total));
@@ -111,7 +117,15 @@ void DownloadItemWidget::updateInfo(const QString& name, qint64 size)
 
 void DownloadItemWidget::setCompleted()
 {
+    if (completed_) {
+        return; // already presented as completed — keep it sticky and idempotent
+    }
+    completed_ = true;
+
     progressBar_->setValue(100);
+    progressBar_->setObjectName("downloadProgress"); // clear any "paused" style
+    progressBar_->style()->unpolish(progressBar_);
+    progressBar_->style()->polish(progressBar_);
     statusLabel_->setText(tr("Completed"));
     speedLabel_->clear();
     pauseButton_->setText(tr("Open"));
@@ -125,6 +139,10 @@ void DownloadItemWidget::setCompleted()
 
 void DownloadItemWidget::setPaused(bool paused)
 {
+    if (completed_) {
+        return; // a completed torrent is not a pausable download
+    }
+
     if (paused) {
         pauseButton_->setText(tr("Resume"));
         statusLabel_->setText(tr("Paused"));
@@ -326,17 +344,29 @@ void DownloadsWidget::onDownloadStarted(const QString& hash)
 
 void DownloadsWidget::onProgressUpdated(const QString& hash, const QJsonObject& progress)
 {
-    if (downloadItems_.contains(hash)) {
-        qint64 downloaded = progress["downloaded"].toVariant().toLongLong();
-        qint64 total = progress["total"].toVariant().toLongLong();
-        int speed = progress["downloadSpeed"].toInt();
-        double progressPercent = progress["progress"].toDouble();
-        downloadItems_[hash]->updateProgress(downloaded, total, speed, progressPercent);
+    if (!downloadItems_.contains(hash)) {
+        return;
+    }
+    DownloadItemWidget* item = downloadItems_[hash];
 
-        // Reflect paused state carried in the progress payload.
-        if (progress.contains("paused")) {
-            downloadItems_[hash]->setPaused(progress["paused"].toBool());
-        }
+    // Completion is carried in every progress payload, so surface it here too —
+    // not only via downloadCompleted. That edge-triggered signal can fire before
+    // this widget is connected (e.g. a finished torrent restored at startup), so
+    // relying on it alone would leave the item looking like an active download.
+    if (progress["completed"].toBool()) {
+        item->setCompleted();
+        return;
+    }
+
+    qint64 downloaded = progress["downloaded"].toVariant().toLongLong();
+    qint64 total = progress["total"].toVariant().toLongLong();
+    int speed = progress["downloadSpeed"].toInt();
+    double progressPercent = progress["progress"].toDouble();
+    item->updateProgress(downloaded, total, speed, progressPercent);
+
+    // Reflect paused state carried in the progress payload.
+    if (progress.contains("paused")) {
+        item->setPaused(progress["paused"].toBool());
     }
 }
 

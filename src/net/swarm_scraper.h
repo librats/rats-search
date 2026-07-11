@@ -8,7 +8,10 @@
 #include <QQueue>
 #include <QString>
 #include <QStringList>
+#include <QThreadPool>
 #include <QTimer>
+
+#include <atomic>
 
 namespace rats::net {
 
@@ -37,6 +40,12 @@ public:
     // thread. Duplicate requests within the cooldown window are dropped.
     void requestScrape(const QString& infoHash, const QStringList& trackers = QStringList());
 
+    // Stop scraping: reject any further requests, drop the queue, and wait for
+    // in-flight announces to drain so no thread-pool task outlives this object
+    // (its completion callback dereferences `this`). Idempotent; safe to call
+    // from the destructor. Must be called on this object's thread.
+    void stop();
+
     static constexpr int kTimeoutMs = 15000; // 15 s per announce
     static constexpr int kCheckIntervalSecs = 300; // 5 min per-hash cooldown
     static constexpr int kMaxConcurrent = 5; // concurrent scrapes
@@ -61,6 +70,7 @@ private:
     // Timing / concurrency constants not exposed as settings.
     static constexpr int kQueuePollIntervalMs = 500; // queue drain cadence
     static constexpr int kInfoHashHexLength = 40; // 20-byte hash as hex
+    static constexpr int kMaxPoolThreads = 16; // announce worker threads
 
     // Per-hash cooldown bookkeeping, pruned periodically in pruneStaleChecks().
     QHash<QString, QDateTime> recentChecks_; // hash -> last check time
@@ -77,6 +87,14 @@ private:
 
     int activeRequests_;
     QTimer* queueTimer_;
+
+    // Dedicated pool for the blocking tracker announces so shutdown can drain it
+    // deterministically (the global pool is shared and not ours to wait on).
+    QThreadPool threadPool_;
+
+    // Set true by stop(): gates new requests and makes in-flight announce loops
+    // bail early instead of hammering every remaining tracker while shutting down.
+    std::atomic<bool> stopping_{ false };
 };
 
 } // namespace rats::net

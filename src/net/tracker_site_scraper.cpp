@@ -33,14 +33,34 @@ TrackerSiteScraper::TrackerSiteScraper(QObject* parent)
 {
 }
 
-TrackerSiteScraper::~TrackerSiteScraper() = default;
+TrackerSiteScraper::~TrackerSiteScraper()
+{
+    stop();
+}
 
 // ============================================================================
 // Public entry point
 // ============================================================================
 
+void TrackerSiteScraper::stop()
+{
+    stopping_.store(true);
+    // Abort every outstanding reply so none lingers up to the 20 s transfer
+    // timeout during shutdown. Each reply's finished() handler still runs (with
+    // an error), which cleans up its pending-scrape bookkeeping. Replies are
+    // parented to the manager, so findChildren locates them all.
+    const QList<QNetworkReply*> replies = networkManager_->findChildren<QNetworkReply*>();
+    for (QNetworkReply* reply : replies) {
+        reply->abort();
+    }
+}
+
 void TrackerSiteScraper::scrape(const QString& infoHash, const QString& name)
 {
+    if (stopping_.load()) {
+        return; // shutting down — accept no new work
+    }
+
     if (infoHash.length() != kInfoHashHexLength) {
         return;
     }
@@ -266,6 +286,14 @@ void TrackerSiteScraper::scrapeNyaa(const QString& hash)
 
 void TrackerSiteScraper::scrapeNyaaViewPage(const QString& hash, const QString& viewUrl)
 {
+    if (stopping_.load()) {
+        // Don't chain a fresh request during shutdown; close out the strategy.
+        TrackerSiteInfo info;
+        info.trackerName = "nyaa";
+        onStrategyComplete(hash, info);
+        return;
+    }
+
     QUrl url(viewUrl);
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, kUserAgent);

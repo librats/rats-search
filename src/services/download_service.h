@@ -131,8 +131,10 @@ private slots:
 private:
     bool isReady() const;
 
-    // Restore a torrent from a previous session, loading any resume data.
-    bool restore(const QString& hash, const QString& name, const QString& savePath);
+    // Restore a torrent from a previous session, loading any resume data. The
+    // persisted entry seeds the live state (notably `completed`) so a finished
+    // torrent shows as completed immediately, before librats' async recheck.
+    bool restore(const Download& entry);
     void setRemoveOnDone(const QString& hash, bool removeOnDone);
 
     // State changes detected during a poll, flushed as signals afterwards.
