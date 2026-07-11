@@ -143,6 +143,14 @@ Torrent SearchResultModel::getTorrent(int row) const
     return Torrent();
 }
 
+SearchHit SearchResultModel::getHit(int row) const
+{
+    if (row >= 0 && row < results_.size()) {
+        return results_[row];
+    }
+    return SearchHit();
+}
+
 // =========================================================================
 // File Search Results Methods
 // =========================================================================

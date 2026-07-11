@@ -420,6 +420,27 @@ bool TorrentRepository::updateTrackerCounts(const QString& hash, int seeders, in
         { { "hash", hash } });
 }
 
+bool TorrentRepository::updateFiles(const QString& hash, const QVector<File>& files)
+{
+    if (files.isEmpty())
+        return false;
+
+    const auto rows = db_->query(QStringLiteral("SELECT files FROM torrents WHERE hash = ?"), { hash });
+    if (rows.isEmpty())
+        return false;
+    const int oldCount = rows.first().value(QStringLiteral("files")).toInt();
+
+    saveFiles(hash, files); // replaces the file rows for this hash
+
+    if (!db_->update(kTorrents, { { "files", files.size() } }, { { "hash", hash } }))
+        return false;
+
+    stats_.files += files.size() - oldCount;
+    emit statisticsChanged(stats_.torrents, stats_.files, stats_.totalSize);
+    emit torrentUpdated(hash);
+    return true;
+}
+
 bool TorrentRepository::mergeInfo(const QString& hash, const QJsonObject& info)
 {
     const auto existing = get(hash);

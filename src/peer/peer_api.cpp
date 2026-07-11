@@ -236,14 +236,15 @@ void PeerApi::handleSearchResult(const QString& peerId, const QJsonObject& data)
     if (hash.isEmpty())
         return;
 
-    // Surface the hit to the UI with remote provenance stamped on.
+    // Surface the hit to the UI with remote provenance stamped on. Search hits
+    // are deliberately NOT indexed here: the reply carries metadata only (no file
+    // list), so storing it would leave a file-less torrent in the database. A
+    // remote hit is cloned in full — with its files — only when the user opens it
+    // and we fetch it via requestTorrent()/torrent_response.
     QJsonObject result = data;
     result["remote"] = true;
     result["peer"] = peerId;
     emit remoteSearchResults(QString(), QJsonArray { result });
-
-    // Index the received torrent through the single insertion path.
-    insertFromPeer(data, /*trackReplication*/ false);
 }
 
 void PeerApi::handleSearchFilesResult(const QString& peerId, const QJsonObject& data)
@@ -332,6 +333,21 @@ void PeerApi::handleTorrentAnnounce(const QString& peerId, const QJsonObject& da
 
     qDebug() << "[PeerApi] torrent announce from" << shortId(peerId) << ":" << name;
     insertFromPeer(data, /*trackReplication*/ false);
+}
+
+// ============================================================================
+// Outgoing requests
+// ============================================================================
+
+void PeerApi::requestTorrent(const QString& peerId, const QString& hash, bool includeFiles)
+{
+    net::P2PTransport* transport = app_->transport();
+    if (!transport || peerId.isEmpty() || hash.length() != 40)
+        return;
+
+    qInfo() << "[PeerApi] requesting torrent" << hash.left(8) << "from" << shortId(peerId);
+    transport->sendMessage(peerId, "torrent",
+        QJsonObject { { "hash", hash }, { "options", QJsonObject { { "files", includeFiles } } } });
 }
 
 // ============================================================================

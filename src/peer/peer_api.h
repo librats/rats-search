@@ -33,6 +33,13 @@ class PeerApi : public QObject {
 public:
     explicit PeerApi(app::Application* app, QObject* parent = nullptr);
 
+    // Ask a specific peer for a torrent's full record, optionally with its file
+    // list. The reply arrives asynchronously as a torrent_response, surfaced via
+    // remoteTorrentReceived and cloned through the single insertion path. This is
+    // how a remote-only search hit (whose files are never sent with the hit) gets
+    // its file list fetched and stored on demand.
+    void requestTorrent(const QString& peerId, const QString& hash, bool includeFiles = true);
+
 signals:
     // A remote peer sent search hits (searchTorrent_response). Query is empty —
     // the wire protocol never echoes it back — and torrents is the raw wire array

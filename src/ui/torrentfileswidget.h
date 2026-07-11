@@ -57,6 +57,11 @@ public:
     void setTorrent(const rats::domain::Torrent& torrent);
 
     /**
+     * @brief Whether the panel is currently showing a non-empty file list.
+     */
+    bool hasFiles() const;
+
+    /**
      * @brief Clear the file tree
      */
     void clear();

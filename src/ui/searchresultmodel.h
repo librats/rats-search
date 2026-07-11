@@ -44,6 +44,9 @@ public:
 
     // Access methods
     rats::domain::Torrent getTorrent(int row) const;
+    // Full hit including remote provenance (source peer), needed to fetch a
+    // remote torrent's file list on demand.
+    rats::domain::SearchHit getHit(int row) const;
     int resultCount() const { return results_.size(); }
 
 private:

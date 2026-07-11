@@ -838,9 +838,18 @@ void MainWindow::onTorrentSelected(const QModelIndex& index)
 {
     if (!index.isValid())
         return;
-    Torrent torrent = searchResultModel->getTorrent(index.row());
-    if (torrent.isValid())
-        showTorrentDetails(torrent);
+    const SearchHit hit = searchResultModel->getHit(index.row());
+    if (!hit.torrent.isValid())
+        return;
+
+    showTorrentDetails(hit.torrent);
+
+    // A remote hit arrives with metadata only — search replies never carry file
+    // lists. If the files panel came up empty (nothing embedded, nothing local),
+    // pull the full torrent from the peer that offered it. The reply repopulates
+    // the panel and clones the torrent, with its files, into our database.
+    if (hit.remote && !hit.sourcePeerId.isEmpty() && !filesWidget->hasFiles() && app_->peerApi())
+        app_->peerApi()->requestTorrent(hit.sourcePeerId, hit.torrent.hash, /*includeFiles*/ true);
 }
 
 void MainWindow::onTorrentDoubleClicked(const QModelIndex& index)

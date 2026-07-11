@@ -121,6 +121,11 @@ void TorrentFilesWidget::setTorrent(const rats::domain::Torrent& torrent)
     setFiles(torrent.hash, torrent.name, files);
 }
 
+bool TorrentFilesWidget::hasFiles() const
+{
+    return fileCount_ > 0;
+}
+
 void TorrentFilesWidget::clear()
 {
     currentHash_.clear();
