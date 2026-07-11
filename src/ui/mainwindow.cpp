@@ -628,9 +628,12 @@ void MainWindow::connectPeerSignals()
                 return;
             if (detailsPanel && detailsPanel->currentHash() != hash)
                 return;
-            QVector<rats::domain::File> files = codec::filesFromJson(data["files"].toArray());
-            if (!files.isEmpty()) {
-                filesWidget->setFiles(hash, data["name"].toString(), files);
+            // Parse through the shared codec so the file list is read from the
+            // canonical "files_list" key (with legacy "filesList" fallback), not
+            // the "files" count.
+            const rats::domain::Torrent t = codec::torrentFromJson(data);
+            if (!t.fileList.isEmpty()) {
+                filesWidget->setFiles(hash, t.name, t.fileList);
                 filesWidget->show();
                 verticalSplitter->setSizes({ 600, 200 });
             }
@@ -917,9 +920,10 @@ void MainWindow::showTorrentDetails(const Torrent& torrent)
     detailsPanel->show();
 
     // Show the file list. TorrentFilesWidget fetches the files itself (from the
-    // torrent's embedded list or the repository) via the Application. A remote
-    // torrent whose files aren't local still gets populated later through the
-    // peerApi::remoteTorrentReceived handler.
+    // torrent's embedded list or the repository) via the Application. For a remote
+    // torrent with no local files, onTorrentSelected kicks off a peer fetch whose
+    // reply repopulates this panel through the peerApi::remoteTorrentReceived
+    // handler.
     filesWidget->setTorrent(torrent);
     filesWidget->show();
     verticalSplitter->setSizes({ 600, 200 });

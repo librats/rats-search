@@ -235,10 +235,11 @@ GET http://localhost:8095/api/torrent.get?hash=29ebe63feb8be91b6dcff02bacc562d9a
 |-----------|------|----------|---------|-------------|
 | `hash` | string | yes | | 40-character hex info hash |
 | `files` | bool | | `false` | Include the file list (`files_list`) |
+| `peer` | string | | | Peer id that offered this torrent in a remote search hit. When `files=true` and the file list isn't available locally, it is fetched from this peer (and cloned into the local index). |
 
 **Response** - a single torrent object. If the torrent is currently downloading, a `download` object (progress/paused state) is attached.
 
-> If the torrent is not indexed locally and BitTorrent/DHT is enabled, metadata is fetched via DHT (BEP 9) automatically and returned with `"fromDHT": true`. On a miss the call fails with `"Torrent not found"`.
+> Remote search hits carry metadata only — never a file list. Requesting `files=true` for such a hit resolves the files on demand: it fetches the full torrent from `peer` (if given), otherwise via DHT, and clones the result — with its files — into the local index. Resolution order when the file list is missing locally is **peer → DHT**; on a miss the call fails with `"Torrent not found"`. A torrent fetched via DHT is returned with `"fromDHT": true`.
 
 ---
 
