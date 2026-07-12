@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.1](https://github.com/DEgITx/rats-search/compare/v2.1.0...v2.1.1) (2026-07-12)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix peer count in some situations([3d26aff](https://github.com/DEgITx/rats-search/commit/3d26aff3c0d6a95016ef59f71fe2e3e034738573)) by @DEgITx
+- **ui:** Fix sorting at different tabs([5858144](https://github.com/DEgITx/rats-search/commit/58581445b3848e0ef309f2e67606091a8d62ba63)) by @DEgITx
+- **feed:** More fast saving([862b66c](https://github.com/DEgITx/rats-search/commit/862b66c6bce87827ea5885ef1ded8180a02a0826)) by @DEgITx
+- **ui:** For top tab visual split([f1e6c92](https://github.com/DEgITx/rats-search/commit/f1e6c921aa751aa159b43c1e170ca2d669df9d45)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.0([0b98211](https://github.com/DEgITx/rats-search/commit/0b982116fba9171dcd6afcfd306201c907797063)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.1.0](https://github.com/DEgITx/rats-search/compare/v2.0.28...v2.1.0) (2026-07-11)
 
 
