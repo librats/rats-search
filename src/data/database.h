@@ -34,6 +34,10 @@ public:
     bool execute(const QString& sql);
 
     bool insert(const QString& table, const QVariantMap& values);
+    // Multi-row INSERT. Columns come from the first row (every row must carry the
+    // same keys). Rows are batched into as few statements as fit under Manticore's
+    // packet limit, so bulk writes cost a handful of queries instead of one each.
+    bool insertMany(const QString& table, const QVector<QVariantMap>& rows);
     bool update(const QString& table, const QVariantMap& values, const QVariantMap& where);
     bool remove(const QString& table, const QVariantMap& where);
 

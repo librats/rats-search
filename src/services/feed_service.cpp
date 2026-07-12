@@ -91,6 +91,10 @@ bool FeedService::load()
 
 bool FeedService::save()
 {
+    // Nothing changed since the last flush — the stored table already matches, so
+    // don't rewrite it (shutdown otherwise re-wrote the whole feed every time).
+    if (!dirty_)
+        return true;
     return persistNow();
 }
 

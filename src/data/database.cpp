@@ -96,6 +96,60 @@ bool Database::insert(const QString& table, const QVariantMap& values)
     return runWrite(stmt, "INSERT", table);
 }
 
+bool Database::insertMany(const QString& table, const QVector<QVariantMap>& rows)
+{
+    if (rows.isEmpty())
+        return true;
+
+    // QVariantMap iterates in key order, so taking the columns from the first row
+    // gives every row the same layout.
+    QStringList columns;
+    for (auto it = rows.first().constBegin(); it != rows.first().constEnd(); ++it)
+        columns << it.key();
+
+    const QString prefix
+        = QStringLiteral("INSERT INTO %1 (%2) VALUES ").arg(table, columns.join(QLatin1String(", ")));
+
+    // searchd rejects anything over max_packet_size (8M by default), and a feed
+    // row carries a whole torrent's JSON, so cap the statement well below that
+    // rather than assuming a fixed row count is safe.
+    constexpr int kMaxStatementChars = 1 << 20;
+
+    bool ok = true;
+    QString stmt;
+    int pending = 0;
+
+    auto flushBatch = [&]() {
+        if (pending == 0)
+            return;
+        if (!runWrite(stmt, "INSERT", table))
+            ok = false;
+        stmt.clear();
+        pending = 0;
+    };
+
+    for (const QVariantMap& row : rows) {
+        QStringList literals;
+        literals.reserve(columns.size());
+        for (const QString& column : columns)
+            literals << sql::formatValue(row.value(column));
+        const QString tuple = QStringLiteral("(%1)").arg(literals.join(QLatin1String(", ")));
+
+        if (pending > 0 && stmt.size() + tuple.size() + 1 > kMaxStatementChars)
+            flushBatch();
+
+        if (pending == 0)
+            stmt = prefix;
+        else
+            stmt += QLatin1Char(',');
+        stmt += tuple;
+        ++pending;
+    }
+    flushBatch();
+
+    return ok;
+}
+
 bool Database::update(const QString& table, const QVariantMap& values, const QVariantMap& where)
 {
     QStringList setParts;

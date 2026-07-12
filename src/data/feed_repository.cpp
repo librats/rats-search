@@ -49,23 +49,24 @@ bool FeedRepository::replaceAll(const QJsonArray& items)
     // 'delete from feed where id > 0'). May fail harmlessly on an empty table.
     db_->execute(QStringLiteral("DELETE FROM feed WHERE id > 0"));
 
+    // One batched INSERT instead of one per item: the feed holds up to 1000 items
+    // and is rewritten in full on every flush, so a row-at-a-time loop meant a
+    // thousand round trips (and a thousand log lines) each time.
     qint64 nextId = 1;
-    bool ok = true;
+    QVector<QVariantMap> rows;
+    rows.reserve(items.size());
     for (const auto& value : items) {
         if (!value.isObject())
             continue;
 
-        const QString jsonData = QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
-
-        QVariantMap values;
-        values[QStringLiteral("id")] = nextId++;
-        values[QStringLiteral("data")] = jsonData;
-
-        if (!db_->insert(kFeed, values))
-            ok = false;
+        QVariantMap row;
+        row[QStringLiteral("id")] = nextId++;
+        row[QStringLiteral("data")]
+            = QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
+        rows.append(row);
     }
 
-    return ok;
+    return db_->insertMany(kFeed, rows);
 }
 
 } // namespace rats::data
