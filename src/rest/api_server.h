@@ -52,10 +52,7 @@ public:
     bool start(int httpPort = 8095, int wsPort = -1);
     void stop();
 
-    bool isRunning() const;
-    int httpPort() const;
-    int wsPort() const;
-
+private:
     // Push an event to every connected WebSocket client.
     void broadcastEvent(const QString& event, const QJsonValue& data);
 
@@ -87,8 +84,6 @@ private:
     std::unique_ptr<QWebSocketServer> wsServer_;
     QList<QWebSocket*> wsClients_;
     QHash<QTcpSocket*, QByteArray> httpBuffers_;
-    int httpPort_ = 0;
-    int wsPort_ = 0;
     bool running_ = false;
     QString webuiDir_;
 

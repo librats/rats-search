@@ -183,14 +183,12 @@ bool ApiServer::start(int httpPort, int wsPort)
         });
 
         if (!httpServer_->listen(QHostAddress::Any, static_cast<quint16>(httpPort))) {
-            qWarning() << "Failed to start HTTP server on port" << httpPort;
-            emit error("Failed to start HTTP server: " + httpServer_->errorString());
+            qWarning() << "Failed to start HTTP server on port" << httpPort << ":" << httpServer_->errorString();
             httpServer_.reset();
             return false;
         }
 
-        httpPort_ = httpServer_->serverPort();
-        qInfo() << "HTTP API server listening on port" << httpPort_;
+        qInfo() << "HTTP API server listening on port" << httpServer_->serverPort();
     }
 
     // ---- WebSocket server ----
@@ -222,14 +220,12 @@ bool ApiServer::start(int httpPort, int wsPort)
         });
 
         if (!wsServer_->listen(QHostAddress::Any, static_cast<quint16>(wsPortActual))) {
-            qWarning() << "Failed to start WebSocket server on port" << wsPortActual;
-            emit error("Failed to start WebSocket server: " + wsServer_->errorString());
+            qWarning() << "Failed to start WebSocket server on port" << wsPortActual << ":" << wsServer_->errorString();
             wsServer_.reset();
             return false;
         }
 
-        wsPort_ = wsServer_->serverPort();
-        qInfo() << "WebSocket server listening on port" << wsPort_;
+        qInfo() << "WebSocket server listening on port" << wsServer_->serverPort();
     }
 
     running_ = true;
@@ -260,23 +256,7 @@ void ApiServer::stop()
     }
 
     running_ = false;
-    emit stopped();
     qInfo() << "API server stopped";
-}
-
-bool ApiServer::isRunning() const
-{
-    return running_;
-}
-
-int ApiServer::httpPort() const
-{
-    return httpPort_;
-}
-
-int ApiServer::wsPort() const
-{
-    return wsPort_;
 }
 
 void ApiServer::broadcastEvent(const QString& event, const QJsonValue& data)

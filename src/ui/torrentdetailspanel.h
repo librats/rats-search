@@ -38,12 +38,7 @@ public:
     void setApplication(rats::app::Application* app);
     void setTorrent(const rats::domain::Torrent& torrent);
     void clear();
-    bool isEmpty() const { return currentHash_.isEmpty(); }
     QString currentHash() const { return currentHash_; }
-    rats::domain::Torrent currentTorrent() const { return currentTorrent_; }
-
-    // Update tracker stats (seeders/leechers/completed) after background check
-    void updateTrackerStats(int seeders, int leechers, int completed);
 
     // Download progress
     void setDownloadProgress(double progress, qint64 downloaded, qint64 total, int speed);
@@ -72,6 +67,8 @@ private slots:
 
 private:
     void setupUi();
+    // Repaint the seeders/leechers/completed row after a tracker count scrape.
+    void updateTrackerStats(int seeders, int leechers, int completed);
     void updateRatingDisplay();
     void updateVotingButtons();
     QString makeBreakable(const QString& text) const;

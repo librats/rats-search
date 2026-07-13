@@ -1,5 +1,5 @@
-#ifndef RATS_NET_TRACKER_SCRAPER_H
-#define RATS_NET_TRACKER_SCRAPER_H
+#ifndef RATS_NET_SWARM_SCRAPER_H
+#define RATS_NET_SWARM_SCRAPER_H
 
 #include <QDateTime>
 #include <QHash>
@@ -8,26 +8,31 @@
 #include <QQueue>
 #include <QString>
 #include <QStringList>
+#include <QThreadPool>
 #include <QTimer>
+
+#include <atomic>
 
 namespace rats::net {
 
-// Scrapes UDP/HTTP BitTorrent trackers for swarm statistics (seeders / leechers
-// / completed) for a given info-hash. Pure transport-side helper: it only talks
-// to trackers and emits results — it never touches the database. A higher-level
-// service is expected to listen for scraped() and persist the values.
+// Announces to UDP/HTTP BitTorrent trackers to read a torrent's swarm counts
+// (seeders / leechers / completed). Not to be confused with TrackerSiteScraper,
+// which scrapes tracker *websites* for poster/description metadata.
+//
+// Pure transport-side helper: it only talks to trackers and emits results — it
+// never touches the database. A higher-level service listens for scraped() and
+// persists the values.
 //
 // Scrapes run on the Qt thread pool via QtConcurrent and are governed by:
-//   - a concurrency cap (kDefaultMaxConcurrent) with a FIFO queue for overflow,
-//   - a per-hash cooldown (kDefaultCheckIntervalSecs) so the same torrent is
-//   not
+//   - a concurrency cap (kMaxConcurrent) with a FIFO queue for overflow,
+//   - a per-hash cooldown (kCheckIntervalSecs) so the same torrent is not
 //     re-scraped in a tight loop.
-class TrackerScraper : public QObject {
+class SwarmScraper : public QObject {
     Q_OBJECT
 
 public:
-    explicit TrackerScraper(QObject* parent = nullptr);
-    ~TrackerScraper() override;
+    explicit SwarmScraper(QObject* parent = nullptr);
+    ~SwarmScraper() override;
 
     // Request a scrape for a torrent. `infoHash` must be a 40-char hex string.
     // If `trackers` is empty the built-in default tracker list is used. The call
@@ -35,20 +40,15 @@ public:
     // thread. Duplicate requests within the cooldown window are dropped.
     void requestScrape(const QString& infoHash, const QStringList& trackers = QStringList());
 
-    // Request timeout per tracker announce, in milliseconds.
-    int timeout() const { return timeoutMs_; }
-    void setTimeout(int ms) { timeoutMs_ = ms; }
+    // Stop scraping: reject any further requests, drop the queue, and wait for
+    // in-flight announces to drain so no thread-pool task outlives this object
+    // (its completion callback dereferences `this`). Idempotent; safe to call
+    // from the destructor. Must be called on this object's thread.
+    void stop();
 
-    // Minimum interval between scrapes of the same hash, in seconds.
-    void setCheckInterval(int seconds) { checkIntervalSecs_ = seconds; }
-
-    // Maximum number of concurrent tracker scrapes.
-    void setMaxConcurrent(int max) { maxConcurrent_ = max; }
-
-    // Tunable defaults (override via the setters above).
-    static constexpr int kDefaultTimeoutMs = 15000; // 15 s per announce
-    static constexpr int kDefaultCheckIntervalSecs = 300; // 5 min per-hash cooldown
-    static constexpr int kDefaultMaxConcurrent = 5; // concurrent scrapes
+    static constexpr int kTimeoutMs = 15000; // 15 s per announce
+    static constexpr int kCheckIntervalSecs = 300; // 5 min per-hash cooldown
+    static constexpr int kMaxConcurrent = 5; // concurrent scrapes
 
 signals:
     // Emitted once, on success, with the best swarm counts seen across the
@@ -70,10 +70,7 @@ private:
     // Timing / concurrency constants not exposed as settings.
     static constexpr int kQueuePollIntervalMs = 500; // queue drain cadence
     static constexpr int kInfoHashHexLength = 40; // 20-byte hash as hex
-
-    int timeoutMs_;
-    int checkIntervalSecs_;
-    int maxConcurrent_;
+    static constexpr int kMaxPoolThreads = 16; // announce worker threads
 
     // Per-hash cooldown bookkeeping, pruned periodically in pruneStaleChecks().
     QHash<QString, QDateTime> recentChecks_; // hash -> last check time
@@ -90,8 +87,16 @@ private:
 
     int activeRequests_;
     QTimer* queueTimer_;
+
+    // Dedicated pool for the blocking tracker announces so shutdown can drain it
+    // deterministically (the global pool is shared and not ours to wait on).
+    QThreadPool threadPool_;
+
+    // Set true by stop(): gates new requests and makes in-flight announce loops
+    // bail early instead of hammering every remaining tracker while shutting down.
+    std::atomic<bool> stopping_{ false };
 };
 
 } // namespace rats::net
 
-#endif // RATS_NET_TRACKER_SCRAPER_H
+#endif // RATS_NET_SWARM_SCRAPER_H

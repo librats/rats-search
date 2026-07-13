@@ -35,8 +35,6 @@ private slots:
     void testIsUpdateAvailable_initiallyFalse();
 
     // Settings
-    void testCheckOnStartup_defaultTrue();
-    void testCheckOnStartup_canBeSet();
     void testIncludePrerelease_defaultFalse();
     void testIncludePrerelease_canBeSet();
 
@@ -129,19 +127,6 @@ void TestUpdateService::testIsUpdateAvailable_initiallyFalse()
 // ============================================================================
 // Settings
 // ============================================================================
-
-void TestUpdateService::testCheckOnStartup_defaultTrue()
-{
-    QVERIFY(service->checkOnStartup());
-}
-
-void TestUpdateService::testCheckOnStartup_canBeSet()
-{
-    service->setCheckOnStartup(false);
-    QVERIFY(!service->checkOnStartup());
-    service->setCheckOnStartup(true);
-    QVERIFY(service->checkOnStartup());
-}
 
 void TestUpdateService::testIncludePrerelease_defaultFalse()
 {

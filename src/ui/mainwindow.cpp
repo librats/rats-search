@@ -2,6 +2,7 @@
 #include "searchresultmodel.h"
 #include "torrentdetailspanel.h"
 #include "torrentitemdelegate.h"
+#include "torrentmenu.h"
 #include "version.h"
 
 // Tab widgets
@@ -53,7 +54,6 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QJsonArray>
@@ -121,15 +121,21 @@ MainWindow::MainWindow(rats::app::Application* app, QWidget* parent)
     wireWidgets();
     connectSignals();
 
-    // Seed the status bar from live state.
+    // Seed the status bar from live state. The transport starts before the window
+    // exists (and the agreement dialog above spins a nested event loop), so peers
+    // may already be connected: peerCountChanged only fires on a change, and every
+    // emit before connectSignals() is lost.
     if (app_->torrents()) {
         cachedTorrentCount_ = app_->torrents()->statistics().torrents;
     }
     if (app_->peers()) {
         cachedRemoteTorrentCount_ = app_->peers()->remoteTorrentsCount();
     }
+    if (app_->transport()) {
+        onPeerCountChanged(app_->transport()->peerCount());
+    }
     updateStatusBar();
-    updateP2PState();
+    refreshP2PStatus();
     updateNetworkStatus();
 
     // Kick off a startup update check if enabled.
@@ -223,7 +229,7 @@ void MainWindow::setupUi()
     mainSplitter->setHandleWidth(2);
 
     tabWidget = new QTabWidget(this);
-    tabWidget->setDocumentMode(true);
+    tabWidget->setDocumentMode(false);
 
     // Search results tab
     QWidget* searchTab = new QWidget();
@@ -348,7 +354,7 @@ void MainWindow::setupStatusBar()
     p2pStatusLabel = new QLabel();
     p2pStatusLabel->setTextFormat(Qt::RichText);
     p2pState_ = P2PState::NotStarted;
-    updateP2PIndicator();
+    paintP2PIndicator();
 
     peerCountLabel = new QLabel(tr("👥 Peers: %1").arg(0));
     dhtNodeCountLabel = new QLabel(tr("🌐 DHT: %1").arg(0));
@@ -479,14 +485,15 @@ void MainWindow::connectServiceSignals()
     if (app_->transport()) {
         auto* transport = app_->transport();
         connect(transport, &rats::net::P2PTransport::peerCountChanged, this, &MainWindow::onPeerCountChanged);
-        connect(transport, &rats::net::P2PTransport::started, this, [this]() { updateP2PState(); });
-        connect(transport, &rats::net::P2PTransport::stopped, this, [this]() { updateP2PState(); });
-        connect(transport, &rats::net::P2PTransport::peerConnected, this, [this](const QString&) { updateP2PState(); });
+        connect(transport, &rats::net::P2PTransport::started, this, [this]() { refreshP2PStatus(); });
+        connect(transport, &rats::net::P2PTransport::stopped, this, [this]() { refreshP2PStatus(); });
+        connect(
+            transport, &rats::net::P2PTransport::peerConnected, this, [this](const QString&) { refreshP2PStatus(); });
         connect(transport, &rats::net::P2PTransport::peerDisconnected, this, [this](const QString&) {
             if (app_->peers())
                 cachedRemoteTorrentCount_ = app_->peers()->remoteTorrentsCount();
             updateStatusBar();
-            updateP2PState();
+            refreshP2PStatus();
         });
     }
 
@@ -627,9 +634,12 @@ void MainWindow::connectPeerSignals()
                 return;
             if (detailsPanel && detailsPanel->currentHash() != hash)
                 return;
-            QVector<rats::domain::File> files = codec::filesFromJson(data["files"].toArray());
-            if (!files.isEmpty()) {
-                filesWidget->setFiles(hash, data["name"].toString(), files);
+            // Parse through the shared codec so the file list is read from the
+            // canonical "files_list" key (with legacy "filesList" fallback), not
+            // the "files" count.
+            const rats::domain::Torrent t = codec::torrentFromJson(data);
+            if (!t.fileList.isEmpty()) {
+                filesWidget->setFiles(hash, t.name, t.fileList);
                 filesWidget->show();
                 verticalSplitter->setSizes({ 600, 200 });
             }
@@ -693,7 +703,7 @@ void MainWindow::performSearch(const QString& query)
         msg["limit"] = 50;
         msg["orderBy"] = sort;
         msg["orderDesc"] = req.descending;
-        app_->transport()->broadcastMessage("torrent_search", msg);
+        app_->transport()->broadcastMessage("searchTorrent", msg);
         app_->transport()->broadcastMessage("searchFiles", msg);
     }
 
@@ -757,11 +767,6 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
     if (isHidden())
         QApplication::quit();
-}
-
-void MainWindow::contextMenuEvent(QContextMenuEvent* event)
-{
-    Q_UNUSED(event);
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)
@@ -842,9 +847,18 @@ void MainWindow::onTorrentSelected(const QModelIndex& index)
 {
     if (!index.isValid())
         return;
-    Torrent torrent = searchResultModel->getTorrent(index.row());
-    if (torrent.isValid())
-        showTorrentDetails(torrent);
+    const SearchHit hit = searchResultModel->getHit(index.row());
+    if (!hit.torrent.isValid())
+        return;
+
+    showTorrentDetails(hit.torrent);
+
+    // A remote hit arrives with metadata only — search replies never carry file
+    // lists. If the files panel came up empty (nothing embedded, nothing local),
+    // pull the full torrent from the peer that offered it. The reply repopulates
+    // the panel and clones the torrent, with its files, into our database.
+    if (hit.remote && !hit.sourcePeerId.isEmpty() && !filesWidget->hasFiles() && app_->peerApi())
+        app_->peerApi()->requestTorrent(hit.sourcePeerId, hit.torrent.hash, /*includeFiles*/ true);
 }
 
 void MainWindow::onTorrentDoubleClicked(const QModelIndex& index)
@@ -912,9 +926,10 @@ void MainWindow::showTorrentDetails(const Torrent& torrent)
     detailsPanel->show();
 
     // Show the file list. TorrentFilesWidget fetches the files itself (from the
-    // torrent's embedded list or the repository) via the Application. A remote
-    // torrent whose files aren't local still gets populated later through the
-    // peerApi::remoteTorrentReceived handler.
+    // torrent's embedded list or the repository) via the Application. For a remote
+    // torrent with no local files, onTorrentSelected kicks off a peer fetch whose
+    // reply repopulates this panel through the peerApi::remoteTorrentReceived
+    // handler.
     filesWidget->setTorrent(torrent);
     filesWidget->show();
     verticalSplitter->setSizes({ 600, 200 });
@@ -995,21 +1010,8 @@ void MainWindow::showTorrentContextMenu(const QPoint& pos)
         return;
 
     QMenu contextMenu(this);
-
-    QAction* magnetAction = contextMenu.addAction(tr("Open Magnet Link"));
-    connect(magnetAction, &QAction::triggered, [this, torrent]() { openMagnetLink(torrent); });
-
-    QAction* copyHashAction = contextMenu.addAction(tr("Copy Info Hash"));
-    connect(copyHashAction, &QAction::triggered, [this, torrent]() {
-        QApplication::clipboard()->setText(torrent.hash);
-        statusBar()->showMessage(tr("Hash copied to clipboard"), 2000);
-    });
-
-    QAction* copyMagnetAction = contextMenu.addAction(tr("Copy Magnet Link"));
-    connect(copyMagnetAction, &QAction::triggered, [this, torrent]() {
-        QApplication::clipboard()->setText(torrent.magnetLink());
-        statusBar()->showMessage(tr("Magnet link copied to clipboard"), 2000);
-    });
+    rats::ui::addTorrentActions(
+        &contextMenu, this, torrent, [this](const QString& message) { statusBar()->showMessage(message, 2000); });
 
     contextMenu.addSeparator();
 
@@ -1106,10 +1108,10 @@ void MainWindow::onMigrationProgress(const QString& migrationId, qint64 current,
 void MainWindow::onPeerCountChanged(int count)
 {
     peerCountLabel->setText(tr("👥 Peers: %1").arg(count));
-    updateP2PState();
+    refreshP2PStatus();
 }
 
-void MainWindow::updateP2PState()
+void MainWindow::refreshP2PStatus()
 {
     auto* transport = app_ ? app_->transport() : nullptr;
     if (!transport || !transport->isRunning()) {
@@ -1119,7 +1121,7 @@ void MainWindow::updateP2PState()
     } else {
         p2pState_ = P2PState::NoConnection;
     }
-    updateP2PIndicator();
+    paintP2PIndicator();
 }
 
 void MainWindow::onSpiderStatusChanged(const QString& status)
@@ -1127,7 +1129,7 @@ void MainWindow::onSpiderStatusChanged(const QString& status)
     spiderStatusLabel->setText(tr("🕷️ Spider: %1").arg(status));
 }
 
-void MainWindow::updateP2PIndicator()
+void MainWindow::paintP2PIndicator()
 {
     QString indicator;
     QString statusText;

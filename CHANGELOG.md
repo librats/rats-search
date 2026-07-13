@@ -2,6 +2,75 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.1](https://github.com/DEgITx/rats-search/compare/v2.1.0...v2.1.1) (2026-07-12)
+
+
+### 🐛 Bug Fixes
+
+
+- **p2p:** Fix peer count in some situations([3d26aff](https://github.com/DEgITx/rats-search/commit/3d26aff3c0d6a95016ef59f71fe2e3e034738573)) by @DEgITx
+- **ui:** Fix sorting at different tabs([5858144](https://github.com/DEgITx/rats-search/commit/58581445b3848e0ef309f2e67606091a8d62ba63)) by @DEgITx
+- **feed:** More fast saving([862b66c](https://github.com/DEgITx/rats-search/commit/862b66c6bce87827ea5885ef1ded8180a02a0826)) by @DEgITx
+- **ui:** For top tab visual split([f1e6c92](https://github.com/DEgITx/rats-search/commit/f1e6c921aa751aa159b43c1e170ca2d669df9d45)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.0([0b98211](https://github.com/DEgITx/rats-search/commit/0b982116fba9171dcd6afcfd306201c907797063)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
+## [2.1.0](https://github.com/DEgITx/rats-search/compare/v2.0.28...v2.1.0) (2026-07-11)
+
+
+### 🐛 Bug Fixes
+
+
+- **torrent:** Fix some crashes([aa7d6d0](https://github.com/DEgITx/rats-search/commit/aa7d6d01a858957d227b7b4e3c298769429acdff)) by @DEgITx
+- **torrent:** Fix torrent download status after restore session([d4ba7c6](https://github.com/DEgITx/rats-search/commit/d4ba7c644f9acb75daf19e6ab9943029a2b2dbf2)) by @DEgITx
+- **tracker:** Fix long tracker response on stop([cbfa4c0](https://github.com/DEgITx/rats-search/commit/cbfa4c060f1c30e22023acba3c356b582f6c5bf5)) by @DEgITx
+- **sync:** Fix files loading sync([1aacd30](https://github.com/DEgITx/rats-search/commit/1aacd30fef98b99c8f2b8f27fb0a9dcb7d2cdb91)) by @DEgITx
+- **files:** Fix situation with empty file list([e820a1a](https://github.com/DEgITx/rats-search/commit/e820a1a8fdee7cc0bd83d32d78c3a37752011fae)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.0.28([c354324](https://github.com/DEgITx/rats-search/commit/c354324de838dc0fa5fed7cfa8501fe0ca883609)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **core:** Moved to librats v2.x([fb9208b](https://github.com/DEgITx/rats-search/commit/fb9208b580216e4fcf2286e806c588ea33bf7ee5)) by @DEgITx
+- **torrent:** Upgrade to new torrent functionality([b2481c6](https://github.com/DEgITx/rats-search/commit/b2481c61cac53951417e8caa1b81c8f69477e5e1)) by @DEgITx
+- **ui:** Add ability to add to fav in download page([c88bd8d](https://github.com/DEgITx/rats-search/commit/c88bd8df3b3ea5b621ec2537cf4b83acd8a1793a)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 8 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.0.28](https://github.com/DEgITx/rats-search/compare/v2.0.27...v2.0.28) (2026-06-03)
 
 

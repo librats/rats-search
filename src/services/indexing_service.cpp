@@ -13,7 +13,7 @@ IndexingService::IndexingService(data::TorrentRepository* repository, FilterPoli
 {
 }
 
-IndexingService::Result IndexingService::insert(domain::Torrent torrent, bool classify)
+IndexingService::Result IndexingService::insert(domain::Torrent torrent)
 {
     Result result;
 
@@ -26,12 +26,22 @@ IndexingService::Result IndexingService::insert(domain::Torrent torrent, bool cl
         return result;
     }
 
-    // Already indexed? Merge any higher vote counts the incoming copy carries
+    // Already indexed? Merge what the incoming copy adds over the stored one
     // (e.g. from a peer) and return the stored entity.
     if (auto existing = repository_->get(torrent.hash)) {
         result.success = true;
         result.alreadyExists = true;
         result.torrent = *existing;
+
+        // Backfill the file list when the stored copy has none but the incoming
+        // one does. This heals a metadata-only row into a complete torrent
+        // instead of leaving the two out of sync.
+        if (existing->files == 0 && !torrent.fileList.isEmpty()
+            && repository_->updateFiles(existing->hash, torrent.fileList)) {
+            existing->fileList = torrent.fileList;
+            existing->files = torrent.fileList.size();
+            result.torrent = *existing;
+        }
 
         if (torrent.good > existing->good || torrent.bad > existing->bad) {
             existing->good = qMax(existing->good, torrent.good);
@@ -42,7 +52,7 @@ IndexingService::Result IndexingService::insert(domain::Torrent torrent, bool cl
         return result;
     }
 
-    if (classify && torrent.contentType == domain::ContentType::Unknown)
+    if (torrent.contentType == domain::ContentType::Unknown)
         domain::ContentClassifier::classify(torrent);
 
     if (filter_) {

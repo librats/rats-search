@@ -57,19 +57,14 @@ public:
     void setTorrent(const rats::domain::Torrent& torrent);
 
     /**
+     * @brief Whether the panel is currently showing a non-empty file list.
+     */
+    bool hasFiles() const;
+
+    /**
      * @brief Clear the file tree
      */
     void clear();
-
-    /**
-     * @brief Check if widget has any files loaded
-     */
-    bool isEmpty() const { return currentHash_.isEmpty(); }
-
-    /**
-     * @brief Get current torrent hash
-     */
-    QString currentHash() const { return currentHash_; }
 
 private slots:
     void onFileItemChanged(QTreeWidgetItem* item, int column);

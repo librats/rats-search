@@ -30,10 +30,10 @@ public:
 
     IndexingService(data::TorrentRepository* repository, FilterPolicy* filter, QObject* parent = nullptr);
 
-    // Insert `torrent`. If `classify` is true and its content type is unknown,
-    // the content classifier is run first. Returns the stored torrent (or the
-    // pre-existing one) on success.
-    Result insert(domain::Torrent torrent, bool classify = true);
+    // Insert `torrent`, running the content classifier first when its content
+    // type is unknown. Returns the stored torrent (or the pre-existing one) on
+    // success.
+    Result insert(domain::Torrent torrent);
 
     // Whether a torrent passes the current filter policy (used by the
     // maintenance sweep that re-applies filters to the existing index).

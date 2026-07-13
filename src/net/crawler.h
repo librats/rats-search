@@ -66,12 +66,9 @@ public:
     void setKnownHashFilter(KnownHashFilter filter);
 
 signals:
-    void started();
-    void stopped();
     void statusChanged(const QString& status);
     // Emitted once metadata has been fetched and a full torrent model built.
     void discovered(const rats::domain::Torrent& torrent);
-    void error(const QString& message);
 
 private slots:
     void onSpiderWalk();

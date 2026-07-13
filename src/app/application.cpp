@@ -7,13 +7,12 @@
 #include "data/feed_repository.h"
 #include "data/manticore.h"
 #include "data/torrent_repository.h"
-#include "domain/peer.h"
 #include "domain/torrent.h"
 #include "net/crawler.h"
 #include "net/p2p_transport.h"
+#include "net/swarm_scraper.h"
 #include "net/torrent_engine.h"
-#include "net/tracker_info_scraper.h"
-#include "net/tracker_scraper.h"
+#include "net/tracker_site_scraper.h"
 #include "peer/peer_api.h"
 #include "rest/api_router.h"
 #include "rest/api_server.h"
@@ -34,8 +33,6 @@
 
 #include <QCoreApplication>
 #include <QDebug>
-#include <QDir>
-#include <QFile>
 
 namespace rats::app {
 
@@ -55,8 +52,8 @@ struct Application::Private {
     std::unique_ptr<net::P2PTransport> transport;
     std::unique_ptr<net::TorrentEngine> engine;
     std::unique_ptr<net::Crawler> crawler;
-    std::unique_ptr<net::TrackerScraper> trackerScraper;
-    std::unique_ptr<net::TrackerInfoScraper> trackerInfoScraper;
+    std::unique_ptr<net::SwarmScraper> swarmScraper;
+    std::unique_ptr<net::TrackerSiteScraper> siteScraper;
 
     // Services
     std::unique_ptr<service::FilterPolicy> filter;
@@ -117,8 +114,8 @@ Application::Application(Options options, QObject* parent) : QObject(parent), d_
     d_->transport = std::make_unique<net::P2PTransport>(p2pPort, dhtPort, dataDir, maxPeers);
     d_->engine = std::make_unique<net::TorrentEngine>(d_->transport.get());
     d_->crawler = std::make_unique<net::Crawler>(d_->transport.get());
-    d_->trackerScraper = std::make_unique<net::TrackerScraper>();
-    d_->trackerInfoScraper = std::make_unique<net::TrackerInfoScraper>();
+    d_->swarmScraper = std::make_unique<net::SwarmScraper>();
+    d_->siteScraper = std::make_unique<net::TrackerSiteScraper>();
 
     // --- Services ---------------------------------------------------------
     d_->filter = std::make_unique<service::FilterPolicy>();
@@ -132,8 +129,8 @@ Application::Application(Options options, QObject* parent) : QObject(parent), d_
     d_->p2pStore = std::make_unique<service::P2PStore>(d_->transport.get());
     d_->voting = std::make_unique<service::VotingService>(d_->p2pStore.get(), d_->torrents.get());
     d_->replication = std::make_unique<service::ReplicationService>(d_->transport.get());
-    d_->trackers = std::make_unique<service::TrackerService>(
-        d_->trackerScraper.get(), d_->trackerInfoScraper.get(), d_->torrents.get());
+    d_->trackers
+        = std::make_unique<service::TrackerService>(d_->swarmScraper.get(), d_->siteScraper.get(), d_->torrents.get());
     d_->migrations = std::make_unique<service::MigrationService>(
         dataDir, d_->database.get(), d_->torrents.get(), d_->config.get());
     d_->updates = std::make_unique<service::UpdateService>();
@@ -268,7 +265,6 @@ bool Application::start()
     }
 
     d_->running = true;
-    emit started();
     return true;
 }
 
@@ -276,14 +272,17 @@ void Application::stop()
 {
     if (!d_->running)
         return;
-    emit stopping();
     qInfo() << "[Application] stopping";
 
     d_->apiServer->stop();
+    // Stop the crawler (the source of new torrents) and the tracker scrapers early
+    // so no fresh tracker requests are issued during shutdown, and in-flight
+    // announces / HTTP requests are drained rather than left blocking teardown.
+    d_->crawler->stop();
+    d_->trackers->stop();
     d_->downloads->saveSession(d_->options.dataDirectory + QStringLiteral("/torrents_session.json"));
     d_->feed->save();
     d_->replication->stop();
-    d_->crawler->stop();
     d_->transport->stop();
     d_->manticore->stop();
 
@@ -294,26 +293,14 @@ const Application::Options& Application::options() const
 {
     return d_->options;
 }
-bool Application::isRunning() const
-{
-    return d_->running;
-}
 
 ConfigStore* Application::config() const
 {
     return d_->config.get();
 }
-TranslationManager* Application::translation() const
-{
-    return &TranslationManager::instance();
-}
 FavoritesStore* Application::favorites() const
 {
     return d_->favorites.get();
-}
-data::Database* Application::database() const
-{
-    return d_->database.get();
 }
 data::TorrentRepository* Application::torrents() const
 {

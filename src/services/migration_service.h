@@ -58,17 +58,6 @@ public:
     // can be interrupted and resumed.
     void startAsyncMigrations();
 
-    // Whether an async migration is currently running.
-    bool isRunning() const;
-
-    // Request a graceful stop of the async migrations. Progress is saved before
-    // stopping so it can resume on the next startup.
-    void requestStop();
-
-    // Persist the current migration state to disk. Called automatically on
-    // progress and when stopping.
-    void saveState();
-
     // Current migration progress for UI display.
     struct Progress {
         QString migrationId;
@@ -78,9 +67,6 @@ public:
         bool isRunning = false;
     };
     Progress currentProgress() const;
-
-    // Current application version used for migration tracking.
-    static QString currentVersion();
 
 signals:
     void migrationProgress(const QString& migrationId, qint64 current, qint64 total);
@@ -120,7 +106,14 @@ private:
     // Registration --------------------------------------------------------------
     void registerMigrations();
 
+    // Request a graceful stop of the async migrations. Progress is saved before
+    // stopping so it can resume on the next startup.
+    void requestStop();
+
     // State persistence ---------------------------------------------------------
+    // Persist the current migration state to disk. Called on progress ticks, when
+    // a migration completes and when stopping.
+    void saveState();
     void loadState();
     bool isMigrationCompleted(const QString& migrationId) const;
     void markMigrationCompleted(const QString& migrationId);

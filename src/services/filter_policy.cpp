@@ -100,8 +100,17 @@ QString FilterPolicy::checkContentType(const domain::Torrent& t) const
         return QString();
 
     const QString typeName = domain::toString(t.contentType);
-    for (const QString& type : allowed) {
-        if (typeName.compare(type.trimmed(), Qt::CaseInsensitive) == 0)
+    for (const QString& raw : allowed) {
+        const QString type = raw.trimmed();
+        // "application" is a UI umbrella token spanning Software + Games
+        // (mirrors data::TorrentRepository::contentTypeFilter). "disc" has no
+        // matching ContentType and is a legacy no-op token.
+        if (type.compare(QLatin1String("application"), Qt::CaseInsensitive) == 0) {
+            if (t.contentType == domain::ContentType::Software || t.contentType == domain::ContentType::Games)
+                return QString();
+            continue;
+        }
+        if (typeName.compare(type, Qt::CaseInsensitive) == 0)
             return QString();
     }
     return QStringLiteral("Content type not allowed: %1").arg(typeName);

@@ -23,6 +23,8 @@ add_rats_test(test_domain)
 add_rats_test(test_query)
 add_rats_test(test_infohash)
 add_rats_test(test_update_service)
+add_rats_test(test_config_store)
+add_rats_test(test_filter_policy)
 
 # Content classifier needs the :/content/*.json Qt resources. Those live in the
 # main resources.qrc (they are not compiled into ratscore), so compile the qrc

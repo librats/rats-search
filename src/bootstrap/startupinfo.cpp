@@ -28,8 +28,8 @@ static QString humanSize(qint64 bytes)
     return QString("%1 %2").arg(size, 0, 'f', i == 0 ? 0 : 2).arg(units[i]);
 }
 
-// Calculate total size of a directory (non-recursive by default, recursive optionally)
-static qint64 directorySize(const QString& path, bool recursive = true)
+// Calculate the total size of a directory tree.
+static qint64 directorySize(const QString& path)
 {
     qint64 total = 0;
     QDir dir(path);
@@ -42,10 +42,8 @@ static qint64 directorySize(const QString& path, bool recursive = true)
         total += fi.size();
     }
 
-    if (recursive) {
-        for (const QString& sub : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden)) {
-            total += directorySize(path + "/" + sub, true);
-        }
+    for (const QString& sub : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden)) {
+        total += directorySize(path + "/" + sub);
     }
 
     return total;

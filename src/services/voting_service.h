@@ -34,15 +34,6 @@ public:
         int good = 0;
         int bad = 0;
         bool selfVoted = false;
-
-        QJsonObject toJson() const
-        {
-            QJsonObject obj;
-            obj["good"] = good;
-            obj["bad"] = bad;
-            obj["selfVoted"] = selfVoted;
-            return obj;
-        }
     };
 
     // Result callback, mirroring the API response shape: (ok, data, error).
@@ -58,20 +49,17 @@ public:
     // available, otherwise falls back to the local torrent's good/bad columns.
     void getVotes(const QString& hash, ResultCallback callback);
 
-    // Count all vote records for `hash` across peers (from the distributed store).
-    VoteCounts aggregate(const QString& hash) const;
-
     // Whether we have already stored a vote for `hash`.
     bool hasVoted(const QString& hash) const;
 
 signals:
-    // The aggregated counts for `hash` changed (after a local vote).
+    // The aggregated counts for `hash` changed (after a local or remote vote).
     void votesUpdated(const QString& hash, int good, int bad);
 
-    // A vote record was stored (locally or received from a peer).
-    void voteStored(const QString& hash, bool good, const QString& peerId);
-
 private:
+    // Count all vote records for `hash` across peers (from the distributed store).
+    VoteCounts aggregate(const QString& hash) const;
+
     bool storeVote(const QString& hash, bool good, const QJsonObject& torrentData);
     void onRecordStored(const StoredRecord& record, bool isRemote);
 

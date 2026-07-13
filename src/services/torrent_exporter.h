@@ -27,16 +27,11 @@ public:
     // engine is borrowed (non-owning) and must outlive the exporter.
     TorrentExporter(net::TorrentEngine* engine, QString dataDirectory, QObject* parent = nullptr);
 
-    void setDataDirectory(const QString& dir);
-
     // Request a .torrent for `hash`. If a cached copy exists, emits exportReady
     // immediately; otherwise fetches metadata (may take a while), writes it to the
     // cache, then emits exportReady. Concurrent requests for the same hash are
     // coalesced. `name` (optional) is echoed back for a friendly suggested filename.
     void requestExport(const QString& hash, const QString& name = QString());
-
-    // Absolute path of the cached .torrent for `hash` (may not exist yet).
-    QString cachePath(const QString& hash) const;
 
 signals:
     // A .torrent is available at `cachePath` (cached or freshly fetched).
@@ -47,6 +42,8 @@ signals:
     void statusMessage(const QString& message, int timeoutMs);
 
 private:
+    // Absolute path of the cached .torrent for `hash` (may not exist yet).
+    QString cachePath(const QString& hash) const;
     bool ensureCacheDir() const;
 
     net::TorrentEngine* engine_; // borrowed, non-owning

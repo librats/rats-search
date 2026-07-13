@@ -1,4 +1,4 @@
-#include "net/tracker_info_scraper.h"
+#include "net/tracker_site_scraper.h"
 
 #include <QDebug>
 #include <QJsonArray>
@@ -19,29 +19,49 @@ constexpr const char* kUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Ap
 
 // The authoritative strategy list. Its size — not a hardcoded constant — is
 // what every scrape uses as its pending-result count.
-const QVector<TrackerInfoScraper::Strategy> TrackerInfoScraper::kStrategies = {
-    &TrackerInfoScraper::scrapeRutracker,
-    &TrackerInfoScraper::scrapeNyaa,
+const QVector<TrackerSiteScraper::Strategy> TrackerSiteScraper::kStrategies = {
+    &TrackerSiteScraper::scrapeRutracker,
+    &TrackerSiteScraper::scrapeNyaa,
 };
 
 // ============================================================================
 // Construction
 // ============================================================================
 
-TrackerInfoScraper::TrackerInfoScraper(QObject* parent)
+TrackerSiteScraper::TrackerSiteScraper(QObject* parent)
     : QObject(parent), networkManager_(new QNetworkAccessManager(this))
 {
 }
 
-TrackerInfoScraper::~TrackerInfoScraper() = default;
+TrackerSiteScraper::~TrackerSiteScraper()
+{
+    stop();
+}
 
 // ============================================================================
 // Public entry point
 // ============================================================================
 
-void TrackerInfoScraper::scrape(const QString& infoHash, const QString& name)
+void TrackerSiteScraper::stop()
 {
-    if (!enabled_ || infoHash.length() != kInfoHashHexLength) {
+    stopping_.store(true);
+    // Abort every outstanding reply so none lingers up to the 20 s transfer
+    // timeout during shutdown. Each reply's finished() handler still runs (with
+    // an error), which cleans up its pending-scrape bookkeeping. Replies are
+    // parented to the manager, so findChildren locates them all.
+    const QList<QNetworkReply*> replies = networkManager_->findChildren<QNetworkReply*>();
+    for (QNetworkReply* reply : replies) {
+        reply->abort();
+    }
+}
+
+void TrackerSiteScraper::scrape(const QString& infoHash, const QString& name)
+{
+    if (stopping_.load()) {
+        return; // shutting down — accept no new work
+    }
+
+    if (infoHash.length() != kInfoHashHexLength) {
         return;
     }
 
@@ -50,8 +70,8 @@ void TrackerInfoScraper::scrape(const QString& infoHash, const QString& name)
         QMutexLocker locker(&recentChecksMutex_);
         if (recentChecks_.contains(infoHash)) {
             const QDateTime lastCheck = recentChecks_[infoHash];
-            if (lastCheck.secsTo(QDateTime::currentDateTime()) < cooldownSecs_) {
-                qDebug() << "TrackerInfoScraper: Hash" << infoHash.left(8) << "checked recently, skipping";
+            if (lastCheck.secsTo(QDateTime::currentDateTime()) < kCooldownSecs) {
+                qDebug() << "TrackerSiteScraper: Hash" << infoHash.left(8) << "checked recently, skipping";
                 return;
             }
         }
@@ -68,7 +88,7 @@ void TrackerInfoScraper::scrape(const QString& infoHash, const QString& name)
         pendingScrapes_[infoHash] = pending;
     }
 
-    qInfo() << "TrackerInfoScraper: Scraping tracker info for" << infoHash.left(16) << name.left(48);
+    qInfo() << "TrackerSiteScraper: Scraping tracker info for" << infoHash.left(16) << name.left(48);
 
     // Launch every strategy in parallel.
     for (const Strategy strategy : kStrategies) {
@@ -80,7 +100,7 @@ void TrackerInfoScraper::scrape(const QString& infoHash, const QString& name)
 // RuTracker strategy
 // ============================================================================
 
-void TrackerInfoScraper::scrapeRutracker(const QString& hash)
+void TrackerSiteScraper::scrapeRutracker(const QString& hash)
 {
     // RuTracker allows searching by info hash via the ?h= parameter.
     QUrl url(QString("https://rutracker.org/forum/viewtopic.php?h=%1").arg(hash));
@@ -89,30 +109,30 @@ void TrackerInfoScraper::scrapeRutracker(const QString& hash)
     request.setHeader(QNetworkRequest::UserAgentHeader, kUserAgent);
     request.setRawHeader("Accept", "text/html,application/xhtml+xml");
     request.setRawHeader("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
-    request.setTransferTimeout(timeoutMs_);
+    request.setTransferTimeout(kTimeoutMs);
 
     QNetworkReply* reply = networkManager_->get(request);
 
     connect(reply, &QNetworkReply::finished, this, [this, reply, hash]() {
         reply->deleteLater();
 
-        TrackerScrapedInfo info;
+        TrackerSiteInfo info;
         info.trackerName = "rutracker";
 
         if (reply->error() == QNetworkReply::NoError) {
             const QByteArray rawData = reply->readAll();
             info = parseRutrackerHtml(rawData);
         } else {
-            qDebug() << "TrackerInfoScraper: RuTracker request failed:" << reply->errorString();
+            qDebug() << "TrackerSiteScraper: RuTracker request failed:" << reply->errorString();
         }
 
         onStrategyComplete(hash, info);
     });
 }
 
-TrackerScrapedInfo TrackerInfoScraper::parseRutrackerHtml(const QByteArray& rawData)
+TrackerSiteInfo TrackerSiteScraper::parseRutrackerHtml(const QByteArray& rawData)
 {
-    TrackerScrapedInfo info;
+    TrackerSiteInfo info;
     info.trackerName = "rutracker";
 
     if (rawData.isEmpty()) {
@@ -125,7 +145,7 @@ TrackerScrapedInfo TrackerInfoScraper::parseRutrackerHtml(const QByteArray& rawD
     const QString rawPreview = QString::fromLatin1(rawData.left(kEncodingSniffLength));
     if (rawPreview.contains("windows-1251", Qt::CaseInsensitive)
         || rawPreview.contains("charset=windows-1251", Qt::CaseInsensitive)) {
-        qDebug() << "TrackerInfoScraper: Windows-1251 detected, decoding";
+        qDebug() << "TrackerSiteScraper: Windows-1251 detected, decoding";
         html = decodeWindows1251(rawData);
     } else {
         html = QString::fromUtf8(rawData);
@@ -186,7 +206,6 @@ TrackerScrapedInfo TrackerInfoScraper::parseRutrackerHtml(const QByteArray& rawD
         const QRegularExpressionMatch match = re.match(html);
         if (match.hasMatch()) {
             info.threadId = match.captured(1).toInt();
-            info.threadUrl = QString("https://rutracker.org/forum/viewtopic.php?t=%1").arg(info.threadId);
         }
     }
 
@@ -207,7 +226,7 @@ TrackerScrapedInfo TrackerInfoScraper::parseRutrackerHtml(const QByteArray& rawD
     }
 
     info.success = true;
-    qInfo() << "TrackerInfoScraper: RuTracker found:" << info.name.left(60) << "threadId:" << info.threadId;
+    qInfo() << "TrackerSiteScraper: RuTracker found:" << info.name.left(60) << "threadId:" << info.threadId;
 
     return info;
 }
@@ -216,7 +235,7 @@ TrackerScrapedInfo TrackerInfoScraper::parseRutrackerHtml(const QByteArray& rawD
 // Nyaa strategy
 // ============================================================================
 
-void TrackerInfoScraper::scrapeNyaa(const QString& hash)
+void TrackerSiteScraper::scrapeNyaa(const QString& hash)
 {
     // Nyaa allows searching by info hash via ?q=.
     QUrl url(QString("https://nyaa.si/?q=%1").arg(hash));
@@ -224,7 +243,7 @@ void TrackerInfoScraper::scrapeNyaa(const QString& hash)
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, kUserAgent);
     request.setRawHeader("Accept", "text/html,application/xhtml+xml");
-    request.setTransferTimeout(timeoutMs_);
+    request.setTransferTimeout(kTimeoutMs);
 
     QNetworkReply* reply = networkManager_->get(request);
 
@@ -232,8 +251,8 @@ void TrackerInfoScraper::scrapeNyaa(const QString& hash)
         reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
-            qDebug() << "TrackerInfoScraper: Nyaa request failed:" << reply->errorString();
-            TrackerScrapedInfo info;
+            qDebug() << "TrackerSiteScraper: Nyaa request failed:" << reply->errorString();
+            TrackerSiteInfo info;
             info.trackerName = "nyaa";
             onStrategyComplete(hash, info);
             return;
@@ -242,18 +261,13 @@ void TrackerInfoScraper::scrapeNyaa(const QString& hash)
         const QByteArray rawData = reply->readAll();
 
         // A single search result redirects straight to the /view/ page.
-        const QUrl finalUrl = reply->url();
-        if (finalUrl.path().startsWith("/view/")) {
-            TrackerScrapedInfo info = parseNyaaViewHtml(rawData);
-            if (info.success && info.threadUrl.isEmpty()) {
-                info.threadUrl = finalUrl.toString();
-            }
-            onStrategyComplete(hash, info);
+        if (reply->url().path().startsWith("/view/")) {
+            onStrategyComplete(hash, parseNyaaViewHtml(rawData));
             return;
         }
 
         // Otherwise parse the search results to locate a view link.
-        const TrackerScrapedInfo searchInfo = parseNyaaSearchHtml(rawData);
+        const TrackerSiteInfo searchInfo = parseNyaaSearchHtml(rawData);
 
         if (searchInfo.success && searchInfo.threadId > 0) {
             // Found a result — fetch the view page for full details.
@@ -263,46 +277,50 @@ void TrackerInfoScraper::scrapeNyaa(const QString& hash)
             onStrategyComplete(hash, searchInfo);
         } else {
             // No results on Nyaa.
-            TrackerScrapedInfo emptyInfo;
+            TrackerSiteInfo emptyInfo;
             emptyInfo.trackerName = "nyaa";
             onStrategyComplete(hash, emptyInfo);
         }
     });
 }
 
-void TrackerInfoScraper::scrapeNyaaViewPage(const QString& hash, const QString& viewUrl)
+void TrackerSiteScraper::scrapeNyaaViewPage(const QString& hash, const QString& viewUrl)
 {
+    if (stopping_.load()) {
+        // Don't chain a fresh request during shutdown; close out the strategy.
+        TrackerSiteInfo info;
+        info.trackerName = "nyaa";
+        onStrategyComplete(hash, info);
+        return;
+    }
+
     QUrl url(viewUrl);
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, kUserAgent);
     request.setRawHeader("Accept", "text/html,application/xhtml+xml");
-    request.setTransferTimeout(timeoutMs_);
+    request.setTransferTimeout(kTimeoutMs);
 
     QNetworkReply* reply = networkManager_->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [this, reply, hash, viewUrl]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, hash]() {
         reply->deleteLater();
 
-        TrackerScrapedInfo info;
+        TrackerSiteInfo info;
         info.trackerName = "nyaa";
 
         if (reply->error() == QNetworkReply::NoError) {
-            const QByteArray rawData = reply->readAll();
-            info = parseNyaaViewHtml(rawData);
-            if (info.success) {
-                info.threadUrl = viewUrl;
-            }
+            info = parseNyaaViewHtml(reply->readAll());
         } else {
-            qDebug() << "TrackerInfoScraper: Nyaa view page request failed:" << reply->errorString();
+            qDebug() << "TrackerSiteScraper: Nyaa view page request failed:" << reply->errorString();
         }
 
         onStrategyComplete(hash, info);
     });
 }
 
-TrackerScrapedInfo TrackerInfoScraper::parseNyaaSearchHtml(const QByteArray& rawData)
+TrackerSiteInfo TrackerSiteScraper::parseNyaaSearchHtml(const QByteArray& rawData)
 {
-    TrackerScrapedInfo info;
+    TrackerSiteInfo info;
     info.trackerName = "nyaa";
 
     const QString html = QString::fromUtf8(rawData);
@@ -350,9 +368,9 @@ TrackerScrapedInfo TrackerInfoScraper::parseNyaaSearchHtml(const QByteArray& raw
     return info;
 }
 
-TrackerScrapedInfo TrackerInfoScraper::parseNyaaViewHtml(const QByteArray& rawData)
+TrackerSiteInfo TrackerSiteScraper::parseNyaaViewHtml(const QByteArray& rawData)
 {
-    TrackerScrapedInfo info;
+    TrackerSiteInfo info;
     info.trackerName = "nyaa";
 
     const QString html = QString::fromUtf8(rawData);
@@ -398,7 +416,7 @@ TrackerScrapedInfo TrackerInfoScraper::parseNyaaViewHtml(const QByteArray& rawDa
         }
     }
 
-    qInfo() << "TrackerInfoScraper: Nyaa found:" << info.name.left(60);
+    qInfo() << "TrackerSiteScraper: Nyaa found:" << info.name.left(60);
 
     return info;
 }
@@ -407,7 +425,7 @@ TrackerScrapedInfo TrackerInfoScraper::parseNyaaViewHtml(const QByteArray& rawDa
 // Result merging
 // ============================================================================
 
-void TrackerInfoScraper::onStrategyComplete(const QString& hash, const TrackerScrapedInfo& info)
+void TrackerSiteScraper::onStrategyComplete(const QString& hash, const TrackerSiteInfo& info)
 {
     {
         QMutexLocker locker(&pendingMutex_);
@@ -425,7 +443,7 @@ void TrackerInfoScraper::onStrategyComplete(const QString& hash, const TrackerSc
     checkAllComplete(hash);
 }
 
-void TrackerInfoScraper::checkAllComplete(const QString& hash)
+void TrackerSiteScraper::checkAllComplete(const QString& hash)
 {
     QMutexLocker locker(&pendingMutex_);
     auto it = pendingScrapes_.find(hash);
@@ -443,7 +461,7 @@ void TrackerInfoScraper::checkAllComplete(const QString& hash)
     QJsonObject info;
     QJsonArray trackers;
 
-    for (const TrackerScrapedInfo& result : it->results) {
+    for (const TrackerSiteInfo& result : it->results) {
         // Add tracker to the list (deduplicated).
         bool alreadyListed = false;
         for (const QJsonValue& t : trackers) {
@@ -499,7 +517,7 @@ void TrackerInfoScraper::checkAllComplete(const QString& hash)
 // HTML helpers
 // ============================================================================
 
-QString TrackerInfoScraper::truncateDescription(const QString& text)
+QString TrackerSiteScraper::truncateDescription(const QString& text)
 {
     if (text.length() > kMaxDescriptionLength) {
         return text.left(kMaxDescriptionLength) + "...";
@@ -507,7 +525,7 @@ QString TrackerInfoScraper::truncateDescription(const QString& text)
     return text;
 }
 
-QString TrackerInfoScraper::stripHtml(const QString& html)
+QString TrackerSiteScraper::stripHtml(const QString& html)
 {
     QString text = html;
 
@@ -554,7 +572,7 @@ QString TrackerInfoScraper::stripHtml(const QString& html)
     return text.trimmed();
 }
 
-QString TrackerInfoScraper::decodeWindows1251(const QByteArray& data)
+QString TrackerSiteScraper::decodeWindows1251(const QByteArray& data)
 {
     // Windows-1251 to Unicode mapping for bytes 0x80-0xFF
     static const char16_t win1251table[128] = {

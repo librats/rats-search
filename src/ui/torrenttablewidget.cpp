@@ -1,20 +1,20 @@
 #include "torrenttablewidget.h"
 #include "searchresultmodel.h"
 #include "torrentitemdelegate.h"
+#include "torrentmenu.h"
 
-#include <QApplication>
-#include <QClipboard>
-#include <QDesktopServices>
 #include <QHeaderView>
 #include <QMenu>
 #include <QTableView>
-#include <QUrl>
 #include <QVBoxLayout>
 
 TorrentTableWidget::TorrentTableWidget(QWidget* parent) : QWidget(parent)
 {
     mainLayout_ = new QVBoxLayout(this);
-    mainLayout_->setContentsMargins(0, 0, 0, 0);
+    // Top margin keeps the page's own content off the main tab bar — without it
+    // the category tabs of the Top page butt straight up against the tabs above
+    // them and the two rows read as one.
+    mainLayout_->setContentsMargins(0, 8, 0, 0);
     mainLayout_->setSpacing(0);
 
     setupTable();
@@ -33,7 +33,12 @@ void TorrentTableWidget::setupTable()
     tableView_->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableView_->setSelectionMode(QAbstractItemView::SingleSelection);
     tableView_->setAlternatingRowColors(true);
-    tableView_->setSortingEnabled(false);
+    // Start with no sort indicator, so enabling sorting does not immediately
+    // re-sort by column 0 and destroy the order the page loaded with (top = by
+    // seeders, feed = by date). SearchResultModel::sort() then takes over on the
+    // first header click, and setResults() re-applies it across refreshes.
+    tableView_->horizontalHeader()->setSortIndicator(-1, Qt::AscendingOrder);
+    tableView_->setSortingEnabled(true);
     tableView_->horizontalHeader()->setStretchLastSection(true);
     tableView_->verticalHeader()->setVisible(false);
     tableView_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -142,18 +147,7 @@ void TorrentTableWidget::handleContextMenu(const QPoint& pos)
 QMenu* TorrentTableWidget::buildContextMenu(const rats::domain::Torrent& torrent)
 {
     QMenu* menu = new QMenu(this);
-
-    QAction* magnetAction = menu->addAction(tr("Open Magnet Link"));
-    connect(magnetAction, &QAction::triggered, this,
-        [torrent]() { QDesktopServices::openUrl(QUrl(torrent.magnetLink())); });
-
-    QAction* copyHashAction = menu->addAction(tr("Copy Info Hash"));
-    connect(
-        copyHashAction, &QAction::triggered, this, [torrent]() { QApplication::clipboard()->setText(torrent.hash); });
-
-    QAction* copyMagnetAction = menu->addAction(tr("Copy Magnet Link"));
-    connect(copyMagnetAction, &QAction::triggered, this,
-        [torrent]() { QApplication::clipboard()->setText(torrent.magnetLink()); });
+    rats::ui::addTorrentActions(menu, this, torrent);
 
     menu->addSeparator();
 

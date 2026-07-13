@@ -46,29 +46,9 @@ public:
     bool isRunning() const;
 
     /**
-     * @brief Get current status
-     */
-    Status status() const { return status_; }
-
-    /**
-     * @brief Get the port number
+     * @brief Get the port searchd actually listens on (chosen at start()).
      */
     int port() const { return port_; }
-
-    /**
-     * @brief Set custom port
-     */
-    void setPort(int port) { port_ = port; }
-
-    /**
-     * @brief Get database path
-     */
-    QString databasePath() const { return databasePath_; }
-
-    /**
-     * @brief Get the Manticore version
-     */
-    QString version() const { return version_; }
 
     /**
      * @brief Get QSqlDatabase connection to Manticore
@@ -83,16 +63,10 @@ public:
      */
     bool waitForReady(int timeoutMs = 30000);
 
-signals:
-    void started();
-    void stopped();
-    void statusChanged(Status status);
-    void error(const QString& message);
-
 private slots:
     void onProcessStarted();
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void onProcessError(QProcess::ProcessError error);
+    void onProcessError(QProcess::ProcessError processError);
     void onProcessReadyRead();
     void checkConnection();
 
@@ -102,11 +76,15 @@ private:
     QString findSearchdPath();
     bool testConnection();
     void setStatus(Status status);
+    // Log the reason a startup/runtime step failed and move to Status::Error.
+    // Every failure path funnels through here, so the cause always reaches the
+    // log even though nothing observes the status directly.
+    void fail(const QString& message);
     bool isPortAvailable(int port);
     int findAvailablePort(int startPort, int maxAttempts = 10);
 
-    // start() helpers — each returns true on success and, on failure, emits an
-    // error()/sets Status::Error before returning false.
+    // start() helpers — each returns true on success and, on failure, calls
+    // fail() before returning false.
     bool attachToExternalInstance(qint64 startupElapsedMs);
     bool resolveSearchdPath();
     bool ensureAvailablePort();

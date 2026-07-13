@@ -7,11 +7,9 @@
 
 namespace rats::app {
 class ConfigStore;
-class TranslationManager;
 class FavoritesStore;
 } // namespace rats::app
 namespace rats::data {
-class Database;
 class TorrentRepository;
 } // namespace rats::data
 namespace rats::net {
@@ -46,9 +44,9 @@ namespace rats::app {
 // Composition root: owns every adapter and service, wires them together in
 // dependency order, and drives the lifecycle.
 //
-// Front-ends (GUI window, REST/WS router, console shell, P2P peer API) receive
-// a running Application and only call into its services through the accessors
-// below; they hold no business logic.
+// Front-ends (GUI window, REST/WS API server, P2P peer API) receive a running
+// Application and only call into its services through the accessors below; they
+// hold no business logic.
 class Application : public QObject {
     Q_OBJECT
 
@@ -77,14 +75,11 @@ public:
     void stop();
 
     const Options& options() const;
-    bool isRunning() const;
 
     // Service accessors (non-owning). Valid after construction; live subsystems
     // (database, transport) only after start().
     ConfigStore* config() const;
-    TranslationManager* translation() const;
     FavoritesStore* favorites() const;
-    data::Database* database() const;
     data::TorrentRepository* torrents() const;
     net::P2PTransport* transport() const;
     net::TorrentEngine* engine() const;
@@ -103,10 +98,6 @@ public:
     service::MigrationService* migrations() const;
     rest::ApiRouter* api() const;
     peer::PeerApi* peerApi() const;
-
-signals:
-    void started();
-    void stopping();
 
 private:
     void applyConfig(); // push current config values into the services

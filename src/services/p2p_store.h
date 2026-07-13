@@ -22,30 +22,6 @@ struct StoredRecord {
     QJsonObject data;
     QString peerId; // peer that created this record
     qint64 timestamp = 0;
-
-    bool isValid() const { return !key.isEmpty(); }
-
-    QJsonObject toJson() const
-    {
-        QJsonObject obj;
-        obj["key"] = key;
-        obj["type"] = type;
-        obj["data"] = data;
-        obj["peerId"] = peerId;
-        obj["timestamp"] = timestamp;
-        return obj;
-    }
-
-    static StoredRecord fromJson(const QJsonObject& obj)
-    {
-        StoredRecord r;
-        r.key = obj["key"].toString();
-        r.type = obj["type"].toString();
-        r.data = obj["data"].toObject();
-        r.peerId = obj["peerId"].toString();
-        r.timestamp = obj["timestamp"].toVariant().toLongLong();
-        return r;
-    }
 };
 
 // Qt wrapper around the librats distributed key-value StorageManager, borrowed

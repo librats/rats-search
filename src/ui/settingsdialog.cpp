@@ -595,13 +595,10 @@ void SettingsDialog::loadSettings()
     // Storage
     downloadPathEdit_->setText(config_->downloadPath());
 
-    // Database - load from QSettings first (source of truth for data directory),
-    // then fallback to config, then to current runtime directory
+    // Database - QSettings is the source of truth for the data directory (it has
+    // to be readable before rats.json, which lives inside it, can be loaded).
     QSettings settings("RatsSearch", "RatsSearch");
     QString savedDataDir = settings.value("dataDirectory").toString();
-    if (savedDataDir.isEmpty()) {
-        savedDataDir = config_->dataDirectory();
-    }
     if (savedDataDir.isEmpty()) {
         savedDataDir = dataDirectory_; // Use runtime directory if not saved
     }
@@ -614,12 +611,14 @@ void SettingsDialog::saveSettings()
         return;
     auto* config_ = app_->config();
 
+    QSettings settings("RatsSearch", "RatsSearch");
+
     // Track what changed for restart notification
     int oldP2pPort = config_->p2pPort();
     int oldDhtPort = config_->dhtPort();
     int oldHttpPort = config_->httpPort();
     bool oldRestApi = config_->restApiEnabled();
-    QString oldDataDir = config_->dataDirectory();
+    QString oldDataDir = settings.value("dataDirectory").toString();
 
     // Save General
     config_->setLanguage(languageCombo_->currentData().toString());
@@ -629,14 +628,14 @@ void SettingsDialog::saveSettings()
     config_->setTrayOnClose(closeToTrayCheck_->isChecked());
     config_->setCheckUpdatesOnStartup(checkUpdatesCheck_->isChecked());
 
-    // Apply autostart at OS level
+    // Autostart lives in the OS (registry / .desktop / launch agent), which is its
+    // only source of truth — loadSettings() reads it back from AutoStartManager.
     bool autoStartEnabled = autoStartCheck_->isChecked();
     if (autoStartEnabled != AutoStartManager::isEnabled()) {
         if (!AutoStartManager::setEnabled(autoStartEnabled)) {
             qWarning() << "Failed to" << (autoStartEnabled ? "enable" : "disable") << "autostart";
         }
     }
-    config_->setAutoStart(autoStartEnabled);
 
     // Save Network
     config_->setP2pPort(p2pPortSpin_->value());
@@ -689,13 +688,9 @@ void SettingsDialog::saveSettings()
         config_->setDownloadPath(newDownloadPath);
     }
 
-    // Save Data Directory
+    // Save Data Directory to QSettings, where main.cpp reads it at startup.
     QString newDataDir = dataPathEdit_->text();
     if (!newDataDir.isEmpty()) {
-        config_->setDataDirectory(newDataDir);
-
-        // Also save to QSettings so main.cpp can read it at startup
-        QSettings settings("RatsSearch", "RatsSearch");
         settings.setValue("dataDirectory", newDataDir);
     }
 

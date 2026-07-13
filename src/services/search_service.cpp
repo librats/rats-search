@@ -12,9 +12,9 @@ SearchService::SearchService(data::TorrentRepository* repository, QObject* paren
 
 QString SearchService::extractInfoHash(const QString& query)
 {
-    // parseInfoHash accepts a bare hash, a magnet link, and base32; it returns an
-    // empty string when the query carries no hash. Normalize so callers can match
-    // it against the lower-case hashes stored in the index.
+    // parseInfoHash accepts a bare hex hash or a magnet link and returns an empty
+    // string when the query carries no hash (base32 hashes are not decoded).
+    // Normalize so callers can match it against the lower-case hashes in the index.
     const QString hash = net::TorrentEngine::parseInfoHash(query.trimmed());
     return infohash::isValid(hash) ? infohash::normalize(hash) : QString();
 }

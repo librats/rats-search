@@ -45,7 +45,6 @@ public:
 
 protected:
     void closeEvent(QCloseEvent* event) override;
-    void contextMenuEvent(QContextMenuEvent* event) override;
     void changeEvent(QEvent* event) override;
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
@@ -107,8 +106,10 @@ private:
     void setupSystemTray();
     void loadSettings();
     void saveSettings();
-    void updateP2PIndicator(); // Update P2P status indicator color
-    void updateP2PState(); // Recalculate P2P connection state
+    // Recompute p2pState_ from the transport, then repaint. Call this one.
+    void refreshP2PStatus();
+    // Render the current p2pState_ into the status-bar indicator.
+    void paintP2PIndicator();
     bool showAgreementDialog(); // Show EULA on first launch, returns true if accepted
 
     // Torrent detail / action helpers (used by multiple tabs)

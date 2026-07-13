@@ -47,7 +47,6 @@ struct Download {
     bool removeOnDone = false;
     bool ready = false; // metadata (name/files/size) known
     bool completed = false;
-    bool added = false; // handed to librats (add_* returned)
     QVector<DownloadFile> files;
 
     // Rolling sample used to derive downloadSpeed from the cumulative byte
@@ -81,8 +80,6 @@ public:
     explicit DownloadService(net::TorrentEngine* engine, QObject* parent = nullptr);
     ~DownloadService() override;
 
-    bool isReady() const;
-
     // --- Download lifecycle -------------------------------------------------
     // Add by magnet link or 40-char hex hash.
     bool add(const QString& magnetLink, const QString& savePath = QString());
@@ -91,8 +88,6 @@ public:
     bool addWithInfo(const domain::Torrent& info, const QString& savePath = QString());
     // Add from a .torrent file (metadata is available immediately).
     bool addFromFile(const QString& torrentFile, const QString& savePath = QString());
-    // Restore a torrent from a previous session, loading any resume data.
-    bool restore(const QString& hash, const QString& name, const QString& savePath, bool wasCompleted);
 
     // Stop and remove a torrent. saveResumeData preserves downloaded pieces.
     void remove(const QString& hash, bool saveResumeData = false);
@@ -101,7 +96,6 @@ public:
     bool togglePause(const QString& hash);
     bool selectFiles(const QString& hash, const QVector<bool>& selection);
     bool selectFilesJson(const QString& hash, const QJsonValue& selection);
-    void setRemoveOnDone(const QString& hash, bool removeOnDone);
 
     // Register an already-created, seeding torrent in the registry (used by
     // TorrentCreator). Emits the started/files/completed/created signals. Returns
@@ -112,7 +106,6 @@ public:
     bool isDownloading(const QString& hash) const;
     Download getDownload(const QString& hash) const;
     QVector<Download> allDownloads() const;
-    int count() const;
     QJsonArray toJsonArray() const;
 
     // --- Configuration ------------------------------------------------------
@@ -122,22 +115,28 @@ public:
     bool saveSession(const QString& filePath);
     int loadSession(const QString& filePath);
 
-    // The borrowed engine, so a TorrentCreator can share it.
-    net::TorrentEngine* engine() const { return engine_; }
-
 signals:
     void downloadStarted(const QString& hash);
     // File list available (after metadata), as an API-compatible JSON array.
     void filesReady(const QString& hash, const QJsonArray& files);
+    // Carries the full snapshot — including `paused` and `removeOnDone` — so a
+    // state flip needs no separate signal; the next poll re-broadcasts it.
     void progressUpdated(const QString& hash, const QJsonObject& progress);
     void downloadCompleted(const QString& hash);
     void torrentRemoved(const QString& hash);
-    void stateChanged(const QString& hash, const QJsonObject& state);
 
 private slots:
     void onUpdateTimer();
 
 private:
+    bool isReady() const;
+
+    // Restore a torrent from a previous session, loading any resume data. The
+    // persisted entry seeds the live state (notably `completed`) so a finished
+    // torrent shows as completed immediately, before librats' async recheck.
+    bool restore(const Download& entry);
+    void setRemoveOnDone(const QString& hash, bool removeOnDone);
+
     // State changes detected during a poll, flushed as signals afterwards.
     struct Transitions {
         QStringList newlyReady;

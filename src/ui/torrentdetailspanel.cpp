@@ -580,11 +580,7 @@ void TorrentDetailsPanel::onMagnetClicked()
     if (currentHash_.isEmpty())
         return;
 
-    QString magnetLink = QString("magnet:?xt=urn:btih:%1&dn=%2")
-                             .arg(currentHash_)
-                             .arg(QString::fromUtf8(QUrl::toPercentEncoding(currentTorrent_.name)));
-
-    QDesktopServices::openUrl(QUrl(magnetLink));
+    QDesktopServices::openUrl(QUrl(currentTorrent_.magnetLink()));
 }
 
 void TorrentDetailsPanel::onDownloadClicked()

@@ -81,7 +81,6 @@ UpdateService::UpdateService(QObject* parent)
     , repoName_(kDefaultRepoName)
     , state_(UpdateState::Idle)
     , downloadProgress_(0)
-    , checkOnStartup_(true)
     , includePrerelease_(false)
 {
 }

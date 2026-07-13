@@ -91,7 +91,8 @@ private:
 
     // Display queue mechanism (like legacy recent-torrents.js)
     QQueue<rats::domain::Torrent> displayQueue_;
-    QHash<QString, rats::domain::Torrent> displayQueueAssoc_; // For fast lookup by hash
+    // Index over displayQueue_, so a duplicate arrival is rejected in O(1).
+    QHash<QString, rats::domain::Torrent> queuedByHash_;
     QHash<QString, rats::domain::Torrent> displayedTorrents_; // Currently displayed torrents
 
     QTimer* displayTimer_; // Timer for controlled display speed

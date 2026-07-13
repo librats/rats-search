@@ -75,27 +75,9 @@ QVariant SearchResultModel::data(const QModelIndex& index, int role) const
     else if (role == ContentTypeRole) {
         // Content type as domain enum id (delegate converts back to ContentType)
         return rats::domain::toId(torrent.contentType);
-    } else if (role == ContentCategoryRole) {
-        // Content category as domain enum id
-        return rats::domain::toId(torrent.contentCategory);
-    } else if (role == GoodVotesRole) {
-        // Good votes
-        return torrent.good;
-    } else if (role == BadVotesRole) {
-        // Bad votes
-        return torrent.bad;
-    } else if (role == InfoHashRole) {
-        // Info hash
-        return torrent.hash;
     } else if (role == MatchingPathsRole) {
         // Highlighted file path snippets
         return hit.matchingPaths;
-    } else if (role == IsFileMatchRole) {
-        // Is this result from file search?
-        return hit.fromFileMatch;
-    } else if (role == FilesCountRole) {
-        // Number of files in torrent
-        return torrent.files;
     }
 
     return QVariant();
@@ -161,6 +143,14 @@ Torrent SearchResultModel::getTorrent(int row) const
     return Torrent();
 }
 
+SearchHit SearchResultModel::getHit(int row) const
+{
+    if (row >= 0 && row < results_.size()) {
+        return results_[row];
+    }
+    return SearchHit();
+}
+
 // =========================================================================
 // File Search Results Methods
 // =========================================================================
@@ -197,7 +187,7 @@ void SearchResultModel::mergeFileResultIntoExisting(const SearchHit& fileResult)
             // the file paths
             QModelIndex topLeft = index(i, 0);
             QModelIndex bottomRight = index(i, ColumnCount - 1);
-            emit dataChanged(topLeft, bottomRight, { MatchingPathsRole, IsFileMatchRole, Qt::SizeHintRole });
+            emit dataChanged(topLeft, bottomRight, { MatchingPathsRole, Qt::SizeHintRole });
             return;
         }
     }

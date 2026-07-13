@@ -72,6 +72,10 @@ public:
 
     // Partial updates ----------------------------------------------------------
     bool updateTrackerCounts(const QString& hash, int seeders, int leechers, int completed);
+    // Replace the file list of an already-stored torrent and sync its file count
+    // and statistics. Used to backfill a copy that was indexed from metadata
+    // before its file list was available. No-op (returns false) on empty input.
+    bool updateFiles(const QString& hash, const QVector<domain::File>& files);
     bool mergeInfo(const QString& hash, const QJsonObject& info);
     bool updateClassification(const QString& hash, domain::ContentType type, domain::ContentCategory category);
 

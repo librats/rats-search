@@ -267,7 +267,7 @@ QVector<SearchHit> TorrentRepository::searchFiles(const SearchQuery& q)
 
     // SNIPPET highlights matching file paths; MATCH selects the rows.
     const QString sql = QStringLiteral("SELECT *, SNIPPET(path, ?, 'around=100', "
-                                       "'force_all_words=1') AS snipplet FROM "
+                                       "'force_all_words=1') AS snippet FROM "
                                        "files WHERE MATCH(?) LIMIT ?,?");
     const auto fileRows = db_->query(sql, { q.text, sql::escapeMatch(q.text), q.offset, q.limit });
     if (fileRows.isEmpty())
@@ -277,7 +277,7 @@ QVector<SearchHit> TorrentRepository::searchFiles(const SearchQuery& q)
     QStringList orderedHashes;
     for (const auto& row : fileRows) {
         const QString hash = row.value(QStringLiteral("hash")).toString();
-        for (const QString& line : row.value(QStringLiteral("snipplet")).toString().split(QLatin1Char('\n'))) {
+        for (const QString& line : row.value(QStringLiteral("snippet")).toString().split(QLatin1Char('\n'))) {
             if (line.contains(QLatin1String("<b>"))) {
                 if (!snippetsByHash.contains(hash))
                     orderedHashes << hash;
@@ -438,6 +438,27 @@ bool TorrentRepository::updateTrackerCounts(const QString& hash, int seeders, in
         { { "seeders", seeders }, { "leechers", leechers }, { "completed", completed },
             { "trackersChecked", QDateTime::currentSecsSinceEpoch() } },
         { { "hash", hash } });
+}
+
+bool TorrentRepository::updateFiles(const QString& hash, const QVector<File>& files)
+{
+    if (files.isEmpty())
+        return false;
+
+    const auto rows = db_->query(QStringLiteral("SELECT files FROM torrents WHERE hash = ?"), { hash });
+    if (rows.isEmpty())
+        return false;
+    const int oldCount = rows.first().value(QStringLiteral("files")).toInt();
+
+    saveFiles(hash, files); // replaces the file rows for this hash
+
+    if (!db_->update(kTorrents, { { "files", files.size() } }, { { "hash", hash } }))
+        return false;
+
+    stats_.files += files.size() - oldCount;
+    emit statisticsChanged(stats_.torrents, stats_.files, stats_.totalSize);
+    emit torrentUpdated(hash);
+    return true;
 }
 
 bool TorrentRepository::mergeInfo(const QString& hash, const QJsonObject& info)

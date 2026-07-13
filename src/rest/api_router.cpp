@@ -43,6 +43,7 @@
 #include <QJsonArray>
 #include <QJsonValue>
 #include <QStringList>
+#include <QTimer>
 #include <memory>
 
 namespace rats::rest {
@@ -165,6 +166,58 @@ void dhtLookup(ApiRouter* ctx, app::Application* app, const QString& hash, bool 
 #endif
 }
 
+// --- Peer torrent fetch -----------------------------------------------------
+
+// Ask a specific peer for a torrent (optionally with its file list) and answer
+// `respond` exactly once: with the peer's reply if it arrives before the
+// timeout, otherwise by falling back to the DHT lookup. This is what turns a
+// remote-only search hit into a full, locally-cloned torrent when the user opens
+// it — PeerApi already routes the incoming torrent_response through the index.
+void peerLookup(ApiRouter* ctx, app::Application* app, const QString& peerId, const QString& hash, bool includeFiles,
+    bool asArray, const ResultCallback& respond)
+{
+    peer::PeerApi* peerApi = app->peerApi();
+    if (!peerApi || peerId.isEmpty()) {
+        dhtLookup(ctx, app, hash, includeFiles, asArray, respond);
+        return;
+    }
+
+    auto done = std::make_shared<bool>(false);
+    auto conn = std::make_shared<QMetaObject::Connection>();
+    QTimer* timer = new QTimer(ctx);
+    timer->setSingleShot(true);
+
+    // Complete once: either the peer answered (deliver its payload) or we time
+    // out (fall back to the DHT). Every path disconnects and reaps the timer.
+    auto finish = [=](bool matched, const QJsonObject& payload) {
+        if (*done)
+            return;
+        *done = true;
+        QObject::disconnect(*conn);
+        timer->stop();
+        timer->deleteLater();
+
+        if (!matched) {
+            dhtLookup(ctx, app, hash, includeFiles, asArray, respond);
+            return;
+        }
+        if (asArray)
+            respond(Result::success(QJsonArray { payload }));
+        else
+            respond(Result::success(payload));
+    };
+
+    *conn = QObject::connect(peerApi, &peer::PeerApi::remoteTorrentReceived, ctx,
+        [=](const QString& h, const QJsonObject& data) {
+            if (h == hash)
+                finish(true, data);
+        });
+    QObject::connect(timer, &QTimer::timeout, ctx, [=]() { finish(false, {}); });
+
+    timer->start(15000);
+    peerApi->requestTorrent(peerId, hash, includeFiles);
+}
+
 } // namespace
 
 // ===========================================================================
@@ -233,15 +286,10 @@ void ApiRouter::call(const QString& method, const QJsonObject& params, const Res
 {
     auto it = handlers_.constFind(method);
     if (it == handlers_.constEnd()) {
-        respond(Result::failure(QStringLiteral("Unknown method: %1").arg(method), QStringLiteral("unknown_method")));
+        respond(Result::failure(QStringLiteral("Unknown method: %1").arg(method)));
         return;
     }
     it.value()(params, respond);
-}
-
-QStringList ApiRouter::methods() const
-{
-    return handlers_.keys();
 }
 
 void ApiRouter::registerMethods()
@@ -314,10 +362,22 @@ void ApiRouter::registerMethods()
             return;
         }
         const bool includeFiles = params["files"].toBool(false);
+        // Optional: the peer that offered this torrent in a remote search hit.
+        const QString peerId = params["peer"].toString();
 
         std::optional<domain::Torrent> torrent = app_->search()->get(hash, includeFiles);
+
+        // A file list was asked for but the local copy has none: this is a
+        // remote-only hit (search replies never carry files). Fetch the full
+        // torrent from the offering peer, then the DHT, before giving up.
+        const bool needRemoteFiles = includeFiles && (!torrent || torrent->fileList.isEmpty());
+        if (needRemoteFiles && !peerId.isEmpty()) {
+            peerLookup(this, app_, peerId, hash, includeFiles, /*asArray*/ false, respond);
+            return;
+        }
+
         if (!torrent) {
-            // Not indexed locally: try to pull metadata from the DHT.
+            // Not indexed locally and no peer to ask: try the DHT.
             dhtLookup(this, app_, hash, includeFiles, /*asArray*/ false, respond);
             return;
         }
@@ -349,7 +409,7 @@ void ApiRouter::registerMethods()
                 progress["processed"] = processed;
                 progress["removed"] = removed;
                 progress["total"] = total;
-                emit event("torrent.remove.progress", progress);
+                emit event("torrentRemoveProgress", progress);
             }
         }
 
@@ -381,7 +441,7 @@ void ApiRouter::registerMethods()
                         app_->torrents()->remove(t.hash);
                 }
             }
-            emit event("torrent.cleanup.progress",
+            emit event("torrentCleanupProgress",
                 QJsonObject {
                     { "scanned", scanned }, { "matched", matched }, { "total", static_cast<double>(total) } });
         }

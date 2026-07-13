@@ -127,7 +127,6 @@ bool DownloadService::add(const QString& magnetLink, const QString& savePath)
     d.hash = hash;
     d.name = hash; // placeholder until metadata arrives
     d.savePath = path;
-    d.added = true;
     d.ready = false;
     {
         QMutexLocker lock(&mutex_);
@@ -169,7 +168,6 @@ bool DownloadService::addWithInfo(const domain::Torrent& info, const QString& sa
     d.name = info.name.isEmpty() ? hash : info.name;
     d.totalSize = info.size;
     d.savePath = path;
-    d.added = true;
     d.ready = false; // metadata (authoritative name/files) not yet known
     d.completed = false;
     {
@@ -215,7 +213,6 @@ bool DownloadService::addFromFile(const QString& torrentFile, const QString& sav
     d.name = meta.name;
     d.savePath = path;
     d.totalSize = meta.totalSize;
-    d.added = true;
     d.ready = true;
     for (int i = 0; i < meta.files.size(); ++i) {
         DownloadFile f;
@@ -235,25 +232,23 @@ bool DownloadService::addFromFile(const QString& torrentFile, const QString& sav
     return true;
 }
 
-bool DownloadService::restore(const QString& hash, const QString& name, const QString& savePath, bool wasCompleted)
+bool DownloadService::restore(const Download& entry)
 {
-    Q_UNUSED(wasCompleted);
-
     if (!isReady()) {
         qWarning() << "DownloadService: Not ready for restore";
         return false;
     }
 
-    const QString h = infohash::normalize(hash);
+    const QString h = infohash::normalize(entry.hash);
     if (contains(h)) {
         qInfo() << "DownloadService: Already active:" << h.left(8);
         return false;
     }
 
-    const QString path = resolveSavePath(savePath);
+    const QString path = resolveSavePath(entry.savePath);
     ensureDir(path);
 
-    qInfo() << "DownloadService: Restoring torrent" << h.left(8) << name.left(30) << "from" << path;
+    qInfo() << "DownloadService: Restoring torrent" << h.left(8) << entry.name.left(30) << "from" << path;
     if (!engine_->addMagnetResumed(h, path)) {
         qWarning() << "DownloadService: Failed to restore torrent:" << h.left(8);
         return false;
@@ -262,14 +257,36 @@ bool DownloadService::restore(const QString& hash, const QString& name, const QS
     Download d;
     d.hash = h;
     d.savePath = path;
-    d.name = name.isEmpty() ? h : name;
-    d.added = true;
+    d.name = entry.name.isEmpty() ? h : entry.name;
     d.ready = false;
+
+    // Seed the live state from the persisted session. librats rechecks the
+    // on-disk files asynchronously — status() right now still reports 0 % /
+    // not-complete — so without this a finished torrent would flash as a 0 %
+    // download until the recheck lands. The 1 s poll stays authoritative and
+    // reconciles once the check completes. `paused`/`removeOnDone` are applied by
+    // loadSession() afterwards, so they are deliberately not seeded here.
+    d.completed = entry.completed;
+    d.totalSize = entry.totalSize;
+    d.downloadedBytes = entry.downloadedBytes;
+    d.progress = entry.progress;
+    d.files = entry.files;
 
     // If resume data already brought back the metadata, populate immediately.
     net::TorrentSnapshot snap = engine_->status(h);
     if (snap.exists && snap.hasMetadata) {
+        const bool completedBefore = d.completed;
         applySnapshot(d, snap);
+        // applySnapshot mirrors librats' *pre-recheck* view (is_complete still
+        // false, progress 0), so it must not downgrade a torrent the session
+        // recorded as complete.
+        if (completedBefore && !d.completed) {
+            d.completed = true;
+            d.progress = 1.0;
+            for (DownloadFile& f : d.files) {
+                f.progress = 1.0;
+            }
+        }
     }
 
     {
@@ -278,11 +295,11 @@ bool DownloadService::restore(const QString& hash, const QString& name, const QS
     }
 
     emit downloadStarted(h);
-    if (d.ready) {
+    if (!d.files.isEmpty()) {
         emit filesReady(h, filesToJson(d.files));
-        if (d.completed) {
-            emit downloadCompleted(h);
-        }
+    }
+    if (d.completed) {
+        emit downloadCompleted(h);
     }
     return true;
 }
@@ -330,7 +347,6 @@ bool DownloadService::pause(const QString& hash)
     }
 
     engine_->pause(h);
-    emit stateChanged(h, QJsonObject { { "paused", true } });
     return true;
 }
 
@@ -351,7 +367,6 @@ bool DownloadService::resume(const QString& hash)
     }
 
     engine_->resume(h);
-    emit stateChanged(h, QJsonObject { { "paused", false } });
     return true;
 }
 
@@ -429,20 +444,10 @@ bool DownloadService::selectFilesJson(const QString& hash, const QJsonValue& sel
 
 void DownloadService::setRemoveOnDone(const QString& hash, bool removeOnDone)
 {
-    const QString h = infohash::normalize(hash);
-
-    bool found = false;
-    {
-        QMutexLocker lock(&mutex_);
-        auto it = downloads_.find(h);
-        if (it != downloads_.end()) {
-            it->removeOnDone = removeOnDone;
-            found = true;
-        }
-    }
-
-    if (found) {
-        emit stateChanged(h, QJsonObject { { "removeOnDone", removeOnDone } });
+    QMutexLocker lock(&mutex_);
+    auto it = downloads_.find(infohash::normalize(hash));
+    if (it != downloads_.end()) {
+        it->removeOnDone = removeOnDone;
     }
 }
 
@@ -457,7 +462,6 @@ QString DownloadService::registerSeed(const net::SeedResult& seed)
     d.totalSize = seed.totalSize;
     d.downloadedBytes = seed.totalSize; // already complete for seeding
     d.progress = 1.0;
-    d.added = true;
     d.ready = true;
     d.completed = true;
     for (int i = 0; i < seed.files.size(); ++i) {
@@ -510,12 +514,6 @@ QVector<Download> DownloadService::allDownloads() const
         result.append(d);
     }
     return result;
-}
-
-int DownloadService::count() const
-{
-    QMutexLocker lock(&mutex_);
-    return downloads_.size();
 }
 
 QJsonArray DownloadService::toJsonArray() const
@@ -575,7 +573,7 @@ int DownloadService::loadSession(const QString& filePath)
         qInfo() << "DownloadService: Restoring torrent:" << e.hash.left(8) << e.name.left(30)
                 << (e.completed ? "(completed/seeding)" : "(downloading)");
 
-        if (restore(e.hash, e.name, e.savePath, e.completed)) {
+        if (restore(e)) {
             if (e.paused) {
                 pause(e.hash);
             }
@@ -786,13 +784,12 @@ QJsonArray DownloadService::filesToJson(const QVector<DownloadFile>& files)
 QJsonObject DownloadService::progressJson(const Download& d)
 {
     QJsonObject o;
-    o["received"] = d.downloadedBytes;
     o["downloaded"] = d.downloadedBytes;
     o["total"] = d.totalSize;
     o["progress"] = d.progress;
-    o["speed"] = static_cast<int>(d.downloadSpeed);
     o["downloadSpeed"] = static_cast<int>(d.downloadSpeed);
     o["paused"] = d.paused;
+    o["completed"] = d.completed; // so a progress update alone can render "completed"
     o["removeOnDone"] = d.removeOnDone;
     if (d.downloadSpeed > 0 && d.totalSize > d.downloadedBytes) {
         o["timeRemaining"] = static_cast<qint64>((d.totalSize - d.downloadedBytes) / d.downloadSpeed);

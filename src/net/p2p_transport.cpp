@@ -99,6 +99,7 @@ struct P2PTransport::Private {
     void registerDispatcher(const QString& type);
     void dispatchMessage(const QString& peerId, const QString& type, const QJsonObject& data);
     void updatePeerCount();
+    void requestPeerCountUpdate();
 };
 
 void P2PTransport::Private::setupCallbacks()
@@ -112,7 +113,7 @@ void P2PTransport::Private::setupCallbacks()
         QString peerId = QString::fromStdString(peer.id().to_hex());
         qInfo() << "Peer connected:" << peerId.left(8);
         emit q->peerConnected(peerId);
-        emit q->peerCountChanged(peerCount());
+        requestPeerCountUpdate();
     });
 
     // Disconnection callback. Runs on a reactor thread.
@@ -120,7 +121,7 @@ void P2PTransport::Private::setupCallbacks()
         QString peerId = QString::fromStdString(id.to_hex());
         qInfo() << "Peer disconnected:" << peerId.left(8);
         emit q->peerDisconnected(peerId);
-        emit q->peerCountChanged(peerCount());
+        requestPeerCountUpdate();
     });
 }
 
@@ -160,6 +161,10 @@ void P2PTransport::Private::dispatchMessage(const QString& peerId, const QString
         Qt::QueuedConnection);
 }
 
+// Single source of peerCountChanged, and it runs only on q's thread: lastPeerCount
+// needs no locking, and a stale value can never overtake a fresher one (a direct
+// emit from the timer used to be able to jump ahead of a queued emit from a
+// reactor thread, leaving the count behind reality until the next change).
 void P2PTransport::Private::updatePeerCount()
 {
     if (!node) {
@@ -170,6 +175,13 @@ void P2PTransport::Private::updatePeerCount()
         emit q->peerCountChanged(count);
         lastPeerCount = count;
     }
+}
+
+// Callable from a reactor thread: hops to q's thread and re-reads the live count
+// there, so peers show up immediately instead of waiting for the next poll tick.
+void P2PTransport::Private::requestPeerCountUpdate()
+{
+    QMetaObject::invokeMethod(q, [this]() { updatePeerCount(); }, Qt::QueuedConnection);
 }
 
 // =========================================================================
@@ -276,7 +288,6 @@ bool P2PTransport::start()
         // --- Bring the node (and all subsystems) up -----------------------
         if (!d_->node->start()) {
             qWarning() << "Failed to start librats node";
-            emit error("Failed to start P2P transport");
             d_->node.reset();
             d_->dht = nullptr;
             d_->mdns = nullptr;
@@ -315,7 +326,6 @@ bool P2PTransport::start()
 
     } catch (const std::exception& e) {
         qCritical() << "Exception starting P2P transport:" << e.what();
-        emit error(QString("Failed to start P2P transport: %1").arg(e.what()));
         return false;
     }
 }
@@ -348,6 +358,8 @@ void P2PTransport::stop()
     d_->bitTorrentEnabled = false;
 
     d_->running = false;
+    d_->lastPeerCount = -1;
+    emit peerCountChanged(0);
     emit stopped();
 
     qInfo() << "P2P transport stopped";
@@ -459,11 +471,6 @@ bool P2PTransport::isBitTorrentEnabled() const
 // =========================================================================
 // Borrowed librats subsystems
 // =========================================================================
-
-librats::Node* P2PTransport::node() const
-{
-    return d_->node.get();
-}
 
 librats::Bittorrent* P2PTransport::bittorrent() const
 {

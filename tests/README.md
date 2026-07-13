@@ -1,160 +1,63 @@
-# Rats Search - Unit Tests
+# Rats Search Test Suite
 
-This directory contains unit tests for the Rats Search application.
+Qt Test based. Every test links `ratscore` directly (the layered core library),
+so no separate "testable" target is needed.
 
-## Test Structure
+## Layout
 
 ```
 tests/
-├── CMakeLists.txt           # Test build configuration
-├── test_torrentinfo.cpp     # TorrentInfo struct tests
-├── test_searchresultmodel.cpp  # SearchResultModel tests
-├── test_sphinxql.cpp        # SphinxQL escape/SQL building tests
-└── README.md                # This file
+├── CMakeLists.txt
+├── test_domain.cpp             # domain::Torrent / File / content enums + codec
+├── test_infohash.cpp           # infohash::normalize / isValid
+├── test_query.cpp              # data/query.h SQL escaping and builders
+├── test_config_store.cpp       # app::ConfigStore write path + change notification
+├── test_update_service.cpp     # service::UpdateService state machine
+├── test_content_classifier.cpp # domain::ContentClassifier (needs the Qt resources)
+└── test_manticore_queries.cpp  # integration: spawns a real searchd
 ```
 
-## Building Tests
+## Building and running
 
-Tests are disabled by default. To build with tests enabled:
+Tests are **off** by default:
 
 ```bash
-# From the project root directory
-mkdir build-tests && cd build-tests
-cmake -DRATS_SEARCH_BUILD_TESTS=ON ..
-cmake --build .
+cmake -B build -DRATS_SEARCH_BUILD_TESTS=ON
+cmake --build build
+
+cd build
+ctest --output-on-failure                 # everything
+ctest --output-on-failure -R test_query   # one, by name
+./tests/test_query                        # or run the executable directly
 ```
 
-## Running Tests
+`cmake --build build --target check` runs ctest through a custom target.
 
-### Run All Tests
+## Notes on the two special tests
 
-```bash
-# Using CTest
-cd build-tests
-ctest --output-on-failure
+- **`test_content_classifier`** reads its extension / bad-word tables from Qt
+  resources (`:/content/*.json`). Those live in `resources/resources.qrc`, which
+  is *not* compiled into `ratscore`, so the `.qrc` is compiled straight into this
+  test executable.
 
-# Or using the custom target
-cmake --build . --target check
-```
+- **`test_manticore_queries`** is an integration test: it starts a real `searchd`
+  process from `imports/` and drives `Manticore` + `Database` +
+  `TorrentRepository` against it. It needs Qt's **QMYSQL** driver; on Windows a
+  POST_BUILD step copies `libmysql.dll` next to the test binary. Without the
+  QMYSQL plugin the test fails in `initTestCase` with
+  `QMYSQL driver not available` — an environment gap, not a code defect.
 
-### Run Individual Tests
+Every other test is a pure unit test with no external process.
 
-```bash
-# Run specific test executable
-./tests/test_torrentinfo
-./tests/test_searchresultmodel
-./tests/test_sphinxql
-```
+## Adding a test
 
-### Verbose Output
-
-```bash
-# Get detailed output for each test
-ctest -V
-```
-
-## Test Categories
-
-### TorrentInfo Tests (`test_torrentinfo.cpp`)
-
-Tests for the core `TorrentInfo` struct:
-- Default construction
-- Hash validation (empty, short, valid, long)
-- Content type ID mapping
-- Content category ID mapping
-- SearchOptions defaults
-- TorrentFile struct
-
-### SearchResultModel Tests (`test_searchresultmodel.cpp`)
-
-Tests for the Qt table model:
-- Empty model behavior
-- Column count
-- Setting/clearing results
-- Getting torrents by row
-- Data display roles
-- Header data
-- Custom roles (content type, hash)
-- Size formatting (bytes, KB, MB, GB, TB)
-
-### SphinxQL Tests (`test_sphinxql.cpp`)
-
-Tests for SQL escape functions:
-- Simple string escaping
-- Quote escaping (single, double)
-- Backslash escaping
-- Newline/tab/carriage return escaping
-- Complex string escaping
-- Empty string handling
-
-## Adding New Tests
-
-1. Create a new test file `test_<module>.cpp`
-2. Use Qt Test framework:
-
-```cpp
-#include <QtTest/QtTest>
-
-class TestMyModule : public QObject
-{
-    Q_OBJECT
-
-private slots:
-    void initTestCase();
-    void cleanupTestCase();
-    
-    void testSomething();
-};
-
-void TestMyModule::initTestCase() { }
-void TestMyModule::cleanupTestCase() { }
-
-void TestMyModule::testSomething()
-{
-    QCOMPARE(1 + 1, 2);
-    QVERIFY(true);
-}
-
-QTEST_MAIN(TestMyModule)
-#include "test_mymodule.moc"
-```
-
-3. Add to `tests/CMakeLists.txt`:
+1. Write `test_<module>.cpp` with a `QTEST_MAIN(...)` and the matching
+   `#include "test_<module>.moc"` at the bottom.
+2. Register it in `tests/CMakeLists.txt`:
 
 ```cmake
-add_executable(test_mymodule
-    test_mymodule.cpp
-    ${SRC_DIR}/mymodule.cpp
-)
-target_include_directories(test_mymodule PRIVATE ${SRC_DIR})
-target_link_libraries(test_mymodule PRIVATE Qt6::Test Qt6::Core)
-add_test(NAME MyModuleTest COMMAND test_mymodule)
+add_rats_test(test_mymodule)
 ```
 
-## Continuous Integration
-
-Tests can be integrated into CI pipelines:
-
-```yaml
-# Example GitHub Actions step
-- name: Run Tests
-  run: |
-    cmake -B build -DRATS_SEARCH_BUILD_TESTS=ON
-    cmake --build build
-    cd build && ctest --output-on-failure
-```
-
-## Test Coverage
-
-To generate test coverage reports (requires gcov/lcov):
-
-```bash
-cmake -DRATS_SEARCH_BUILD_TESTS=ON \
-      -DCMAKE_CXX_FLAGS="--coverage" \
-      -DCMAKE_BUILD_TYPE=Debug ..
-cmake --build .
-ctest
-lcov --capture --directory . --output-file coverage.info
-genhtml coverage.info --output-directory coverage_report
-```
-
+`add_rats_test()` creates the executable, links `Qt6::Test` + `ratscore`, and
+calls `add_test()`. Add the name to the `check` target's `DEPENDS` list too.

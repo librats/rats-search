@@ -11,9 +11,9 @@ namespace rats {
 // Unified result type used across the service and front-end layers.
 //
 // A Result is either a success carrying a JSON payload, or a failure carrying a
-// human-readable message (and optional machine code). This maps 1:1 onto the
-// REST/WebSocket/P2P response envelope, so services, the API router and the
-// peer API all speak the same shape and there is a single fail-vs-empty policy.
+// human-readable message. This maps 1:1 onto the REST/WebSocket/P2P response
+// envelope, so services, the API router and the peer API all speak the same
+// shape and there is a single fail-vs-empty policy.
 class Result {
 public:
     Result() = default;
@@ -26,25 +26,22 @@ public:
         return r;
     }
 
-    static Result failure(QString message, QString code = {})
+    static Result failure(QString message)
     {
         Result r;
         r.ok_ = false;
         r.error_ = std::move(message);
-        r.code_ = std::move(code);
         return r;
     }
 
     bool ok() const { return ok_; }
     const QJsonValue& data() const { return data_; }
     const QString& error() const { return error_; }
-    const QString& code() const { return code_; }
 
 private:
     bool ok_ = false;
     QJsonValue data_;
     QString error_;
-    QString code_;
 };
 
 // Asynchronous result delivery. Every service method that cannot answer

@@ -235,7 +235,6 @@ bool VotingService::storeVote(const QString& hash, bool isGood, const QJsonObjec
     const bool result = store_->put(key, voteData);
     if (result) {
         qInfo() << "[VotingService] stored" << (isGood ? "good" : "bad") << "vote for" << hash.left(8);
-        emit voteStored(hash, isGood, peerId);
     }
     return result;
 }
@@ -248,16 +247,12 @@ void VotingService::onRecordStored(const StoredRecord& record, bool isRemote)
     }
 
     const QString hash = record.data.value("torrentHash").toString();
-    const bool isGood = record.data.value("vote").toString() == QLatin1String("good");
-    emit voteStored(hash, isGood, record.peerId);
-
     if (hash.length() != 40 || !repository_) {
         return;
     }
 
     // A peer's vote changed the swarm aggregate: mirror it onto the local torrent
-    // columns (so offline reads stay correct) and notify the UI/feed. Without this
-    // a remote vote would never surface — voteStored has no other subscriber.
+    // columns (so offline reads stay correct) and notify the UI/feed.
     const VoteCounts votes = aggregate(hash);
     std::optional<domain::Torrent> torrent = repository_->get(hash);
     if (torrent && (torrent->good != votes.good || torrent->bad != votes.bad)) {

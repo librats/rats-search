@@ -89,11 +89,6 @@ MigrationService::~MigrationService()
     saveState();
 }
 
-QString MigrationService::currentVersion()
-{
-    return RATSSEARCH_VERSION_STRING;
-}
-
 // ============================================================================
 // Version gating
 // ============================================================================
@@ -503,11 +498,6 @@ void MigrationService::startAsyncMigrations()
             },
             Qt::QueuedConnection);
     });
-}
-
-bool MigrationService::isRunning() const
-{
-    return isRunning_.load();
 }
 
 void MigrationService::requestStop()

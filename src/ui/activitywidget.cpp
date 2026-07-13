@@ -4,14 +4,11 @@
 #include "format.h"
 #include "services/indexing_service.h"
 #include "services/search_service.h"
-#include <QApplication>
-#include <QClipboard>
-#include <QDesktopServices>
+#include "torrentmenu.h"
 #include <QFont>
 #include <QMenu>
 #include <QScrollBar>
 #include <QStyle>
-#include <QUrl>
 
 ActivityWidget::ActivityWidget(QWidget* parent)
     : QWidget(parent)
@@ -169,14 +166,14 @@ void ActivityWidget::onNewTorrent(const rats::domain::Torrent& torrent)
     const QString hash = torrent.hash;
 
     // Check if we already have this torrent in queue or display
-    if (displayQueueAssoc_.contains(hash) || displayedTorrents_.contains(hash)) {
+    if (queuedByHash_.contains(hash) || displayedTorrents_.contains(hash)) {
         return;
     }
 
     // Add to queue if not full
     if (displayQueue_.size() < MAX_QUEUE_SIZE) {
         displayQueue_.enqueue(torrent);
-        displayQueueAssoc_[hash] = torrent;
+        queuedByHash_[hash] = torrent;
 
         // Start display timer if not running
         if (!displayTimer_->isActive() && isInitialized_) {
@@ -203,7 +200,7 @@ void ActivityWidget::displayNextTorrent()
     rats::domain::Torrent torrent = displayQueue_.dequeue();
 
     // Remove from queue association
-    displayQueueAssoc_.remove(torrent.hash);
+    queuedByHash_.remove(torrent.hash);
 
     // The indexing signal already carries the full torrent entity, so we can
     // display it directly without a second lookup.
@@ -231,7 +228,7 @@ void ActivityWidget::addTorrentToDisplay(const rats::domain::Torrent& torrent)
         if (lastItem) {
             QString hash = lastItem->data(Qt::UserRole).toString();
             displayedTorrents_.remove(hash);
-            displayQueueAssoc_.remove(hash);
+            queuedByHash_.remove(hash);
             delete lastItem;
         }
     }
@@ -355,16 +352,7 @@ void ActivityWidget::onContextMenu(const QPoint& pos)
         return;
 
     QMenu contextMenu(this);
-
-    QAction* magnetAction = contextMenu.addAction(tr("Open Magnet Link"));
-    connect(magnetAction, &QAction::triggered, [torrent]() { QDesktopServices::openUrl(QUrl(torrent.magnetLink())); });
-
-    QAction* copyHashAction = contextMenu.addAction(tr("Copy Info Hash"));
-    connect(copyHashAction, &QAction::triggered, [torrent]() { QApplication::clipboard()->setText(torrent.hash); });
-
-    QAction* copyMagnetAction = contextMenu.addAction(tr("Copy Magnet Link"));
-    connect(copyMagnetAction, &QAction::triggered,
-        [torrent]() { QApplication::clipboard()->setText(torrent.magnetLink()); });
+    rats::ui::addTorrentActions(&contextMenu, this, torrent);
 
     contextMenu.addSeparator();
 

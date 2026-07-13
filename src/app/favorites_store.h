@@ -30,7 +30,6 @@ public:
     bool remove(const QString& hash);
     bool isFavorite(const QString& hash) const;
     QVector<Entry> favorites() const { return favorites_; }
-    int count() const { return favorites_.size(); }
 
 signals:
     void favoritesChanged();

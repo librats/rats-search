@@ -8,8 +8,8 @@
 #include <QString>
 
 namespace rats::net {
-class TrackerScraper;
-class TrackerInfoScraper;
+class SwarmScraper;
+class TrackerSiteScraper;
 } // namespace rats::net
 
 namespace rats::data {
@@ -27,13 +27,17 @@ class TrackerService : public QObject {
     Q_OBJECT
 
 public:
-    TrackerService(net::TrackerScraper* counts, net::TrackerInfoScraper* info, data::TorrentRepository* repository,
-        QObject* parent = nullptr);
+    TrackerService(net::SwarmScraper* swarmScraper, net::TrackerSiteScraper* siteScraper,
+        data::TorrentRepository* repository, QObject* parent = nullptr);
 
     void setCountScrapingEnabled(bool enabled);
     void setInfoScrapingEnabled(bool enabled);
 
-    // Explicit requests (also used by the API "checkTrackers" method).
+    // Stop forwarding scrapes and tear down the underlying scrapers. Called on
+    // shutdown so no fresh tracker work is issued while the app is closing.
+    void stop();
+
+    // Explicit requests (also used by the API "tracker.check" method).
     void checkCounts(const QString& hash);
     void checkInfo(const QString& hash, const QString& name);
 
@@ -46,8 +50,8 @@ private slots:
     void onInfoScraped(const QString& hash, const QJsonObject& info);
 
 private:
-    net::TrackerScraper* counts_;
-    net::TrackerInfoScraper* info_;
+    net::SwarmScraper* swarmScraper_;
+    net::TrackerSiteScraper* siteScraper_;
     data::TorrentRepository* repository_;
     bool countEnabled_ = false;
     bool infoEnabled_ = false;

@@ -169,7 +169,6 @@ bool Manticore::attachToExternalInstance(qint64 startupElapsedMs)
 
     isExternalInstance_ = true;
     setStatus(Status::Running);
-    emit started();
     qInfo() << "Manticore startup (existing instance):" << startupElapsedMs << "ms";
     return true;
 }
@@ -179,8 +178,7 @@ bool Manticore::resolveSearchdPath()
     searchdPath_ = findSearchdPath();
 
     if (searchdPath_.isEmpty()) {
-        emit error("Cannot find searchd executable");
-        setStatus(Status::Error);
+        fail("Cannot find searchd executable");
         return false;
     }
 
@@ -197,8 +195,7 @@ bool Manticore::ensureAvailablePort()
     qInfo() << "Port" << port_ << "is already in use, searching for available port...";
     int newPort = findAvailablePort(port_ + 1, kPortSearchAttempts);
     if (newPort < 0) {
-        emit error(QString("No available port found (tried %1-%2)").arg(port_).arg(port_ + kPortSearchAttempts));
-        setStatus(Status::Error);
+        fail(QString("No available port found (tried %1-%2)").arg(port_).arg(port_ + kPortSearchAttempts));
         return false;
     }
     port_ = newPort;
@@ -209,14 +206,12 @@ bool Manticore::ensureAvailablePort()
 bool Manticore::prepareDatabaseAndConfig()
 {
     if (!createDatabaseDirectories()) {
-        emit error("Failed to create database directories");
-        setStatus(Status::Error);
+        fail("Failed to create database directories");
         return false;
     }
 
     if (!generateConfig()) {
-        emit error("Failed to generate configuration");
-        setStatus(Status::Error);
+        fail("Failed to generate configuration");
         return false;
     }
     return true;
@@ -228,10 +223,8 @@ bool Manticore::verifyDriverAvailable()
         return true;
     }
 
-    qCritical() << "QMYSQL driver not available!";
     qCritical() << "Available SQL drivers:" << QSqlDatabase::drivers();
-    emit error("QMYSQL driver not available.");
-    setStatus(Status::Error);
+    fail("QMYSQL driver not available");
     // Stop the already-started process, if any.
     if (process_ && process_->state() != QProcess::NotRunning) {
         process_->terminate();
@@ -260,8 +253,7 @@ bool Manticore::launchSearchdProcess()
     process_->start(searchdPath_, args);
 
     if (!process_->waitForStarted(kProcessStartTimeoutMs)) {
-        emit error("Failed to start searchd process");
-        setStatus(Status::Error);
+        fail("Failed to start searchd process");
         return false;
     }
     return true;
@@ -339,7 +331,6 @@ void Manticore::stop()
     if (isExternalInstance_) {
         qInfo() << "Not stopping external Manticore instance";
         setStatus(Status::Stopped);
-        emit stopped();
         return;
     }
 
@@ -395,7 +386,6 @@ void Manticore::stop()
 #endif
 
     setStatus(Status::Stopped);
-    emit stopped();
 }
 
 bool Manticore::isRunning() const
@@ -415,6 +405,11 @@ QSqlDatabase Manticore::getDatabase() const
         db.setHostName("127.0.0.1");
         db.setPort(port_);
         db.setDatabaseName("");
+        // Auto-reconnect transparently after searchd drops the connection
+        // (restart, idle timeout). Without this a stale connection reports
+        // isOpen()==true, so the lazy `!isOpen() && !open()` guard never
+        // re-opens it and queries fail hard instead of self-healing.
+        db.setConnectOptions("MYSQL_OPT_RECONNECT=1");
     }
 
     return QSqlDatabase::database(threadConnName);
@@ -462,7 +457,6 @@ bool Manticore::waitForReady(int timeoutMs)
 
         if (pidExists && testConnection()) {
             setStatus(Status::Running);
-            emit started();
             qInfo() << "Manticore is ready on port" << port_ << "(took" << timer.elapsed() << "ms)";
 
             // Flush any remaining output from the process before returning.
@@ -490,8 +484,7 @@ bool Manticore::waitForReady(int timeoutMs)
             if (process_ && process_->state() == QProcess::NotRunning) {
                 QString output = process_->readAllStandardError();
                 qWarning() << "Manticore stderr:" << output;
-                emit error("Manticore process exited unexpectedly");
-                setStatus(Status::Error);
+                fail("Manticore process exited unexpectedly");
                 return false;
             }
         } else {
@@ -511,8 +504,7 @@ bool Manticore::waitForReady(int timeoutMs)
         }
     }
 
-    emit error("Timeout waiting for Manticore to start");
-    setStatus(Status::Error);
+    fail("Timeout waiting for Manticore to start");
     return false;
 }
 
@@ -536,36 +528,30 @@ void Manticore::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 #endif
 
     if (status_ == Status::Running && exitStatus != QProcess::NormalExit) {
-        emit error(QString("Manticore crashed with exit code %1").arg(exitCode));
+        qCritical() << "Manticore crashed with exit code" << exitCode;
     }
 
     // Only set stopped if we were actually running (not starting in daemon mode).
     if (status_ == Status::Running || (status_ == Status::Starting && !isWindowsDaemonMode_)) {
         setStatus(Status::Stopped);
-        emit stopped();
     }
 }
 
-void Manticore::onProcessError(QProcess::ProcessError error)
+void Manticore::onProcessError(QProcess::ProcessError processError)
 {
-    QString errorMsg;
-    switch (error) {
+    switch (processError) {
     case QProcess::FailedToStart:
-        errorMsg = "Failed to start searchd";
+        fail("Failed to start searchd");
         break;
     case QProcess::Crashed:
-        errorMsg = "searchd crashed";
+        fail("searchd crashed");
         break;
     case QProcess::Timedout:
-        errorMsg = "searchd timed out";
+        fail("searchd timed out");
         break;
     default:
-        errorMsg = "Unknown error with searchd";
+        fail("Unknown error with searchd");
     }
-
-    qCritical() << "Manticore error:" << errorMsg;
-    emit this->error(errorMsg);
-    setStatus(Status::Error);
 }
 
 void Manticore::onProcessReadyRead()
@@ -593,9 +579,7 @@ void Manticore::onProcessReadyRead()
 void Manticore::checkConnection()
 {
     if (!testConnection() && status_ == Status::Running) {
-        qWarning() << "Lost connection to Manticore";
-        setStatus(Status::Error);
-        emit error("Lost connection to Manticore");
+        fail("Lost connection to Manticore");
     }
 }
 
@@ -829,10 +813,13 @@ bool Manticore::testConnection()
 
 void Manticore::setStatus(Status status)
 {
-    if (status_ != status) {
-        status_ = status;
-        emit statusChanged(status);
-    }
+    status_ = status;
+}
+
+void Manticore::fail(const QString& message)
+{
+    qCritical() << "Manticore:" << message;
+    setStatus(Status::Error);
 }
 
 bool Manticore::isPortAvailable(int port)

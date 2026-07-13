@@ -18,9 +18,9 @@ namespace rats::rest {
 // The unified method surface of the application. A single dotted-name method
 // table (e.g. "search.torrents", "download.add", "config.set") maps names to
 // handlers that call into the Application's services and answer asynchronously
-// with a Result. Both the HTTP/WS ApiServer and the console shell dispatch
-// through here, so there is exactly one routing mechanism. P2P request handling
-// is a separate concern and lives in the peer layer.
+// with a Result. The HTTP/WS ApiServer and the GUI both dispatch through here,
+// so there is exactly one routing mechanism. P2P request handling is a separate
+// concern and lives in the peer layer.
 class ApiRouter : public QObject {
     Q_OBJECT
 
@@ -32,8 +32,6 @@ public:
     // Dispatch a method by name. Unknown methods answer with a failure Result.
     // `respond` is always invoked exactly once.
     void call(const QString& method, const QJsonObject& params, const ResultCallback& respond);
-
-    QStringList methods() const;
 
 signals:
     // Broadcast to all connected clients (WebSocket). Emitted for push events

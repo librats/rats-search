@@ -479,14 +479,12 @@ QString TorrentEngine::parseInfoHash(const QString& magnetLink)
         return match.captured(1).toLower();
     }
 
-    // Try base32-encoded hash (32 chars).
+    // Base32-encoded hashes (32 chars) are recognised only so the caller gets a
+    // diagnostic instead of a silent "no hash"; decoding them is not implemented.
     static const QRegularExpression base32Regex(
         "(?:magnet:\\?.*?)?(?:xt=urn:btih:)?([A-Z2-7]{32})", QRegularExpression::CaseInsensitiveOption);
-    match = base32Regex.match(magnetLink);
-    if (match.hasMatch()) {
-        // TODO: Decode base32 to hex.
-        qWarning() << "TorrentEngine: Base32 encoded hashes not yet supported";
-        return QString();
+    if (base32Regex.match(magnetLink).hasMatch()) {
+        qWarning() << "TorrentEngine: base32-encoded info-hashes are not supported";
     }
 
     return QString();

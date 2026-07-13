@@ -60,9 +60,6 @@ public:
     // Download the update
     void downloadUpdate();
 
-    // Apply the update (extract and prepare for restart)
-    void applyUpdate();
-
     // Execute the update script (closes app and applies update)
     Q_INVOKABLE void executeUpdateScript();
 
@@ -82,10 +79,8 @@ public:
     // Check if update is available
     bool isUpdateAvailable() const;
 
-    // Settings
-    void setCheckOnStartup(bool check) { checkOnStartup_ = check; }
-    bool checkOnStartup() const { return checkOnStartup_; }
-
+    // Settings. Whether to check on startup is ConfigStore's
+    // `checkUpdatesOnStartup`, not a copy held here.
     void setIncludePrerelease(bool include) { includePrerelease_ = include; }
     bool includePrerelease() const { return includePrerelease_; }
 
@@ -103,6 +98,9 @@ private slots:
     void onDownloadFinished();
 
 private:
+    // Extract the downloaded archive and prepare the updater script.
+    void applyUpdate();
+
     void setState(UpdateState state);
     void setError(const QString& error);
     QString getPlatformAssetName() const;
@@ -124,7 +122,6 @@ private:
     QString downloadedFilePath_;
     std::unique_ptr<QTemporaryDir> tempDir_;
 
-    bool checkOnStartup_;
     bool includePrerelease_;
 };
 

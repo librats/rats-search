@@ -149,27 +149,18 @@ Console mode options:
 | `-p, --port <port>` | P2P listen port (overrides config setting) |
 | `-d, --dht-port <port>` | DHT port (overrides config setting) |
 | `--data-dir <path>` | Data directory for database and config |
-| `-s, --spider` | Enable torrent spider (disabled by default in console mode) |
+| `-s, --spider` | Force-enable the DHT spider even when `indexer` is off in the config |
 | `-m, --max-peers <n>` | Maximum P2P connections (overrides config, range: 10-1000) |
 
-Interactive commands in console mode:
+Console mode runs unattended: it starts every subsystem, logs to
+`<data-dir>/rats-search.log`, and exits on `Ctrl+C`. It reads no commands from
+stdin — to query or drive a running instance, enable the REST API
+(`"restApi": true`) and use the [HTTP/WebSocket API](docs/API.md).
 
-| Command | Description |
-|---------|-------------|
-| `stats` | Show statistics (torrents, files, peers, DHT nodes) |
-| `search <query>` | Search torrents by name |
-| `recent [n]` | Show n recent torrents (default: 10) |
-| `top [type]` | Show top torrents by type |
-| `spider start` | Start the DHT spider |
-| `spider stop` | Stop the DHT spider |
-| `peers [n]` | Show or set max P2P connections (10-1000) |
-| `help` | Show available commands |
-| `quit` / `exit` | Exit the application |
-
-Example console session:
+Example:
 
 ```bash
-# Start with spider enabled
+# Start with the spider forced on
 ./RatsSearch --console --spider --data-dir /var/lib/rats-search
 
 # Or start with custom ports
@@ -246,8 +237,8 @@ After first launch, a configuration file `rats.json` will be created in the data
     "p2pPort": 4445,
     "dhtPort": 4446,
     "httpPort": 8095,
-    "restApiEnabled": true,
-    "indexerEnabled": true,
+    "restApi": true,
+    "indexer": true,
     "darkMode": true
 }
 ```
@@ -256,9 +247,10 @@ After first launch, a configuration file `rats.json` will be created in the data
 |---------|-------------|
 | `p2pPort` | Port for P2P communication (TCP/UDP) |
 | `dhtPort` | Port for DHT operations (UDP) |
-| `httpPort` | Port for REST API server |
-| `restApiEnabled` | Enable/disable REST API |
-| `indexerEnabled` | Enable/disable DHT indexer |
+| `httpPort` | Port for REST API server (WebSocket listens on `httpPort + 1`) |
+| `restApi` | Enable/disable REST API |
+| `indexer` | Enable/disable DHT indexer |
+| `upnp` | Enable/disable UPnP/NAT-PMP port mapping (config-file only) |
 
 ## API
 

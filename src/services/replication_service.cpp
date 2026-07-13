@@ -36,10 +36,9 @@ void ReplicationService::start()
     if (!enabled_ || timer_->isActive())
         return;
     interval_ = kInitialIntervalMs;
-    received_ = 0;
+    receivedThisCycle_ = 0;
     timer_->start(interval_);
     qInfo() << "[Replication] started, interval" << interval_ << "ms";
-    emit started();
 }
 
 void ReplicationService::stop()
@@ -48,12 +47,6 @@ void ReplicationService::stop()
         return;
     timer_->stop();
     qInfo() << "[Replication] stopped, total replicated:" << totalReplicated_;
-    emit stopped();
-}
-
-bool ReplicationService::isActive() const
-{
-    return timer_->isActive();
 }
 
 void ReplicationService::performCycle()
@@ -65,14 +58,14 @@ void ReplicationService::performCycle()
     if (transport_->peerCount() == 0)
         return;
 
-    received_ = 0;
+    receivedThisCycle_ = 0;
     transport_->broadcastMessage(QStringLiteral("randomTorrents"),
         QJsonObject { { "limit", kTorrentsPerPeer }, { "version", QStringLiteral("2.0") } });
 
     // After peers have had time to reply, adapt the interval: back off when we
     // are pulling a lot, speed up when the well is dry.
     QTimer::singleShot(kSettleDelayMs, this, [this]() {
-        const int received = received_.load();
+        const int received = receivedThisCycle_.load();
         interval_ = received > kBusyThreshold ? qMin(kMaxIntervalMs, received * kBackoffPerTorrentMs) : kIdleIntervalMs;
         if (timer_->isActive())
             timer_->setInterval(interval_);

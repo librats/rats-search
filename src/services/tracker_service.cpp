@@ -1,17 +1,17 @@
 #include "services/tracker_service.h"
 
 #include "data/torrent_repository.h"
-#include "net/tracker_info_scraper.h"
-#include "net/tracker_scraper.h"
+#include "net/swarm_scraper.h"
+#include "net/tracker_site_scraper.h"
 
 namespace rats::service {
 
-TrackerService::TrackerService(
-    net::TrackerScraper* counts, net::TrackerInfoScraper* info, data::TorrentRepository* repository, QObject* parent)
-    : QObject(parent), counts_(counts), info_(info), repository_(repository)
+TrackerService::TrackerService(net::SwarmScraper* swarmScraper, net::TrackerSiteScraper* siteScraper,
+    data::TorrentRepository* repository, QObject* parent)
+    : QObject(parent), swarmScraper_(swarmScraper), siteScraper_(siteScraper), repository_(repository)
 {
-    connect(counts_, &net::TrackerScraper::scraped, this, &TrackerService::onCountsScraped);
-    connect(info_, &net::TrackerInfoScraper::scraped, this, &TrackerService::onInfoScraped);
+    connect(swarmScraper_, &net::SwarmScraper::scraped, this, &TrackerService::onCountsScraped);
+    connect(siteScraper_, &net::TrackerSiteScraper::scraped, this, &TrackerService::onInfoScraped);
 }
 
 void TrackerService::setCountScrapingEnabled(bool enabled)
@@ -24,16 +24,26 @@ void TrackerService::setInfoScrapingEnabled(bool enabled)
     infoEnabled_ = enabled;
 }
 
+void TrackerService::stop()
+{
+    // Stop forwarding first so a late torrentIndexed / API call issues nothing,
+    // then drain the scrapers (blocking announces / in-flight HTTP).
+    countEnabled_ = false;
+    infoEnabled_ = false;
+    swarmScraper_->stop();
+    siteScraper_->stop();
+}
+
 void TrackerService::checkCounts(const QString& hash)
 {
     if (countEnabled_)
-        counts_->requestScrape(hash);
+        swarmScraper_->requestScrape(hash);
 }
 
 void TrackerService::checkInfo(const QString& hash, const QString& name)
 {
     if (infoEnabled_)
-        info_->scrape(hash, name);
+        siteScraper_->scrape(hash, name);
 }
 
 void TrackerService::onTorrentIndexed(const domain::Torrent& torrent)

@@ -51,11 +51,6 @@ QList<TranslationManager::LanguageInfo> TranslationManager::availableLanguages()
     return languages_;
 }
 
-QString TranslationManager::currentLanguage() const
-{
-    return currentLanguage_;
-}
-
 bool TranslationManager::hasLanguage(const QString& code) const
 {
     return std::any_of(
@@ -90,8 +85,6 @@ bool TranslationManager::setLanguage(const QString& code)
 
     currentLanguage_ = code;
     qInfo() << "Language changed to:" << code;
-
-    emit languageChanged(code);
     return true;
 }
 

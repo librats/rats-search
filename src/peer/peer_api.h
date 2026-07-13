@@ -33,16 +33,19 @@ class PeerApi : public QObject {
 public:
     explicit PeerApi(app::Application* app, QObject* parent = nullptr);
 
-    // Register every transport handler and the peer-connected hook. Called from
-    // the constructor; exposed so it can be re-run if the transport restarts.
-    void install();
+    // Ask a specific peer for a torrent's full record, optionally with its file
+    // list. The reply arrives asynchronously as a torrent_response, surfaced via
+    // remoteTorrentReceived and cloned through the single insertion path. This is
+    // how a remote-only search hit (whose files are never sent with the hit) gets
+    // its file list fetched and stored on demand.
+    void requestTorrent(const QString& peerId, const QString& hash, bool includeFiles = true);
 
 signals:
-    // A remote peer sent search hits (torrent_search_result). Query is empty —
+    // A remote peer sent search hits (searchTorrent_response). Query is empty —
     // the wire protocol never echoes it back — and torrents is the raw wire array
     // with remote/peer provenance stamped on.
     void remoteSearchResults(const QString& query, const QJsonArray& torrents);
-    // A remote peer sent a file-search hit (searchFiles_result).
+    // A remote peer sent a file-search hit (searchFiles_response).
     void remoteFileSearchResults(const QString& query, const QJsonArray& torrents);
     // A remote peer answered a single-torrent request (torrent_response). Emitted
     // even when the torrent already exists locally, so callers awaiting a fetch
@@ -50,6 +53,9 @@ signals:
     void remoteTorrentReceived(const QString& hash, const QJsonObject& data);
 
 private:
+    // Register every transport handler and the peer-connected hook.
+    void install();
+
     // Request handlers (we answer these) ---------------------------------------
     void handleSearchRequest(const QString& peerId, const QJsonObject& data);
     void handleSearchFilesRequest(const QString& peerId, const QJsonObject& data);

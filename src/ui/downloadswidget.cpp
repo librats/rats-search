@@ -1,7 +1,10 @@
 #include "downloadswidget.h"
 #include "app/application.h"
+#include "app/favorites_store.h"
+#include "domain/torrent.h"
 #include "format.h"
 #include "services/download_service.h"
+#include "services/search_service.h"
 #include <QDesktopServices>
 #include <QDir>
 #include <QJsonArray>
@@ -70,6 +73,11 @@ void DownloadItemWidget::setupUi(const QString& name, qint64 size)
 
     bottomRow->addStretch();
 
+    favoriteButton_ = new QPushButton(tr("⭐ Favorite"), this);
+    favoriteButton_->setObjectName("secondaryButton");
+    connect(favoriteButton_, &QPushButton::clicked, this, [this]() { emit favoriteRequested(hash_); });
+    bottomRow->addWidget(favoriteButton_);
+
     pauseButton_ = new QPushButton(tr("Pause"), this);
     pauseButton_->setObjectName("secondaryButton");
     connect(pauseButton_, &QPushButton::clicked, this, [this]() { emit pauseToggled(hash_); });
@@ -85,6 +93,12 @@ void DownloadItemWidget::setupUi(const QString& name, qint64 size)
 
 void DownloadItemWidget::updateProgress(qint64 downloaded, qint64 total, int speed, double progress)
 {
+    // A completed torrent keeps its "Completed" presentation; a routine progress
+    // tick must not rewrite the status back to "size / size" with an active look.
+    if (completed_) {
+        return;
+    }
+
     progressBar_->setValue(static_cast<int>(progress * 100));
 
     QString status = QString("%1 / %2").arg(rats::ui::formatSize(downloaded), rats::ui::formatSize(total));
@@ -111,7 +125,15 @@ void DownloadItemWidget::updateInfo(const QString& name, qint64 size)
 
 void DownloadItemWidget::setCompleted()
 {
+    if (completed_) {
+        return; // already presented as completed — keep it sticky and idempotent
+    }
+    completed_ = true;
+
     progressBar_->setValue(100);
+    progressBar_->setObjectName("downloadProgress"); // clear any "paused" style
+    progressBar_->style()->unpolish(progressBar_);
+    progressBar_->style()->polish(progressBar_);
     statusLabel_->setText(tr("Completed"));
     speedLabel_->clear();
     pauseButton_->setText(tr("Open"));
@@ -120,11 +142,19 @@ void DownloadItemWidget::setCompleted()
     pauseButton_->style()->polish(pauseButton_);
     disconnect(pauseButton_, &QPushButton::clicked, nullptr, nullptr);
     connect(pauseButton_, &QPushButton::clicked, this, [this]() { emit openRequested(hash_); });
-    cancelButton_->hide();
+
+    // A completed torrent can no longer be "cancelled", but it can still be
+    // removed from the list (and stops seeding); relabel rather than hide so the
+    // action stays reachable.
+    cancelButton_->setText(tr("Remove"));
 }
 
 void DownloadItemWidget::setPaused(bool paused)
 {
+    if (completed_) {
+        return; // a completed torrent is not a pausable download
+    }
+
     if (paused) {
         pauseButton_->setText(tr("Resume"));
         statusLabel_->setText(tr("Paused"));
@@ -135,6 +165,19 @@ void DownloadItemWidget::setPaused(bool paused)
     }
     progressBar_->style()->unpolish(progressBar_);
     progressBar_->style()->polish(progressBar_);
+}
+
+void DownloadItemWidget::setFavorite(bool favorite)
+{
+    if (favorite) {
+        favoriteButton_->setText(tr("★ Favorited"));
+        favoriteButton_->setObjectName("warningButton");
+    } else {
+        favoriteButton_->setText(tr("⭐ Favorite"));
+        favoriteButton_->setObjectName("secondaryButton");
+    }
+    favoriteButton_->style()->unpolish(favoriteButton_);
+    favoriteButton_->style()->polish(favoriteButton_);
 }
 
 QString DownloadItemWidget::formatTime(qint64 seconds) const
@@ -225,11 +268,11 @@ void DownloadsWidget::setApplication(rats::app::Application* app)
             downloads, &rats::service::DownloadService::torrentRemoved, this, &DownloadsWidget::onDownloadCancelled);
         loadDownloads();
     }
-}
 
-void DownloadsWidget::refresh()
-{
-    loadDownloads();
+    if (app_ && app_->favorites()) {
+        connect(app_->favorites(), &rats::app::FavoritesStore::favoritesChanged, this,
+            &DownloadsWidget::refreshFavorites);
+    }
 }
 
 void DownloadsWidget::loadDownloads()
@@ -282,6 +325,10 @@ void DownloadsWidget::addDownloadItem(const QString& hash, const QString& name, 
     connect(item, &DownloadItemWidget::pauseToggled, this, &DownloadsWidget::onPauseToggled);
     connect(item, &DownloadItemWidget::cancelRequested, this, &DownloadsWidget::onCancelRequested);
     connect(item, &DownloadItemWidget::openRequested, this, &DownloadsWidget::onOpenRequested);
+    connect(item, &DownloadItemWidget::favoriteRequested, this, &DownloadsWidget::onFavoriteRequested);
+
+    if (app_ && app_->favorites())
+        item->setFavorite(app_->favorites()->isFavorite(hash));
 
     // Insert before the stretch
     listLayout_->insertWidget(listLayout_->count() - 1, item);
@@ -331,17 +378,29 @@ void DownloadsWidget::onDownloadStarted(const QString& hash)
 
 void DownloadsWidget::onProgressUpdated(const QString& hash, const QJsonObject& progress)
 {
-    if (downloadItems_.contains(hash)) {
-        qint64 downloaded = progress["downloaded"].toVariant().toLongLong();
-        qint64 total = progress["total"].toVariant().toLongLong();
-        int speed = progress["speed"].toInt();
-        double progressPercent = progress["progress"].toDouble();
-        downloadItems_[hash]->updateProgress(downloaded, total, speed, progressPercent);
+    if (!downloadItems_.contains(hash)) {
+        return;
+    }
+    DownloadItemWidget* item = downloadItems_[hash];
 
-        // Reflect paused state carried in the progress payload.
-        if (progress.contains("paused")) {
-            downloadItems_[hash]->setPaused(progress["paused"].toBool());
-        }
+    // Completion is carried in every progress payload, so surface it here too —
+    // not only via downloadCompleted. That edge-triggered signal can fire before
+    // this widget is connected (e.g. a finished torrent restored at startup), so
+    // relying on it alone would leave the item looking like an active download.
+    if (progress["completed"].toBool()) {
+        item->setCompleted();
+        return;
+    }
+
+    qint64 downloaded = progress["downloaded"].toVariant().toLongLong();
+    qint64 total = progress["total"].toVariant().toLongLong();
+    int speed = progress["downloadSpeed"].toInt();
+    double progressPercent = progress["progress"].toDouble();
+    item->updateProgress(downloaded, total, speed, progressPercent);
+
+    // Reflect paused state carried in the progress payload.
+    if (progress.contains("paused")) {
+        item->setPaused(progress["paused"].toBool());
     }
 }
 
@@ -389,4 +448,48 @@ void DownloadsWidget::onOpenRequested(const QString& hash)
         return;
     }
     QDesktopServices::openUrl(QUrl::fromLocalFile(savePath));
+}
+
+void DownloadsWidget::onFavoriteRequested(const QString& hash)
+{
+    if (!app_ || !app_->favorites() || !app_->downloads())
+        return;
+
+    rats::app::FavoritesStore* fav = app_->favorites();
+    if (fav->isFavorite(hash)) {
+        fav->remove(hash);
+        return;
+    }
+
+    // Prefer the fully indexed torrent (poster, votes, trackers). Fall back to
+    // the live download metadata when it hasn't been indexed.
+    rats::domain::Torrent torrent;
+    if (app_->search()) {
+        if (auto indexed = app_->search()->get(hash))
+            torrent = *indexed;
+    }
+
+    if (!torrent.isValid()) {
+        const rats::service::Download dl = app_->downloads()->getDownload(hash);
+        torrent.hash = dl.hash;
+        torrent.name = dl.name;
+        torrent.size = dl.totalSize;
+        torrent.files = dl.files.size();
+        for (const rats::service::DownloadFile& f : dl.files)
+            torrent.fileList.append({ f.path, f.size });
+    }
+
+    fav->add(torrent);
+    // The button refresh is driven by FavoritesStore::favoritesChanged →
+    // refreshFavorites(), so no direct setFavorite() call is needed here.
+}
+
+void DownloadsWidget::refreshFavorites()
+{
+    if (!app_ || !app_->favorites())
+        return;
+
+    for (auto it = downloadItems_.begin(); it != downloadItems_.end(); ++it) {
+        (*it)->setFavorite(app_->favorites()->isFavorite(it.key()));
+    }
 }

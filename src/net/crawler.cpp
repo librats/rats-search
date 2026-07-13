@@ -1,5 +1,6 @@
 #include "net/crawler.h"
 
+#include "net/librats_convert.h"
 #include "net/p2p_transport.h"
 
 // librats' EventBus exposes a method named emit(), which collides with Qt's
@@ -21,7 +22,6 @@
 #pragma pop_macro("slots")
 #pragma pop_macro("emit")
 
-#include <QDateTime>
 #include <QDebug>
 #include <QVector>
 #include <iterator>
@@ -68,23 +68,23 @@ bool Crawler::start()
     }
 
     if (!transport_) {
-        emit error("P2P transport not available");
+        qWarning() << "Crawler: P2P transport not available";
         return false;
     }
 
     if (!transport_->isRunning()) {
-        emit error("P2P transport is not running - start it first");
+        qWarning() << "Crawler: P2P transport is not running - start it first";
         return false;
     }
 
     librats::Bittorrent* bt = bittorrent();
     if (!bt) {
-        emit error("BitTorrent subsystem not available from transport");
+        qWarning() << "Crawler: BitTorrent subsystem not available from transport";
         return false;
     }
 
     if (!transport_->isDhtRunning()) {
-        emit error("DHT is not running");
+        qWarning() << "Crawler: DHT is not running";
         return false;
     }
 
@@ -116,14 +116,13 @@ bool Crawler::start()
         ignoreTimer_->start(DEFAULT_IGNORE_INTERVAL_MS);
         metadataQueueTimer_->start(METADATA_QUEUE_INTERVAL_MS);
 
-        emit started();
         emit statusChanged("Active");
 
         qInfo() << "DHT crawler started successfully";
         qInfo() << "DHT nodes:" << transport_->dhtNodeCount();
         return true;
     } catch (const std::exception& e) {
-        emit error(QString("Failed to start crawler: %1").arg(e.what()));
+        qWarning() << "Crawler: failed to start:" << e.what();
         return false;
     }
 }
@@ -152,7 +151,6 @@ void Crawler::stop()
 
     running_ = false;
 
-    emit stopped();
     emit statusChanged("Stopped");
 
     qInfo() << "DHT crawler stopped. Total discovered:" << discoveredCount_.load();
@@ -301,24 +299,9 @@ void Crawler::fetchMetadata(const MetadataRequest& request)
             return;
         }
 
-        // Port of createTorrentFromLibrats: build the domain torrent here, on the
-        // worker thread, then marshal the finished value onto the Qt thread.
-        rats::domain::Torrent torrent;
-        torrent.hash = infoHash.toLower();
-        torrent.name = QString::fromStdString(torrentInfo.name());
-        torrent.size = static_cast<qint64>(torrentInfo.total_size());
-        torrent.files = static_cast<int>(torrentInfo.files().files().size());
-        torrent.pieceLength = static_cast<int>(torrentInfo.piece_length());
-        torrent.added = QDateTime::currentDateTime();
-        torrent.ipv4 = peerIp;
-        torrent.port = static_cast<int>(peerPort);
-
-        for (const auto& file : torrentInfo.files().files()) {
-            rats::domain::File f;
-            f.path = QString::fromStdString(file.path);
-            f.size = static_cast<qint64>(file.size);
-            torrent.fileList.append(f);
-        }
+        // Build the domain torrent here, on the worker thread, then marshal the
+        // finished value onto the Qt thread.
+        const domain::Torrent torrent = toDomainTorrent(infoHash, torrentInfo, peerIp, static_cast<int>(peerPort));
 
         QMetaObject::invokeMethod(this, [this, torrent]() { onMetadataReceived(torrent); }, Qt::QueuedConnection);
     };

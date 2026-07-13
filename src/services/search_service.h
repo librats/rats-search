@@ -44,14 +44,11 @@ public:
     std::optional<domain::Torrent> get(const QString& hash, bool includeFiles = true);
 
     // Extracts a normalized (lower-case) 40-hex info-hash from a search query,
-    // accepting both a bare hash and a full "magnet:?xt=urn:btih:..." link (also
-    // base32). Returns an empty string if the query carries no info-hash. This is
-    // the single place the search path recognizes "this query is a torrent hash",
-    // so a magnet link resolves via the DHT fallback exactly like a bare hash.
+    // accepting both a bare hash and a full "magnet:?xt=urn:btih:..." link.
+    // Returns an empty string if the query carries no info-hash. This is the
+    // single place the search path recognizes "this query is a torrent hash", so
+    // a magnet link resolves via the DHT fallback exactly like a bare hash.
     static QString extractInfoHash(const QString& query);
-
-    // True if the query text carries an info-hash (bare hash or magnet link); the
-    // front-ends use this to decide whether a DHT fallback is worth attempting.
 
 private:
     static data::TorrentRepository::SearchQuery toRepositoryQuery(const Request& request);

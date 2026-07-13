@@ -17,16 +17,10 @@ class SearchResultModel : public QAbstractTableModel {
 public:
     enum Column { NameColumn = 0, SizeColumn, SeedersColumn, LeechersColumn, DateColumn, ColumnCount };
 
-    // Custom data roles
+    // Custom data roles, read by TorrentItemDelegate.
     enum DataRole {
-        ContentTypeRole = Qt::UserRole + 1,
-        ContentCategoryRole = Qt::UserRole + 2,
-        GoodVotesRole = Qt::UserRole + 3,
-        BadVotesRole = Qt::UserRole + 4,
-        InfoHashRole = Qt::UserRole + 5,
-        MatchingPathsRole = Qt::UserRole + 6, // QStringList of highlighted file paths
-        IsFileMatchRole = Qt::UserRole + 7, // bool - true if from file search
-        FilesCountRole = Qt::UserRole + 8 // Number of files
+        ContentTypeRole = Qt::UserRole + 1, // domain::ContentType id
+        MatchingPathsRole = Qt::UserRole + 2 // QStringList of highlighted file paths
     };
 
     explicit SearchResultModel(QObject* parent = nullptr);
@@ -50,6 +44,9 @@ public:
 
     // Access methods
     rats::domain::Torrent getTorrent(int row) const;
+    // Full hit including remote provenance (source peer), needed to fetch a
+    // remote torrent's file list on demand.
+    rats::domain::SearchHit getHit(int row) const;
     int resultCount() const { return results_.size(); }
 
 private:

@@ -3,121 +3,26 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QHash>
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QStandardPaths>
-#include <functional>
 
 namespace rats {
 namespace app {
 
 namespace {
 
-// Per-key metadata driving the single write path. A key only needs an entry if
-// it clamps, emits a specific signal, or belongs to a signal group. Silent keys
-// (restApi, upnp, spider.*, ...) have no entry and fall
-// through to the plain dedupe/write/dirty path in setValue().
-using EmitFn = std::function<void(ConfigStore*, const QVariant&)>;
-using GroupFn = std::function<void(ConfigStore*)>;
+constexpr int kMinP2pConnections = 10;
+constexpr int kMaxP2pConnections = 1000;
 
-struct KeyMeta {
-    bool hasClamp = false;
-    qint64 clampMin = 0;
-    qint64 clampMax = 0;
-    EmitFn emitSignal; // per-key NOTIFY signal, or null
-    GroupFn emitGroup; // group signal (e.g. filtersChanged), or null
-};
-
-const QHash<QString, KeyMeta>& keyMetadata()
+// The only key with a valid range. Applied on every write and again after a
+// load, so an out-of-range value can never reach the services.
+QVariant clampToRange(const QString& key, const QVariant& value)
 {
-    static const QHash<QString, KeyMeta> table = [] {
-        QHash<QString, KeyMeta> m;
-
-        auto emitOnly = [](EmitFn fn) -> KeyMeta {
-            KeyMeta k;
-            k.emitSignal = std::move(fn);
-            return k;
-        };
-        auto clampInt = [](qint64 lo, qint64 hi, EmitFn fn) -> KeyMeta {
-            KeyMeta k;
-            k.hasClamp = true;
-            k.clampMin = lo;
-            k.clampMax = hi;
-            k.emitSignal = std::move(fn);
-            return k;
-        };
-        auto emitFilter = [](EmitFn fn) -> KeyMeta {
-            KeyMeta k;
-            k.emitSignal = std::move(fn);
-            k.emitGroup = [](ConfigStore* c) { emit c->filtersChanged(); };
-            return k;
-        };
-
-        // Network
-        m.insert("httpPort", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->httpPortChanged(v.toInt()); }));
-        m.insert("p2pPort", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->p2pPortChanged(v.toInt()); }));
-        m.insert("dhtPort", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->dhtPortChanged(v.toInt()); }));
-
-        // P2P
-        m.insert("p2p", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->p2pEnabledChanged(v.toBool()); }));
-        m.insert("p2pConnections",
-            clampInt(10, 1000, [](ConfigStore* c, const QVariant& v) { emit c->p2pConnectionsChanged(v.toInt()); }));
-        m.insert("p2pReplication",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->p2pReplicationChanged(v.toBool()); }));
-
-        // Indexer
-        m.insert(
-            "indexer", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->indexerEnabledChanged(v.toBool()); }));
-        m.insert("trackers",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->trackersEnabledChanged(v.toBool()); }));
-
-        // Filters (each also fires the filtersChanged group signal)
-        m.insert("filters.maxFiles",
-            emitFilter([](ConfigStore* c, const QVariant& v) { emit c->filtersMaxFilesChanged(v.toInt()); }));
-        m.insert("filters.namingRegExp",
-            emitFilter([](ConfigStore* c, const QVariant& v) { emit c->filtersNamingRegExpChanged(v.toString()); }));
-        m.insert("filters.namingRegExpNegative", emitFilter([](ConfigStore* c, const QVariant& v) {
-            emit c->filtersNamingRegExpNegativeChanged(v.toBool());
-        }));
-        m.insert("filters.adultFilter",
-            emitFilter([](ConfigStore* c, const QVariant& v) { emit c->filtersAdultFilterChanged(v.toBool()); }));
-        m.insert("filters.sizeMin",
-            emitFilter([](ConfigStore* c, const QVariant& v) { emit c->filtersSizeMinChanged(v.toLongLong()); }));
-        m.insert("filters.sizeMax",
-            emitFilter([](ConfigStore* c, const QVariant& v) { emit c->filtersSizeMaxChanged(v.toLongLong()); }));
-        m.insert("filters.contentType",
-            emitFilter([](ConfigStore* c, const QVariant& v) { emit c->filtersContentTypeChanged(v.toString()); }));
-
-        // UI
-        m.insert(
-            "language", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->languageChanged(v.toString()); }));
-        m.insert("darkMode", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->darkModeChanged(v.toBool()); }));
-        m.insert(
-            "trayOnClose", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->trayOnCloseChanged(v.toBool()); }));
-        m.insert("trayOnMinimize",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->trayOnMinimizeChanged(v.toBool()); }));
-        m.insert("startMinimized",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->startMinimizedChanged(v.toBool()); }));
-        m.insert(
-            "autoStart", emitOnly([](ConfigStore* c, const QVariant& v) { emit c->autoStartChanged(v.toBool()); }));
-        m.insert("checkUpdatesOnStartup",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->checkUpdatesOnStartupChanged(v.toBool()); }));
-        m.insert("dataDirectory",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->dataDirectoryChanged(v.toString()); }));
-        m.insert("agreementAccepted",
-            emitOnly([](ConfigStore* c, const QVariant& v) { emit c->agreementAcceptedChanged(v.toBool()); }));
-
-        return m;
-    }();
-    return table;
-}
-
-const KeyMeta* metaForKey(const QString& key)
-{
-    const auto& table = keyMetadata();
-    auto it = table.find(key);
-    return it != table.end() ? &it.value() : nullptr;
+    if (key == QLatin1String("p2pConnections")) {
+        return qBound(kMinP2pConnections, value.toInt(), kMaxP2pConnections);
+    }
+    return value;
 }
 
 } // namespace
@@ -146,7 +51,7 @@ void ConfigStore::setDefaults()
         { "httpPort", 8095 }, { "p2pPort", 4444 }, { "dhtPort", 6881 },
 
         // P2P
-        { "p2p", true }, { "p2pConnections", 10 }, { "p2pReplication", true }, { "p2pReplicationServer", true },
+        { "p2pConnections", 10 }, { "p2pReplication", true }, { "p2pReplicationServer", true },
 
         // Indexer
         { "indexer", true }, { "trackers", true }, { "restApi", false }, { "upnp", true },
@@ -164,8 +69,7 @@ void ConfigStore::setDefaults()
 
         // UI
         { "language", "en" }, { "darkMode", false }, { "trayOnClose", false }, { "trayOnMinimize", true },
-        { "startMinimized", false }, { "autoStart", false }, { "checkUpdatesOnStartup", true },
-        { "dataDirectory", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) },
+        { "startMinimized", false }, { "checkUpdatesOnStartup", true },
 
         // Legal
         { "agreementAccepted", false }
@@ -233,28 +137,15 @@ bool ConfigStore::save()
     return true;
 }
 
-void ConfigStore::reset()
-{
-    setDefaults();
-    dirty_ = true;
-    emit configChanged(config_.keys());
-}
-
 void ConfigStore::validateAndClamp()
 {
-    // Clamp p2pConnections
-    int p2pConn = config_["p2pConnections"].toInt();
-    if (p2pConn < 10)
-        config_["p2pConnections"] = 10;
-    if (p2pConn > 1000)
-        config_["p2pConnections"] = 1000;
+    config_["p2pConnections"]
+        = QJsonValue::fromVariant(clampToRange("p2pConnections", config_["p2pConnections"].toInt()));
 
-    // P2P replication dependency
+    // Replication needs the replication server. The typed setters keep this
+    // invariant on writes; this repairs a config file edited by hand.
     if (config_["p2pReplication"].toBool() && !config_["p2pReplicationServer"].toBool()) {
         config_["p2pReplicationServer"] = true;
-    }
-    if (!config_["p2pReplicationServer"].toBool() && config_["p2pReplication"].toBool()) {
-        config_["p2pReplication"] = false;
     }
 }
 
@@ -322,15 +213,6 @@ void ConfigStore::setDhtPort(int port)
 // P2P Settings
 // ============================================================================
 
-bool ConfigStore::p2pEnabled() const
-{
-    return config_["p2p"].toBool(true);
-}
-void ConfigStore::setP2pEnabled(bool enabled)
-{
-    setValue("p2p", enabled);
-}
-
 int ConfigStore::p2pConnections() const
 {
     return config_["p2pConnections"].toInt(10);
@@ -347,7 +229,7 @@ bool ConfigStore::p2pReplication() const
 void ConfigStore::setP2pReplication(bool enabled)
 {
     if (enabled) {
-        setP2pReplicationServer(true); // Dependency
+        setP2pReplicationServer(true); // replication requires the server
     }
     setValue("p2pReplication", enabled);
 }
@@ -359,7 +241,7 @@ bool ConfigStore::p2pReplicationServer() const
 void ConfigStore::setP2pReplicationServer(bool enabled)
 {
     if (!enabled) {
-        setValue("p2pReplication", false); // Dependency
+        setValue("p2pReplication", false); // no server => no replication
     }
     setValue("p2pReplicationServer", enabled);
 }
@@ -399,6 +281,7 @@ bool ConfigStore::upnpEnabled() const
 {
     return config_["upnp"].toBool(true);
 }
+
 // ============================================================================
 // Spider Settings
 // ============================================================================
@@ -541,15 +424,6 @@ void ConfigStore::setStartMinimized(bool enabled)
     setValue("startMinimized", enabled);
 }
 
-bool ConfigStore::autoStart() const
-{
-    return config_["autoStart"].toBool(false);
-}
-void ConfigStore::setAutoStart(bool enabled)
-{
-    setValue("autoStart", enabled);
-}
-
 bool ConfigStore::checkUpdatesOnStartup() const
 {
     return config_["checkUpdatesOnStartup"].toBool(true);
@@ -557,15 +431,6 @@ bool ConfigStore::checkUpdatesOnStartup() const
 void ConfigStore::setCheckUpdatesOnStartup(bool enabled)
 {
     setValue("checkUpdatesOnStartup", enabled);
-}
-
-QString ConfigStore::dataDirectory() const
-{
-    return config_["dataDirectory"].toString(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
-}
-void ConfigStore::setDataDirectory(const QString& path)
-{
-    setValue("dataDirectory", path);
 }
 
 bool ConfigStore::agreementAccepted() const
@@ -593,7 +458,7 @@ QStringList ConfigStore::fromJson(const QJsonObject& options)
     QStringList changed;
 
     for (auto it = options.begin(); it != options.end(); ++it) {
-        if (setValue(it.key(), it.value().toVariant())) {
+        if (writeValue(it.key(), it.value().toVariant())) {
             changed.append(it.key());
         }
     }
@@ -606,24 +471,11 @@ QStringList ConfigStore::fromJson(const QJsonObject& options)
     return changed;
 }
 
-QVariant ConfigStore::value(const QString& key, const QVariant& defaultValue) const
+bool ConfigStore::writeValue(const QString& key, const QVariant& value)
 {
-    if (config_.contains(key)) {
-        return config_[key].toVariant();
-    }
-    return defaultValue;
-}
-
-bool ConfigStore::setValue(const QString& key, const QVariant& value)
-{
-    const KeyMeta* meta = metaForKey(key);
-
-    // Clamp per metadata before comparing, so out-of-range writes dedupe against
-    // the already-clamped stored value on every path (typed setter, fromJson).
-    QVariant effective = value;
-    if (meta && meta->hasClamp) {
-        effective = QVariant(static_cast<qlonglong>(qBound(meta->clampMin, value.toLongLong(), meta->clampMax)));
-    }
+    // Clamp before comparing, so an out-of-range write dedupes against the
+    // already-clamped stored value on every path (typed setter, fromJson).
+    const QVariant effective = clampToRange(key, value);
 
     const QJsonValue newVal = QJsonValue::fromVariant(effective);
     if (readJsonValue(key) == newVal) {
@@ -633,15 +485,20 @@ bool ConfigStore::setValue(const QString& key, const QVariant& value)
     writeJsonValue(key, newVal);
     dirty_ = true;
 
-    if (meta) {
-        if (meta->emitSignal) {
-            meta->emitSignal(this, effective);
-        }
-        if (meta->emitGroup) {
-            meta->emitGroup(this);
-        }
+    if (key == QLatin1String("language")) {
+        emit languageChanged(effective.toString());
+    } else if (key == QLatin1String("darkMode")) {
+        emit darkModeChanged(effective.toBool());
     }
+    return true;
+}
 
+bool ConfigStore::setValue(const QString& key, const QVariant& value)
+{
+    if (!writeValue(key, value)) {
+        return false;
+    }
+    emit configChanged(QStringList { key });
     return true;
 }
 

@@ -17,11 +17,6 @@ TorrentExporter::TorrentExporter(net::TorrentEngine* engine, QString dataDirecto
 {
 }
 
-void TorrentExporter::setDataDirectory(const QString& dir)
-{
-    dataDirectory_ = dir;
-}
-
 QString TorrentExporter::cachePath(const QString& hash) const
 {
     return QDir(dataDirectory_)

@@ -64,11 +64,8 @@ void PeerApi::install()
     }
 
     // --- Requests we answer -------------------------------------------------
-    // "searchTorrent" is the legacy alias of "torrent_search"; both route here.
-    transport->registerHandler("torrent_search",
+    transport->registerHandler("searchTorrent",
         [this](const QString& peerId, const QJsonObject& data) { handleSearchRequest(peerId, data); });
-    transport->registerHandler(
-        "searchTorrent", [this](const QString& peerId, const QJsonObject& data) { handleSearchRequest(peerId, data); });
     transport->registerHandler("searchFiles",
         [this](const QString& peerId, const QJsonObject& data) { handleSearchFilesRequest(peerId, data); });
     transport->registerHandler("topTorrents",
@@ -81,9 +78,9 @@ void PeerApi::install()
         [this](const QString& peerId, const QJsonObject& data) { handleRandomTorrentsRequest(peerId, data); });
 
     // --- Responses we consume ----------------------------------------------
-    transport->registerHandler("torrent_search_result",
+    transport->registerHandler("searchTorrent_response",
         [this](const QString& peerId, const QJsonObject& data) { handleSearchResult(peerId, data); });
-    transport->registerHandler("searchFiles_result",
+    transport->registerHandler("searchFiles_response",
         [this](const QString& peerId, const QJsonObject& data) { handleSearchFilesResult(peerId, data); });
     transport->registerHandler("torrent_response",
         [this](const QString& peerId, const QJsonObject& data) { handleTorrentResponse(peerId, data); });
@@ -91,7 +88,7 @@ void PeerApi::install()
         "feed_response", [this](const QString& peerId, const QJsonObject& data) { handleFeedResponse(peerId, data); });
     transport->registerHandler("randomTorrents_response",
         [this](const QString& peerId, const QJsonObject& data) { handleRandomTorrentsResponse(peerId, data); });
-    transport->registerHandler("torrent_announce",
+    transport->registerHandler("torrentAnnounce",
         [this](const QString& peerId, const QJsonObject& data) { handleTorrentAnnounce(peerId, data); });
 
     // Follow-up work on connect (the client_info handshake itself is
@@ -117,7 +114,7 @@ void PeerApi::handleSearchRequest(const QString& peerId, const QJsonObject& data
     qInfo() << "[PeerApi] search" << req.query << "->" << hits.size() << "results for" << shortId(peerId);
 
     for (const domain::SearchHit& hit : hits)
-        app_->transport()->sendMessage(peerId, "torrent_search_result", domain::codec::toJson(hit.torrent));
+        app_->transport()->sendMessage(peerId, "searchTorrent_response", domain::codec::toJson(hit.torrent));
 }
 
 void PeerApi::handleSearchFilesRequest(const QString& peerId, const QJsonObject& data)
@@ -138,7 +135,7 @@ void PeerApi::handleSearchFilesRequest(const QString& peerId, const QJsonObject&
                 paths.append(p);
             result["path"] = paths;
         }
-        app_->transport()->sendMessage(peerId, "searchFiles_result", result);
+        app_->transport()->sendMessage(peerId, "searchFiles_response", result);
     }
 }
 
@@ -239,14 +236,15 @@ void PeerApi::handleSearchResult(const QString& peerId, const QJsonObject& data)
     if (hash.isEmpty())
         return;
 
-    // Surface the hit to the UI with remote provenance stamped on.
+    // Surface the hit to the UI with remote provenance stamped on. Search hits
+    // are deliberately NOT indexed here: the reply carries metadata only (no file
+    // list), so storing it would leave a file-less torrent in the database. A
+    // remote hit is cloned in full — with its files — only when the user opens it
+    // and we fetch it via requestTorrent()/torrent_response.
     QJsonObject result = data;
     result["remote"] = true;
     result["peer"] = peerId;
     emit remoteSearchResults(QString(), QJsonArray { result });
-
-    // Index the received torrent through the single insertion path.
-    insertFromPeer(data, /*trackReplication*/ false);
 }
 
 void PeerApi::handleSearchFilesResult(const QString& peerId, const QJsonObject& data)
@@ -335,6 +333,21 @@ void PeerApi::handleTorrentAnnounce(const QString& peerId, const QJsonObject& da
 
     qDebug() << "[PeerApi] torrent announce from" << shortId(peerId) << ":" << name;
     insertFromPeer(data, /*trackReplication*/ false);
+}
+
+// ============================================================================
+// Outgoing requests
+// ============================================================================
+
+void PeerApi::requestTorrent(const QString& peerId, const QString& hash, bool includeFiles)
+{
+    net::P2PTransport* transport = app_->transport();
+    if (!transport || peerId.isEmpty() || hash.length() != 40)
+        return;
+
+    qInfo() << "[PeerApi] requesting torrent" << hash.left(8) << "from" << shortId(peerId);
+    transport->sendMessage(peerId, "torrent",
+        QJsonObject { { "hash", hash }, { "options", QJsonObject { { "files", includeFiles } } } });
 }
 
 // ============================================================================

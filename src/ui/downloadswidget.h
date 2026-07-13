@@ -32,11 +32,14 @@ public:
     void updateInfo(const QString& name, qint64 size);
     void setCompleted();
     void setPaused(bool paused);
+    // Reflect whether this torrent is currently favourited on the star button.
+    void setFavorite(bool favorite);
 
 signals:
     void pauseToggled(const QString& hash);
     void cancelRequested(const QString& hash);
     void openRequested(const QString& hash);
+    void favoriteRequested(const QString& hash);
 
 private:
     void setupUi(const QString& name, qint64 size);
@@ -48,8 +51,14 @@ private:
     QLabel* statusLabel_;
     QLabel* speedLabel_;
     QProgressBar* progressBar_;
+    QPushButton* favoriteButton_;
     QPushButton* pauseButton_;
     QPushButton* cancelButton_;
+
+    // Once a torrent is completed its presentation is sticky: later progress
+    // updates (which carry paused=false and a non-completed style) must not
+    // revert the "Completed" look. Guards updateProgress()/setPaused().
+    bool completed_ = false;
 };
 
 /**
@@ -67,9 +76,6 @@ public:
 
     void setApplication(rats::app::Application* app);
 
-public slots:
-    void refresh();
-
 private slots:
     void onDownloadStarted(const QString& hash);
     void onProgressUpdated(const QString& hash, const QJsonObject& progress);
@@ -78,12 +84,15 @@ private slots:
     void onPauseToggled(const QString& hash);
     void onCancelRequested(const QString& hash);
     void onOpenRequested(const QString& hash);
+    void onFavoriteRequested(const QString& hash);
 
 private:
     void setupUi();
     void loadDownloads();
     void addDownloadItem(const QString& hash, const QString& name, qint64 size);
     void removeDownloadItem(const QString& hash);
+    // Refresh every visible item's favourite button from the store.
+    void refreshFavorites();
 
     rats::app::Application* app_ = nullptr;
 

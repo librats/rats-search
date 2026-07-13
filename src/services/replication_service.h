@@ -25,15 +25,9 @@ public:
     void setEnabled(bool enabled); // config gate (p2pReplication)
     void start();
     void stop();
-    bool isActive() const;
-    qint64 totalReplicated() const { return totalReplicated_; }
 
     // Called by the peer API each time a replicated torrent is inserted.
-    void notifyReceived() { ++received_; }
-
-signals:
-    void started();
-    void stopped();
+    void notifyReceived() { ++receivedThisCycle_; }
 
 private:
     void performCycle();
@@ -41,7 +35,8 @@ private:
     net::P2PTransport* transport_;
     QTimer* timer_;
     int interval_;
-    std::atomic<int> received_ { 0 };
+    // Reset at the start of every cycle; drives the adaptive interval.
+    std::atomic<int> receivedThisCycle_ { 0 };
     qint64 totalReplicated_ = 0;
     bool enabled_ = false;
 };

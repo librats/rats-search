@@ -5,7 +5,6 @@
 #include <QDir>
 #include <QSettings>
 #include <QStandardPaths>
-#include <QTimer>
 
 #include <csignal>
 #include <iostream>

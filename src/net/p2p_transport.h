@@ -1,10 +1,8 @@
 #ifndef RATS_NET_P2P_TRANSPORT_H
 #define RATS_NET_P2P_TRANSPORT_H
 
-#include <QHash>
 #include <QJsonObject>
 #include <QObject>
-#include <QSet>
 #include <QString>
 #include <functional>
 #include <memory>
@@ -44,7 +42,6 @@ public:
     bool isRunning() const;
 
     void setPortMappingEnabled(bool enabled);
-    bool portMappingEnabled() const { return portMappingEnabled_; }
 
     // Peers (generic — identity and count only, no application stats)
     int peerCount() const;
@@ -64,14 +61,12 @@ public:
     bool isBitTorrentEnabled() const;
 
     // Borrowed librats subsystems — non-owning, valid only while running.
-    librats::Node* node() const;
     librats::Bittorrent* bittorrent() const;
     librats::StorageManager* storage() const;
 
 signals:
     void started();
     void stopped();
-    void error(const QString& message);
     void peerCountChanged(int count);
     void peerConnected(const QString& peerId);
     void peerDisconnected(const QString& peerId);
@@ -81,9 +76,7 @@ private:
     std::unique_ptr<Private> d_;
 
     // Preference only; the port-mapping subsystem is attached before start(), so
-    // this takes effect on the next (re)start. Kept as a direct member because
-    // the inline portMappingEnabled() getter needs it while Private is still
-    // opaque.
+    // this takes effect on the next (re)start.
     bool portMappingEnabled_ = true;
 };
 

@@ -17,13 +17,13 @@ namespace app {
  * Provides:
  * - Loading and switching between translations
  * - Available languages enumeration
- * - Language change notifications
  * - Support for Qt .qm files
+ *
+ * The language a user picked lives in ConfigStore; this only installs the
+ * matching translators when Application relays ConfigStore::languageChanged.
  */
 class TranslationManager : public QObject {
     Q_OBJECT
-
-    Q_PROPERTY(QString currentLanguage READ currentLanguage WRITE setLanguage NOTIFY languageChanged)
 
 public:
     struct LanguageInfo {
@@ -51,34 +51,16 @@ public:
     QList<LanguageInfo> availableLanguages() const;
 
     /**
-     * @brief Get current language code
-     */
-    QString currentLanguage() const;
-
-    /**
-     * @brief Check if language is available
-     */
-    bool hasLanguage(const QString& code) const;
-
-    /**
      * @brief Get system language code
      */
     static QString systemLanguage();
 
-public slots:
     /**
      * @brief Set current language
      * @param code Language code (e.g., "en", "ru", "de", "es")
      * @return true if language was changed successfully
      */
     bool setLanguage(const QString& code);
-
-signals:
-    /**
-     * @brief Emitted when language changes
-     * @param code New language code
-     */
-    void languageChanged(const QString& code);
 
 private:
     TranslationManager(QObject* parent = nullptr);
@@ -87,6 +69,11 @@ private:
     // Prevent copying
     TranslationManager(const TranslationManager&) = delete;
     TranslationManager& operator=(const TranslationManager&) = delete;
+
+    /**
+     * @brief Check if language is available
+     */
+    bool hasLanguage(const QString& code) const;
 
     void registerLanguages();
     bool loadTranslation(const QString& code);
