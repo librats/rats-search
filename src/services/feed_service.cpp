@@ -26,12 +26,16 @@ bool shouldBlock(const Torrent& torrent)
     return torrent.contentType == ContentType::Bad || torrent.contentCategory == ContentCategory::XXX;
 }
 
-// Stored/wire shape: the torrent JSON (with files, for P2P replication) plus
-// the extra feedDate. Info is intentionally omitted to keep the feed payload
-// lean.
+// Stored/wire shape: the torrent JSON plus the extra feedDate. Both the file
+// list and info are intentionally omitted to keep the feed payload lean — a
+// full feed carries up to maxSize_ torrents, and embedding every file list
+// bloated each P2P feed reply (and every stored blob) into megabytes. The
+// torrent's file *count* still travels (codec always emits "files"); the file
+// list itself is fetched on demand by hash when a user opens a torrent, and
+// peers backfill files through the regular torrent request path.
 QJsonObject itemToJson(const FeedItem& item)
 {
-    QJsonObject obj = domain::codec::toJson(item.torrent, { /*includeFiles*/ true, /*includeInfo*/ false });
+    QJsonObject obj = domain::codec::toJson(item.torrent, { /*includeFiles*/ false, /*includeInfo*/ false });
     obj["feedDate"] = item.feedDate;
     return obj;
 }
@@ -159,8 +163,10 @@ void FeedService::addByHash(const QString& hash)
     if (!torrents_ || hash.length() != 40)
         return;
 
-    // With files for P2P replication (critical for proper sync).
-    const auto torrent = torrents_->get(hash, /*includeFiles*/ true);
+    // The feed never serialises file lists (see itemToJson), so there is no
+    // reason to hold them in memory for up to maxSize_ items — load metadata
+    // only. File lists are fetched on demand by hash when a torrent is opened.
+    const auto torrent = torrents_->get(hash, /*includeFiles*/ false);
     if (!torrent || !torrent->isValid())
         return;
 
