@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.2](https://github.com/DEgITx/rats-search/compare/v2.1.1...v2.1.2) (2026-07-15)
+
+
+### 🐛 Bug Fixes
+
+
+- **feed:** Reduce memory usage([30d74c7](https://github.com/DEgITx/rats-search/commit/30d74c7e6b480a6631eef6e9242aede765f5d538)) by @DEgITx
+- **memory:** Fix memory allocation on massive site scrape([4a157b8](https://github.com/DEgITx/rats-search/commit/4a157b8a87a8fd394ea9e51ceef136405082ea57)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.1([433b53e](https://github.com/DEgITx/rats-search/commit/433b53ed5dbd4010c7965c453e2b7767430b4797)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **memory:** Better & less memory usage from 2.0.1 librats([2599d97](https://github.com/DEgITx/rats-search/commit/2599d97552475ab82f7c2fe0ac139dd10ccf2127)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 3 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.1.1](https://github.com/DEgITx/rats-search/compare/v2.1.0...v2.1.1) (2026-07-12)
 
 
