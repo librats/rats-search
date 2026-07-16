@@ -139,6 +139,7 @@ if(RATS_SEARCH_USE_SYSTEM_LIBRATS)
 else()
     # Add librats as subdirectory
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/librats/CMakeLists.txt")
+        set(RATS_BUILD_CLIENT OFF CACHE BOOL "" FORCE)
         set(RATS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
         set(RATS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
         set(RATS_SEARCH_FEATURES ON CACHE BOOL "" FORCE)
