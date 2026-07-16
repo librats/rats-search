@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.4](https://github.com/DEgITx/rats-search/compare/v2.1.3...v2.1.4) (2026-07-16)
+
+
+### 🐛 Bug Fixes
+
+
+- **cleanup:** Fix unnecessary client build([c0dc7ef](https://github.com/DEgITx/rats-search/commit/c0dc7efc2aa4d1c1bb748706c6ecc06fc43b505f)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.3([ee50c15](https://github.com/DEgITx/rats-search/commit/ee50c15a114f1cef7a320ea7f2df9353c7f5dc30)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.1.3](https://github.com/DEgITx/rats-search/compare/v2.1.2...v2.1.3) (2026-07-16)
 
 
