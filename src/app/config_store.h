@@ -145,6 +145,12 @@ public:
     bool darkMode() const;
     void setDarkMode(bool enabled);
 
+    // Search-time adult filter: hides the XXX category from search results. This
+    // is distinct from filters.adultFilter, which drops adult torrents at index
+    // time and so cannot be undone by toggling it back off.
+    bool safeSearch() const;
+    void setSafeSearch(bool enabled);
+
     bool trayOnClose() const;
     void setTrayOnClose(bool enabled);
 

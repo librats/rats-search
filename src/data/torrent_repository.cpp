@@ -175,6 +175,7 @@ QString TorrentRepository::resolveSortColumn(const QString& key)
     static const QHash<QString, QString> allowed = {
         { QStringLiteral("seeders"), QStringLiteral("seeders") },
         { QStringLiteral("leechers"), QStringLiteral("leechers") },
+        { QStringLiteral("name"), QStringLiteral("name") },
         { QStringLiteral("size"), QStringLiteral("size") },
         { QStringLiteral("files"), QStringLiteral("files") },
         { QStringLiteral("added"), QStringLiteral("added") },
@@ -272,8 +273,12 @@ QVector<SearchHit> TorrentRepository::searchFiles(const SearchQuery& q)
     if (orderedHashes.isEmpty())
         return hits;
 
-    const QString inSql = SelectQuery(kTorrents).whereIn(QStringLiteral("hash"), orderedHashes).build();
-    for (const auto& row : db_->query(inSql)) {
+    // The content-type filter applies to the parent torrent, so it belongs on
+    // this lookup rather than on the file-path MATCH above.
+    SelectQuery parents(kTorrents);
+    parents.whereIn(QStringLiteral("hash"), orderedHashes);
+    parents.whereRaw(contentTypeFilter(q.contentType));
+    for (const auto& row : db_->query(parents.build())) {
         Torrent t = rowToTorrent(row);
         if (q.safeSearch && t.contentCategory == ContentCategory::XXX)
             continue;

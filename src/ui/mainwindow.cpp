@@ -203,6 +203,26 @@ void MainWindow::setupUi()
     searchButton->setDefault(true);
     searchButton->setCursor(Qt::PointingHandCursor);
 
+    // Content-type filter. The data strings are the canonical wire names from
+    // domain::ContentType, passed straight through to the repository filter.
+    typeComboBox = new QComboBox(this);
+    typeComboBox->addItem(tr("All types"), "");
+    typeComboBox->addItem(tr("Video"), "video");
+    typeComboBox->addItem(tr("Audio"), "audio");
+    typeComboBox->addItem(tr("Games"), "games");
+    typeComboBox->addItem(tr("Software"), "software");
+    typeComboBox->addItem(tr("Books"), "books");
+    typeComboBox->addItem(tr("Pictures"), "pictures");
+    typeComboBox->addItem(tr("Archives"), "archive");
+    typeComboBox->setMinimumHeight(44);
+    typeComboBox->setToolTip(tr("Filter results by content type"));
+
+    safeSearchCheckBox = new QCheckBox(tr("Safe"), this);
+    safeSearchCheckBox->setToolTip(tr("Safe search: hide adult content"));
+    safeSearchCheckBox->setCursor(Qt::PointingHandCursor);
+    if (app_ && app_->config())
+        safeSearchCheckBox->setChecked(app_->config()->safeSearch());
+
     sortComboBox = new QComboBox(this);
     sortComboBox->addItem(tr("Sort: Seeders ↓"), "seeders_desc");
     sortComboBox->addItem(tr("Sort: Seeders ↑"), "seeders_asc");
@@ -215,6 +235,8 @@ void MainWindow::setupUi()
     sortComboBox->setMinimumHeight(44);
 
     searchLayout->addWidget(searchLineEdit, 1);
+    searchLayout->addWidget(typeComboBox);
+    searchLayout->addWidget(safeSearchCheckBox);
     searchLayout->addWidget(sortComboBox);
     searchLayout->addWidget(searchButton);
 
@@ -413,6 +435,18 @@ void MainWindow::connectSearchSignals()
     connect(searchLineEdit, &QLineEdit::returnPressed, this, &MainWindow::onSearchButtonClicked);
     connect(searchLineEdit, &QLineEdit::textChanged, this, &MainWindow::onSearchTextChanged);
     connect(sortComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onSortOrderChanged);
+
+    // Changing a filter re-runs the current query so results update in place.
+    connect(typeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
+        if (!currentSearchQuery_.isEmpty())
+            performSearch(currentSearchQuery_);
+    });
+    connect(safeSearchCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
+        if (app_ && app_->config())
+            app_->config()->setSafeSearch(checked);
+        if (!currentSearchQuery_.isEmpty())
+            performSearch(currentSearchQuery_);
+    });
 
     connect(resultsTableView->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
         [this](const QModelIndex& current, const QModelIndex&) { onTorrentSelected(current); });
@@ -674,7 +708,8 @@ void MainWindow::performSearch(const QString& query)
     req.limit = 50;
     req.sort = sort;
     req.descending = sortData.endsWith("desc");
-    req.safeSearch = false;
+    req.safeSearch = safeSearchCheckBox->isChecked();
+    req.contentType = typeComboBox->currentData().toString();
 
     searchResultModel->clearResults();
 
@@ -703,6 +738,9 @@ void MainWindow::performSearch(const QString& query)
         msg["limit"] = 50;
         msg["orderBy"] = sort;
         msg["orderDesc"] = req.descending;
+        msg["safeSearch"] = req.safeSearch;
+        if (!req.contentType.isEmpty())
+            msg["type"] = req.contentType;
         app_->transport()->broadcastMessage("searchTorrent", msg);
         app_->transport()->broadcastMessage("searchFiles", msg);
     }

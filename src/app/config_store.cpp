@@ -68,8 +68,8 @@ void ConfigStore::setDefaults()
         { "downloadPath", QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) },
 
         // UI
-        { "language", "en" }, { "darkMode", false }, { "trayOnClose", false }, { "trayOnMinimize", true },
-        { "startMinimized", false }, { "checkUpdatesOnStartup", true },
+        { "language", "en" }, { "darkMode", false }, { "safeSearch", false }, { "trayOnClose", false },
+        { "trayOnMinimize", true }, { "startMinimized", false }, { "checkUpdatesOnStartup", true },
 
         // Legal
         { "agreementAccepted", false }
@@ -395,6 +395,15 @@ bool ConfigStore::darkMode() const
 void ConfigStore::setDarkMode(bool enabled)
 {
     setValue("darkMode", enabled);
+}
+
+bool ConfigStore::safeSearch() const
+{
+    return config_["safeSearch"].toBool(false);
+}
+void ConfigStore::setSafeSearch(bool enabled)
+{
+    setValue("safeSearch", enabled);
 }
 
 bool ConfigStore::trayOnClose() const

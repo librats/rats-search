@@ -39,6 +39,7 @@ service::SearchService::Request parseSearchRequest(const QJsonObject& data)
         req.sort = data["orderBy"].toString();
         req.descending = data["orderDesc"].toBool(true);
         req.safeSearch = data["safeSearch"].toBool(false);
+        req.contentType = data["type"].toString();
     }
     return req;
 }

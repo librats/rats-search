@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QHash>
 #include <QLabel>
@@ -139,6 +140,8 @@ private:
     QLineEdit* searchLineEdit = nullptr;
     QPushButton* searchButton = nullptr;
     QComboBox* sortComboBox = nullptr;
+    QComboBox* typeComboBox = nullptr;
+    QCheckBox* safeSearchCheckBox = nullptr;
     QTableView* resultsTableView = nullptr;
     QTabWidget* tabWidget = nullptr;
     QSplitter* mainSplitter = nullptr; // Horizontal: tabs + details
