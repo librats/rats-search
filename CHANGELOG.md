@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.3](https://github.com/DEgITx/rats-search/compare/v2.1.2...v2.1.3) (2026-07-16)
+
+
+### 🐛 Bug Fixes
+
+
+- **search:** Search by category restored https://github.com/librats/rats-search/issues/279([9c97830](https://github.com/DEgITx/rats-search/commit/9c978302da0cf4d73d6137f62ed8efb188298705)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.2([3da6ace](https://github.com/DEgITx/rats-search/commit/3da6aceaed620a69bf2c7a77cb3b81c20e1445bc)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.1.2](https://github.com/DEgITx/rats-search/compare/v2.1.1...v2.1.2) (2026-07-15)
 
 
