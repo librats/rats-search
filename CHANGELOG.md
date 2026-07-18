@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.5](https://github.com/DEgITx/rats-search/compare/v2.1.4...v2.1.5) (2026-07-18)
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.4([0f2f85a](https://github.com/DEgITx/rats-search/commit/0f2f85a2049be473d314c78564fc3ece349afb4e)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **p2p:** Upgrade to librats 2.0.4([878b0f2](https://github.com/DEgITx/rats-search/commit/878b0f202a2c37dd2f9dcd045a41d0337f750ab1)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.1.4](https://github.com/DEgITx/rats-search/compare/v2.1.3...v2.1.4) (2026-07-16)
 
 
