@@ -50,6 +50,7 @@ void TorrentRepository::primeFromDatabase()
         stats_.totalSize = rows.first().value(QStringLiteral("totalsize")).toLongLong();
     }
     qInfo() << "[TorrentRepository] primed:" << stats_.torrents << "torrents," << stats_.files << "files";
+    emit statisticsChanged(stats_.torrents, stats_.files, stats_.totalSize);
 }
 
 // ---------------------------------------------------------------------------
