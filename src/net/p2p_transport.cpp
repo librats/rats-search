@@ -221,7 +221,7 @@ bool P2PTransport::start()
         config.max_peers = d_->maxPeers > 0 ? static_cast<size_t>(d_->maxPeers) : 0;
         // Protocol identity is bound into the Noise handshake AND namespaces DHT
         // discovery. Keep it version-less so peers across patch releases meet.
-        config.protocol = "rats-search/2";
+        config.protocol = "rats-search/3";
         config.data_dir = d_->dataDirectory.toStdString();
         config.security = librats::NodeConfig::Security::Noise;
 
