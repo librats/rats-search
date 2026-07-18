@@ -111,7 +111,7 @@ void P2PTransport::Private::setupCallbacks()
     // Connection callback. Runs on a reactor thread.
     node->on_peer_connected([this](const librats::Peer& peer) {
         QString peerId = QString::fromStdString(peer.id().to_hex());
-        qInfo() << "Peer connected:" << peerId.left(8);
+        qInfo() << "Peer connected:" << peerId.left(8) << "total peers:" << peerCount();
         emit q->peerConnected(peerId);
         requestPeerCountUpdate();
     });
@@ -119,7 +119,7 @@ void P2PTransport::Private::setupCallbacks()
     // Disconnection callback. Runs on a reactor thread.
     node->on_peer_disconnected([this](const librats::PeerId& id) {
         QString peerId = QString::fromStdString(id.to_hex());
-        qInfo() << "Peer disconnected:" << peerId.left(8);
+        qInfo() << "Peer disconnected:" << peerId.left(8) << "total peers:" << peerCount();
         emit q->peerDisconnected(peerId);
         requestPeerCountUpdate();
     });
