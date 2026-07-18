@@ -559,7 +559,7 @@ void Manticore::onProcessReadyRead()
     QString output = process_->readAllStandardOutput() + process_->readAllStandardError();
 
     for (const QString& line : output.split('\n', Qt::SkipEmptyParts)) {
-        qDebug().noquote() << "[searchd]" << line.trimmed();
+        qInfo().noquote() << "[searchd]" << line.trimmed();
 
         // Parse version.
         QRegularExpression versionRx("Manticore ([0-9\\.]+)");
