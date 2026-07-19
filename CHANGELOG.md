@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.6](https://github.com/DEgITx/rats-search/compare/v2.1.5...v2.1.6) (2026-07-19)
+
+
+### 🐛 Bug Fixes
+
+
+- **db:** Fix db starting log logging([a1e6604](https://github.com/DEgITx/rats-search/commit/a1e660434a848272404d3ed5257e525472d04837)) by @DEgITx
+- **p2p:** Initial p2p torrent send event fixed([b72f141](https://github.com/DEgITx/rats-search/commit/b72f14128b829ef21388c451e5504a6c688ccaa3)) by @DEgITx
+- **log:** Fix num of connection in log([dea9595](https://github.com/DEgITx/rats-search/commit/dea95959a4ecdf4aba856e248e7f640afa31eb27)) by @DEgITx
+- **updater:** Fix auto-closing window on updater call([d2b3162](https://github.com/DEgITx/rats-search/commit/d2b316271e05c990ad972bcc632f3f24a519e6d6)) by @DEgITx
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.1.5([2add695](https://github.com/DEgITx/rats-search/commit/2add695b27e394ed3c7c80fae65be9024cbb4a95)) by @github-actions[bot]
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.1.5](https://github.com/DEgITx/rats-search/compare/v2.1.4...v2.1.5) (2026-07-18)
 
 
