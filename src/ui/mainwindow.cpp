@@ -777,6 +777,16 @@ void MainWindow::closeEvent(QCloseEvent* event)
 {
     rats::app::ConfigStore* config = app_ ? app_->config() : nullptr;
 
+    // An update install is deliberately shutting the app down. Never intercept
+    // it with the tray or a confirmation prompt — the external updater is
+    // blocked waiting for this process to exit.
+    if (updateInstalling_) {
+        saveSettings();
+        event->accept();
+        QApplication::quit();
+        return;
+    }
+
     // Hide to tray instead of closing if enabled.
     bool closeToTray = config ? config->trayOnClose() : false;
     if (closeToTray && trayIcon && trayIcon->isVisible()) {
@@ -1838,10 +1848,21 @@ void MainWindow::onUpdateReady()
     if (reply == QMessageBox::Yes) {
         qInfo() << "User accepted update installation, preparing to restart...";
         saveSettings();
-        // executeUpdateScript() launches the external updater and quits the app;
-        // main()'s aboutToQuit → app_->stop() releases the database/searchd locks.
-        if (app_->updates())
-            app_->updates()->executeUpdateScript();
+
+        // The service only launches the external updater; shutting the app down
+        // is the frontend's job. Bail out if it failed to start so we don't close
+        // the app with no updater running.
+        if (!app_->updates() || !app_->updates()->executeUpdateScript())
+            return;
+
+        // From here the shutdown is non-negotiable: mark it so closeEvent() stops
+        // prompting or hiding to tray. closeAllWindows() then tears every window
+        // down — including any nested modal loop (e.g. the download dialog still
+        // in exec()) — and each window's closeEvent drives the actual quit.
+        // main()'s exec() returns and app_->stop() releases the database/searchd
+        // locks; the updater, blocked waiting for us to exit, then proceeds.
+        updateInstalling_ = true;
+        QApplication::closeAllWindows();
     }
 }
 

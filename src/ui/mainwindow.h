@@ -180,6 +180,11 @@ private:
     QSystemTrayIcon* trayIcon = nullptr;
     QMenu* trayMenu = nullptr;
     bool trayNotificationShown_ = false;
+
+    // Set once the user has committed to installing an update. While true,
+    // closeEvent() shuts the app down unconditionally — no tray-hide, no
+    // confirmation prompt — so the external updater is never left waiting.
+    bool updateInstalling_ = false;
 };
 
 #endif // MAINWINDOW_H

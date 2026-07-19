@@ -60,8 +60,10 @@ public:
     // Download the update
     void downloadUpdate();
 
-    // Execute the update script (closes app and applies update)
-    Q_INVOKABLE void executeUpdateScript();
+    // Launch the external updater process (which waits for this app to exit,
+    // then swaps in the new files). Returns true if the updater was started;
+    // the caller is responsible for shutting the application down afterwards.
+    Q_INVOKABLE bool executeUpdateScript();
 
     // Get current state
     UpdateState state() const { return state_; }

@@ -607,11 +607,11 @@ bool UpdateService::createUpdateScript(const QString& updateDir)
 #endif
 }
 
-void UpdateService::executeUpdateScript()
+bool UpdateService::executeUpdateScript()
 {
     if (state_ != UpdateState::ReadyToInstall) {
         setError(tr("Update is not ready to install"));
-        return;
+        return false;
     }
 
     setState(UpdateState::Installing);
@@ -631,21 +631,22 @@ void UpdateService::executeUpdateScript()
     std::wstring wCmdLine = cmdLine.toStdWString();
 
     // Create process with CREATE_NEW_CONSOLE so it's visible
-    if (CreateProcessW(NULL, const_cast<wchar_t*>(wCmdLine.c_str()), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL,
+    if (!CreateProcessW(NULL, const_cast<wchar_t*>(wCmdLine.c_str()), NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL,
             &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-
-        // Keep temp directory alive by releasing it from unique_ptr
-        // The script will clean it up after update
-        tempDir_.release();
-
-        // Exit the application
-        qInfo() << "Update started, exiting application...";
-        QCoreApplication::quit();
-    } else {
         setError(tr("Failed to start update script"));
+        return false;
     }
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    // Keep temp directory alive by releasing it from unique_ptr
+    // The script will clean it up after update
+    tempDir_.release();
+
+    // The updater is now waiting for us to exit; the caller shuts the app down.
+    qInfo() << "Update started, application shutdown is up to the caller";
+    return true;
 
 #elif defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
     QString scriptPath = tempDir_->path() + "/update.sh";
@@ -653,16 +654,20 @@ void UpdateService::executeUpdateScript()
     qInfo() << "Executing update script:" << scriptPath;
 
     // Start the script in background
-    QProcess::startDetached("/bin/bash", { scriptPath });
+    if (!QProcess::startDetached("/bin/bash", { scriptPath })) {
+        setError(tr("Failed to start update script"));
+        return false;
+    }
 
     // Keep temp directory alive
     tempDir_.release();
 
-    // Exit the application
-    qInfo() << "Update started, exiting application...";
-    QCoreApplication::quit();
+    // The updater is now waiting for us to exit; the caller shuts the app down.
+    qInfo() << "Update started, application shutdown is up to the caller";
+    return true;
 #else
     setError(tr("Updates not supported on this platform"));
+    return false;
 #endif
 }
 
