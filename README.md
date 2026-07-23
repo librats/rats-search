@@ -167,6 +167,67 @@ Example:
 ./RatsSearch -c -p 4445 -d 4446 -s
 ```
 
+### Web Interface
+
+Rats Search includes a full-featured web interface for searching torrents, managing downloads, and monitoring the network.
+
+#### Starting with Web UI
+
+```bash
+# Console mode with web interface
+./RatsSearch --console --webui-dir ./webui
+
+# Or specify custom directory
+./RatsSearch --console --webui-dir /path/to/webui
+```
+
+#### Accessing the Interface
+
+Open your browser and navigate to:
+```
+http://localhost:8095
+```
+
+#### Features
+
+- **Search**: Full-text search over indexed torrents with sorting by name, type, size, seeders, leechers
+- **Top Torrents**: Most popular torrents by seeders with category filtering
+- **Feed**: Community-voted torrents feed
+- **Activity**: Real-time stream of newly indexed torrents (via WebSocket)
+- **Downloads**: Active download management with pause/resume/cancel and progress tracking
+- **Favorites**: Bookmark torrents (stored in browser localStorage)
+- **Details Panel**: Persistent right sidebar with torrent stats, voting, magnet links, file list
+- **Context Menu**: Right-click on any torrent for quick actions (copy hash, magnet link, export, favorite)
+- **Settings**: Full configuration UI with 5 tabs (General, Network, Indexer, Filters, Storage)
+- **Keyboard Shortcuts**: `/` or `Ctrl+K` to focus search, `Esc` to close panels, `1-5` to switch tabs, `Ctrl+O` to import torrent
+- **Dark/Light Theme**: Toggle between themes
+- **i18n**: English, Russian, German, Spanish, French
+- **Drag & Drop**: Visual overlay for .torrent file detection
+- **Toast Notifications**: Non-intrusive feedback for all actions
+
+#### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `/` or `Ctrl+K` | Focus search bar |
+| `Esc` | Close details panel / context menu |
+| `1` - `5` | Switch tabs (Top, Feed, Activity, Downloads, Favorites) |
+| `Ctrl+O` | Import .torrent file by server path |
+
+#### API Endpoints
+
+The web interface uses these API endpoints:
+
+- `GET /api/search.torrents?text=<query>&limit=<n>`
+- `GET /api/search.torrent?hash=<hash>&files=true`
+- `GET /api/stats.database`
+- `GET /api/stats.p2pStatus`
+- `GET /api/search.top?limit=<n>`
+- `GET /api/feed.get?index=<i>&limit=<n>`
+- `GET /api/downloads.list`
+- `POST /api/config.set` (settings save)
+- WebSocket on port `httpPort + 1` for real-time events
+
 ## Configuration
 
 After first launch, a configuration file `rats.json` will be created in the data directory:
@@ -230,7 +291,8 @@ docker run -d \
 
 | Port / Volume | Description |
 |---------------|-------------|
-| `8095` | HTTP REST API (enable `restApi` in `/data/rats.json`) |
+| `8095` | HTTP REST API + Web Interface (enable `restApi` in `/data/rats.json`) |
+| `8096` | WebSocket (real-time events, port = httpPort + 1) |
 | `/data` | Persistent storage for database, config, and logs |
 
 ---

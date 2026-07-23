@@ -48,7 +48,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libxkbcommon0 \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Remove default ubuntu user (may conflict with host UID 1000)
+RUN userdel -f ubuntu 2>/dev/null; rm -rf /home/ubuntu || true
+
+# Create non-root user
+RUN groupadd -r rats && useradd -r -g rats -d /app -s /sbin/nologin rats
 
 WORKDIR /app
 
@@ -60,7 +67,14 @@ COPY imports/linux/x64/searchd  /app/
 COPY imports/linux/x64/indexer  /app/
 COPY imports/linux/x64/indextool /app/
 
+# Copy web UI files
+COPY webui/ /app/webui/
+
 RUN chmod +x /app/RatsSearch /app/searchd /app/indexer /app/indextool
+
+# Copy and set up entrypoint (runs as root to fix /data permissions)
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Persistent data directory for database, config, and logs
 VOLUME /data
@@ -68,5 +82,12 @@ VOLUME /data
 # Default HTTP API port
 EXPOSE 8095
 
-# Run in console mode with spider enabled and 30 max peers
-CMD ["/app/RatsSearch", "--console", "--spider", "--max-peers", "30", "--data-dir", "/data"]
+# Health check for Kubernetes
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8095/healthz || exit 1
+
+# Entrypoint runs as root to fix /data ownership, then drops to rats user
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
+# CMD runs inside entrypoint (switched to rats user there)
+CMD ["/app/RatsSearch", "--console", "--spider", "--max-peers", "30", "--data-dir", "/data", "--webui-dir", "/app/webui"]

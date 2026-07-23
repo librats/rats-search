@@ -98,7 +98,8 @@ static void signalHandler(int)
 // Shared startup, used identically by console and GUI modes.
 // ============================================================================
 static void addCommonOptions(QCommandLineParser& parser, QCommandLineOption& port, QCommandLineOption& dhtPort,
-    QCommandLineOption& dataDir, QCommandLineOption& maxPeers, QCommandLineOption& spider, QCommandLineOption& console)
+    QCommandLineOption& dataDir, QCommandLineOption& maxPeers, QCommandLineOption& spider, QCommandLineOption& console,
+    QCommandLineOption& webuiDir)
 {
     parser.setApplicationDescription(QStringLiteral("Rats Search - BitTorrent P2P Search Engine"));
     parser.addHelpOption();
@@ -109,6 +110,7 @@ static void addCommonOptions(QCommandLineParser& parser, QCommandLineOption& por
     parser.addOption(dataDir);
     parser.addOption(maxPeers);
     parser.addOption(spider);
+    parser.addOption(webuiDir);
 }
 
 static QString resolveDataDirectory(QCommandLineParser& parser, const QCommandLineOption& dataDirOption)
@@ -196,8 +198,10 @@ int main(int argc, char* argv[])
     QCommandLineOption dataDirOption(QStringList() << "data-dir", QStringLiteral("Data directory"), "path");
     QCommandLineOption maxPeersOption(QStringList() << "m" << "max-peers", QStringLiteral("Max P2P connections"), "n");
     QCommandLineOption spiderOption(QStringList() << "s" << "spider", QStringLiteral("Force-enable the DHT spider"));
+    QCommandLineOption webuiDirOption(QStringList() << "w" << "webui-dir", QStringLiteral("Web UI directory"), "path");
     QCommandLineParser parser;
-    addCommonOptions(parser, portOption, dhtPortOption, dataDirOption, maxPeersOption, spiderOption, consoleOption);
+    addCommonOptions(parser, portOption, dhtPortOption, dataDirOption, maxPeersOption, spiderOption, consoleOption, webuiDirOption);
+    parser.addOption(webuiDirOption);
     parser.process(*qapp);
 
     const QString dataDir = resolveDataDirectory(parser, dataDirOption);
@@ -215,6 +219,7 @@ int main(int argc, char* argv[])
     options.dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
     options.maxPeers = parser.isSet(maxPeersOption) ? parser.value(maxPeersOption).toInt() : 0;
     options.forceSpider = parser.isSet(spiderOption);
+    options.webuiDir = parser.isSet(webuiDirOption) ? parser.value(webuiDirOption) : dataDir + "/webui";
 
     if (consoleMode)
         return runConsoleApplication(*qapp, std::move(options));

@@ -49,6 +49,7 @@ _deps
 # IDE
 .vscode/
 .idea/
+.qtcreator/
 *.swp
 *.swo
 *~
@@ -75,3 +76,6 @@ tmp/
 temp/
 *.tmp
 *.bak
+
+# Compose docs
+docs/compose/
