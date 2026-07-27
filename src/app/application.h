@@ -54,6 +54,7 @@ public:
     struct Options {
         QString dataDirectory;
         QString clientVersion;
+        QString webuiDir;
         bool headless = false; // --console mode (no widgets)
         // CLI overrides (0 / false => use the stored config value).
         int p2pPort = 0;

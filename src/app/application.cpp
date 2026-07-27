@@ -141,6 +141,7 @@ Application::Application(Options options, QObject* parent) : QObject(parent), d_
     d_->peerApi = std::make_unique<peer::PeerApi>(this); // registers P2P handlers
     d_->apiRouter = std::make_unique<rest::ApiRouter>(this);
     d_->apiServer = std::make_unique<rest::ApiServer>(d_->apiRouter.get());
+    d_->apiServer->setApplication(this);
 
     wireSignals();
     applyConfig();
@@ -257,8 +258,11 @@ bool Application::start()
     // Background (resumable) migrations.
     d_->migrations->startAsyncMigrations();
 
-    if (d_->config->restApiEnabled())
+    if (d_->config->restApiEnabled()) {
+        if (!d_->options.webuiDir.isEmpty())
+            d_->apiServer->setWebuiDir(d_->options.webuiDir);
         d_->apiServer->start(d_->config->httpPort());
+    }
 
     d_->running = true;
     return true;

@@ -1,0 +1,21 @@
+services:
+  rats-search:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8095:8095"
+      - "8096:8096"
+    volumes:
+      - /home/spider/.local/share/Rats Search:/data
+    environment:
+      - RATS_CONSOLE=true
+      - RATS_SPIDER=true
+      - RATS_MAX_PEERS=30
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8095/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
