@@ -201,7 +201,17 @@ QString TorrentRepository::contentTypeFilter(const QString& type)
 QVector<Torrent> TorrentRepository::selectTorrents(const QString& sql, const QVariantList& params)
 {
     QVector<Torrent> out;
-    for (const auto& row : db_->query(sql, params))
+    // If the incoming SQL uses SELECT *, rewrite to exclude 'info' to avoid
+    // blowing up the MySQL wire protocol buffer.
+    QString safeSql = sql;
+    if (safeSql.startsWith(QStringLiteral("SELECT * "))) {
+        static const QString kCols = QStringLiteral(
+            "SELECT id, hash, name, size, files, piecelength, added, ipv4, port, "
+            "contentType, contentCategory, seeders, leechers, completed, "
+            "trackersChecked, good, bad ");
+        safeSql = kCols + safeSql.mid(9); // skip "SELECT * "
+    }
+    for (const auto& row : db_->query(safeSql, params))
         out.append(rowToTorrent(row));
     return out;
 }
@@ -213,6 +223,12 @@ QVector<SearchHit> TorrentRepository::searchTorrents(const SearchQuery& q)
         return hits;
 
     SelectQuery builder(kTorrents);
+    // Exclude the large 'info' JSON column from search results — it blows up
+    // the MySQL wire protocol buffer on large result sets.
+    builder.columns(QStringLiteral(
+        "id, hash, name, size, files, piecelength, added, ipv4, port, "
+        "contentType, contentCategory, seeders, leechers, completed, "
+        "trackersChecked, good, bad"));
 
     static const QRegularExpression hexRe(QStringLiteral("^[0-9a-fA-F]{40}$"));
     if (hexRe.match(q.text).hasMatch())
@@ -315,6 +331,10 @@ QVector<Torrent> TorrentRepository::recent(int limit)
 QVector<Torrent> TorrentRepository::top(const QString& type, const QString& time, int offset, int limit)
 {
     SelectQuery builder(kTorrents);
+    builder.columns(QStringLiteral(
+        "id, hash, name, size, files, piecelength, added, ipv4, port, "
+        "contentType, contentCategory, seeders, leechers, completed, "
+        "trackersChecked, good, bad"));
     builder.whereRaw(QStringLiteral("seeders > 0"));
     builder.whereRaw(QStringLiteral("contentCategory != %1").arg(domain::toId(ContentCategory::XXX)));
     builder.whereRaw(contentTypeFilter(type));

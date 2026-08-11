@@ -35,6 +35,10 @@ add_rats_test(test_content_classifier ${CMAKE_SOURCE_DIR}/resources/resources.qr
 # data layer (Manticore + Database + TorrentRepository).
 add_rats_test(test_manticore_queries)
 
+# API server tests (webui static serving, health/metrics endpoints)
+add_rats_test(test_webui)
+add_rats_test(test_metrics_endpoint)
+
 # Copy libmysql.dll next to test executables so the QMYSQL driver can load
 if(WIN32)
     set(LIBMYSQL_PATH "${CMAKE_SOURCE_DIR}/imports/win/x64/libmysql.dll")
@@ -52,7 +56,8 @@ endif()
 add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
     DEPENDS test_domain test_query test_infohash test_update_service
-            test_config_store test_filter_policy test_content_classifier test_manticore_queries
+            test_content_classifier test_manticore_queries
+            test_webui test_metrics_endpoint
     COMMENT "Running all tests..."
 )
 

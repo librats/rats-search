@@ -16,6 +16,7 @@
 #include "services/peer_registry.h"
 #include "services/search_service.h"
 #include "services/torrent_creator.h"
+#include "services/torrent_exporter.h"
 #include "services/tracker_service.h"
 #include "services/update_service.h"
 #include "services/voting_service.h"
@@ -646,6 +647,26 @@ void ApiRouter::registerMethods()
         respond(Result::success(result));
     });
 
+    add("stats.database", [this](const QJsonObject& /*params*/, const ResultCallback& respond) {
+        const data::TorrentRepository::Statistics stats = app_->torrents()->statistics();
+        QJsonObject result;
+        result["torrents"] = stats.torrents;
+        result["files"] = stats.files;
+        result["size"] = stats.totalSize;
+        respond(Result::success(result));
+    });
+
+    add("stats.p2pStatus", [this](const QJsonObject& /*params*/, const ResultCallback& respond) {
+        QJsonObject result;
+        if (auto* t = app_->transport()) {
+            result["peerCount"] = t->peerCount();
+            result["dhtNodes"] = static_cast<qint64>(t->dhtNodeCount());
+            result["dhtRunning"] = t->isDhtRunning();
+            result["running"] = t->isRunning();
+        }
+        respond(Result::success(result));
+    });
+
     add("peers.list", [this](const QJsonObject& /*params*/, const ResultCallback& respond) {
         const QHash<QString, domain::PeerStats> peers = app_->peers()->connectedPeers();
         QJsonArray result;
@@ -713,6 +734,26 @@ void ApiRouter::registerMethods()
             [finish](const QString& error) { finish(Result::failure(error)); }));
 
         svc->checkForUpdates();
+    });
+
+    // torrent.export: returns cache path and triggers async .torrent generation
+    add("torrent.export", [this](const QJsonObject& params, const ResultCallback& respond) {
+        const QString hash = infohash::normalize(params["hash"].toString());
+        if (!infohash::isValid(hash)) {
+            respond(Result::failure("Invalid hash"));
+            return;
+        }
+        auto opt = app_->search()->get(hash, false);
+        if (!opt) {
+            respond(Result::failure("Torrent not found"));
+            return;
+        }
+        const QString path = app_->exporter()->cachePath(hash);
+        QJsonObject result;
+        result["path"] = path;
+        result["name"] = opt->name;
+        app_->exporter()->requestExport(hash, opt->name);
+        respond(Result::success(result));
     });
 }
 

@@ -48,6 +48,13 @@ public:
     void stop();
     bool isRunning() const;
 
+    // Metrics getters
+    int discoveredCount() const { return discoveredCount_.load(); }
+    int activeFetches() const { return activeFetches_.load(); }
+    int fetchSuccessCount() const { return fetchSuccessCount_.load(); }
+    int fetchErrorCount() const { return fetchErrorCount_.load(); }
+    int visitedNodesCount() const { return visitedNodesCount_.load(); }
+
     // Tuning
     void setWalkInterval(int intervalMs);
 
@@ -102,6 +109,9 @@ private:
     std::atomic<bool> running_;
     std::atomic<int> discoveredCount_;
     std::atomic<int> activeFetches_;
+    std::atomic<int> fetchSuccessCount_;
+    std::atomic<int> fetchErrorCount_;
+    std::atomic<int> visitedNodesCount_;
 
     QTimer* walkTimer_;
     QTimer* ignoreTimer_;

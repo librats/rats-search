@@ -34,6 +34,9 @@ Crawler::Crawler(P2PTransport* transport, QObject* parent)
     , running_(false)
     , discoveredCount_(0)
     , activeFetches_(0)
+    , fetchSuccessCount_(0)
+    , fetchErrorCount_(0)
+    , visitedNodesCount_(0)
     , walkIntervalMs_(DEFAULT_WALK_INTERVAL_MS)
 {
     walkTimer_ = new QTimer(this);
@@ -177,6 +180,8 @@ void Crawler::onSpiderWalk()
         return;
     }
 
+    visitedNodesCount_++;
+
 #ifdef RATS_SEARCH_FEATURES
     // Trigger a spider walk to expand the DHT routing table.
     librats::Bittorrent* bt = bittorrent();
@@ -290,6 +295,7 @@ void Crawler::fetchMetadata(const MetadataRequest& request)
 
         if (!success || !torrentInfo.is_valid()) {
             qInfo() << "Failed to get metadata for" << infoHash.left(8) << ":" << QString::fromStdString(err);
+            fetchErrorCount_++;
             return;
         }
 
@@ -317,9 +323,8 @@ void Crawler::fetchMetadata(const MetadataRequest& request)
 
 void Crawler::onMetadataReceived(const rats::domain::Torrent& torrent)
 {
-    qInfo() << "Discovered torrent metadata:" << torrent.name << "(" << torrent.hash.left(8) << ")";
-
     discoveredCount_++;
+    fetchSuccessCount_++;
     emit discovered(torrent);
 }
 
