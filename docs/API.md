@@ -118,7 +118,7 @@ See [WebSocket Events](#websocket-events) for details.
 | `torrent.cleanup` | Re-apply the filter policy to the index and drop torrents that no longer pass |
 | `torrent.create` | Create a `.torrent` file (optionally start seeding) |
 | `torrent.import` | Parse a `.torrent` file and index it |
-| `database.export` | Write the whole index to a portable `.ratsdb` dump |
+| `database.export` | Write the whole index to a file (`.ratsdb`, CSV or JSON Lines) |
 | `database.import` | Merge a `.ratsdb` dump into the index |
 | `database.pull` | Ask a connected peer for its whole index |
 | `database.status` | Current state of the running database sync |
@@ -413,17 +413,41 @@ Only one database operation runs at a time. All three starting methods return
 immediately with the sync status; progress arrives as `databaseSyncProgress`
 WebSocket events and the outcome as `databaseSyncFinished`.
 
-#### `database.export` - Write the index to a dump file
+#### `database.export` - Write the index to a file
 
 ```
 GET http://localhost:8095/api/database.export?path=C:/backup/index.ratsdb
+GET http://localhost:8095/api/database.export?path=C:/backup/index.csv&includeFiles=true
 ```
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `path` (or `file`) | string | yes | | Destination `.ratsdb` file |
+| `path` (or `file`) | string | yes | | Destination file |
+| `format` | string | no | from the extension | `ratsdb`, `csv` or `jsonl` |
+| `includeFiles` | bool | no | `false` | CSV only: also write `<base>.files.csv` |
 
-**Response** - the sync status object (see `database.status`).
+Three formats are available. Only `ratsdb` can be given back to
+`database.import` — CSV and JSON Lines are one-way, written for other programs
+to read:
+
+| Format | Extensions | Contents |
+|--------|-----------|----------|
+| `ratsdb` | `.ratsdb`, anything unrecognised | Compressed portable dump. Lossless, re-importable, and what a peer transfer sends. |
+| `csv` | `.csv` | RFC 4180 spreadsheet, UTF-8 BOM, one row per torrent. The file list is flat-out impossible in one CSV, so `includeFiles` writes it as a companion `<base>.files.csv` (`hash,path,size`) that joins back on `hash`. |
+| `jsonl` | `.jsonl`, `.ndjson`, `.json` | Newline-delimited JSON, one torrent per line, no preamble. The same object `search.torrents` returns, so it is lossless. Reads directly into `jq`, `pandas.read_json(lines=True)` and DuckDB. |
+
+Omitting `format` picks it from the file extension; naming it explicitly is for
+paths without a recognisable suffix. An unknown name is rejected rather than
+silently writing a different format.
+
+Note that CSV escapes a leading `=`, `+`, `-` or `@` with an apostrophe, and
+replaces control characters with spaces, so that torrent names — which are
+written by strangers on the DHT — cannot execute as formulas in a spreadsheet.
+Names are therefore not always byte-identical to the index; use `jsonl` when
+they must be.
+
+**Response** - the sync status object (see `database.status`), including the
+`format` that was chosen.
 
 ---
 

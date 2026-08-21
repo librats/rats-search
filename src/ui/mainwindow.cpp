@@ -33,6 +33,7 @@
 #include "rest/api_router.h"
 #include "services/database_sync_service.h"
 #include "services/download_service.h"
+#include "services/export_sink.h"
 #include "services/indexing_service.h"
 #include "services/migration_service.h"
 #include "services/peer_registry.h"
@@ -720,8 +721,13 @@ void MainWindow::connectServiceSignals()
                 const qint64 processed = summary["processed"].toVariant().toLongLong();
                 if (operation == QLatin1String("export")) {
                     showStatusMessage(tr("Exported %1 torrents.").arg(processed), 8000);
-                    QMessageBox::information(this, tr("Export Database"),
-                        tr("Exported %1 torrents to:\n%2").arg(processed).arg(summary["path"].toString()));
+                    QString text = tr("Exported %1 torrents to:\n%2").arg(processed).arg(summary["path"].toString());
+                    // CSV and JSON Lines are written for other programs to read.
+                    if (summary["format"].toString() != QLatin1String("ratsdb")) {
+                        text += QStringLiteral("\n\n")
+                            + tr("This format is written for other programs — it cannot be imported back.");
+                    }
+                    QMessageBox::information(this, tr("Export Database"), text);
                     return;
                 }
                 if (operation == QLatin1String("peerServe")) {
@@ -1833,12 +1839,52 @@ void MainWindow::exportDatabase()
                                   .absoluteFilePath(QStringLiteral("rats-index-%1.ratsdb")
                                           .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd"))));
 
-    const QString path = QFileDialog::getSaveFileName(
-        this, tr("Export Database"), suggested, tr("Rats Database (*.ratsdb);;All Files (*)"));
+    // The file name is what picks the format (service::exportFormatForPath), so
+    // the filter only supplies a suffix when the user typed none. One rule, and
+    // the file always says what is inside it.
+    const QString ratsdbFilter = tr("Rats Database, can be imported back (*.ratsdb)");
+    const QString csvFilter = tr("CSV spreadsheet (*.csv)");
+    const QString jsonlFilter = tr("JSON Lines (*.jsonl)");
+    QString selectedFilter = ratsdbFilter;
+    QString path = QFileDialog::getSaveFileName(this, tr("Export Database"), suggested,
+        QStringList { ratsdbFilter, csvFilter, jsonlFilter, tr("All Files (*)") }.join(QStringLiteral(";;")),
+        &selectedFilter);
     if (path.isEmpty())
         return;
 
-    app_->api()->call("database.export", QJsonObject { { "path", path } }, [this](const Result& response) {
+    if (QFileInfo(path).suffix().isEmpty()) {
+        if (selectedFilter == csvFilter)
+            path += QStringLiteral(".csv");
+        else if (selectedFilter == jsonlFilter)
+            path += QStringLiteral(".jsonl");
+        else
+            path += QStringLiteral(".ratsdb");
+    }
+
+    QJsonObject params { { "path", path } };
+
+    // A CSV row is flat, so a torrent's file list can only travel as a second
+    // sheet — and this is the moment to say the export is one-way, before it
+    // runs rather than once it is too late to pick something else.
+    if (rats::service::exportFormatForPath(path) == rats::service::ExportFormat::Csv) {
+        QMessageBox confirm(this);
+        confirm.setIcon(QMessageBox::Question);
+        confirm.setWindowTitle(tr("Export Database"));
+        confirm.setText(tr("Export your index as a spreadsheet?"));
+        confirm.setInformativeText(tr("One row per torrent. A CSV cannot be imported back — export a .ratsdb "
+                                      "file to move your index to another Rats Search."));
+
+        QCheckBox* filesBox = new QCheckBox(tr("Also write the file list as a second CSV"), &confirm);
+        confirm.setCheckBox(filesBox);
+        confirm.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+        confirm.setDefaultButton(QMessageBox::Ok);
+
+        if (confirm.exec() != QMessageBox::Ok)
+            return;
+        params["includeFiles"] = filesBox->isChecked();
+    }
+
+    app_->api()->call("database.export", params, [this](const Result& response) {
         if (!response.ok()) {
             QMessageBox::warning(
                 this, tr("Export Database"), tr("Could not start the export.\n\n%1").arg(response.error()));

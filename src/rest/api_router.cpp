@@ -617,8 +617,26 @@ void ApiRouter::registerMethods()
             return;
         }
         const QString path = params.contains("path") ? params["path"].toString() : params["file"].toString();
+
+        // No "format" means "take it from the extension", which is what the GUI
+        // relies on; naming one explicitly is for callers exporting to a path
+        // that does not carry a recognisable suffix.
+        service::DatabaseSyncService::ExportSettings settings;
+        if (params.contains("format")) {
+            const QString name = params["format"].toString();
+            const std::optional<service::ExportFormat> format = service::exportFormatFromName(name);
+            if (!format) {
+                respond(Result::failure(
+                    QStringLiteral("Unknown export format \"%1\" (expected ratsdb, csv or jsonl)").arg(name)));
+                return;
+            }
+            settings.format = format;
+        }
+        // CSV only: write the file list as a companion "<base>.files.csv".
+        settings.includeFiles = params["includeFiles"].toBool(false);
+
         QString error;
-        if (!sync->exportToFile(path, &error)) {
+        if (!sync->exportToFile(path, settings, &error)) {
             respond(Result::failure(error));
             return;
         }
