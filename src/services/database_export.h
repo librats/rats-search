@@ -66,6 +66,80 @@ private:
     bool finished_ = false;
 };
 
+// Comma-separated values (RFC 4180), for spreadsheets and ad-hoc analysis.
+//
+// This is the lossy sink, deliberately: a CSV row is flat, so the two nested
+// halves of a torrent have to go somewhere. `info` is reduced to the two fields
+// a human reads (poster, description), and the file list moves to a companion
+// file — "<base>.files.csv", one row per file, joined back on `hash` — written
+// only when the caller asks for it. When it is off the exporter skips the
+// per-page file query altogether, which is the expensive half of a full sweep;
+// the `files` *count* column survives either way because it lives on the
+// torrent row itself.
+//
+// Three details exist purely because the audience is Excel:
+//   - a UTF-8 BOM, without which Excel on Windows mojibakes every non-ASCII
+//     name, and a DHT index is full of them;
+//   - CRLF line endings, as the RFC specifies;
+//   - a leading apostrophe on any field starting with =, +, - or @, which Excel
+//     would otherwise execute as a formula. Every name in this database was
+//     written by a stranger on the DHT, so that is untrusted input reaching a
+//     spreadsheet (CWE-1236).
+//
+// Control characters inside a name are replaced with spaces rather than quoted:
+// the RFC does permit embedded newlines inside quotes, but enough real-world
+// parsers mis-handle them that keeping one record on one physical line is worth
+// the substitution.
+class CsvWriter : public TorrentSink {
+public:
+    struct Options {
+        // Also write the companion "<base>.files.csv".
+        bool includeFiles = false;
+    };
+
+    explicit CsvWriter(Options options);
+    // GCC refuses to evaluate a nested struct's member initialisers in a default
+    // argument while the enclosing class is still incomplete — the same reason
+    // DatabaseSyncService::importFromFile carries overloads instead of one — so
+    // the no-argument form is its own constructor.
+    CsvWriter();
+    ~CsvWriter() override;
+
+    CsvWriter(const CsvWriter&) = delete;
+    CsvWriter& operator=(const CsvWriter&) = delete;
+
+    // Create/truncate `path` (and the companion file, when enabled) and queue
+    // the BOM + column headers. `header` is unused: a provenance line would put
+    // something other than a record in a CSV, which no reader expects.
+    bool open(const QString& path, const ExportHeader& header, QString* error = nullptr) override;
+    bool isOpen() const;
+
+    bool write(const domain::Torrent& torrent, QString* error = nullptr) override;
+    bool finish(QString* error = nullptr) override;
+    void abort() override;
+
+    bool needsFiles() const override { return options_.includeFiles; }
+
+    // Companion file path, empty when the file list is not being written.
+    QString filesPath() const { return filesPath_; }
+    qint64 torrentsWritten() const { return written_; }
+    qint64 filesWritten() const { return filesWritten_; }
+    qint64 bytesWritten() const override;
+
+private:
+    bool flush(QString* error);
+
+    Options options_;
+    std::unique_ptr<QFile> file_;
+    std::unique_ptr<QFile> filesFile_;
+    QString filesPath_;
+    QByteArray pending_;
+    QByteArray filesPending_;
+    qint64 written_ = 0;
+    qint64 filesWritten_ = 0;
+    bool finished_ = false;
+};
+
 } // namespace rats::service
 
 #endif // RATS_SERVICE_DATABASE_EXPORT_H

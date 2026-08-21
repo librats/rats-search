@@ -13,6 +13,7 @@
 #include "services/database_export.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -68,6 +69,80 @@ QList<QByteArray> readRecordLines(const QString& path)
     return parts;
 }
 
+QByteArray readAllBytes(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return file.readAll();
+}
+
+// Rows of a CSV file, BOM stripped, split on CRLF. Splitting on CRLF is itself
+// the line-ending check: an LF-only writer would come back as one giant row.
+QStringList readCsvRows(const QString& path)
+{
+    QByteArray all = readAllBytes(path);
+    if (all.startsWith(QByteArray("\xEF\xBB\xBF")))
+        all.remove(0, 3);
+    QStringList rows = QString::fromUtf8(all).split(QStringLiteral("\r\n"));
+    if (!rows.isEmpty() && rows.last().isEmpty())
+        rows.removeLast();
+    return rows;
+}
+
+// An independent RFC 4180 field reader, so the writer is checked against a
+// different implementation instead of against itself.
+QStringList splitCsvRow(const QString& row)
+{
+    QStringList fields;
+    QString current;
+    bool quoted = false;
+    for (int i = 0; i < row.size(); ++i) {
+        const QChar c = row.at(i);
+        if (quoted) {
+            if (c != QLatin1Char('"')) {
+                current += c;
+            } else if (i + 1 < row.size() && row.at(i + 1) == QLatin1Char('"')) {
+                current += QLatin1Char('"'); // "" is one escaped quote
+                ++i;
+            } else {
+                quoted = false;
+            }
+        } else if (c == QLatin1Char('"')) {
+            quoted = true;
+        } else if (c == QLatin1Char(',')) {
+            fields << current;
+            current.clear();
+        } else {
+            current += c;
+        }
+    }
+    fields << current;
+    return fields;
+}
+
+// Column order of the torrents CSV.
+enum Col {
+    ColHash = 0,
+    ColName,
+    ColSize,
+    ColFiles,
+    ColPieceLength,
+    ColAdded,
+    ColType,
+    ColCategory,
+    ColSeeders,
+    ColLeechers,
+    ColCompleted,
+    ColTrackersChecked,
+    ColGood,
+    ColBad,
+    ColMagnet,
+    ColPoster,
+    ColDescription,
+    ColCount
+};
+
 } // namespace
 
 class TestDatabaseExport : public QObject {
@@ -80,6 +155,16 @@ private slots:
     void testJsonLinesEmptyExport();
     void testJsonLinesUnfinishedWriteLeavesNoFile();
     void testJsonLinesFlushesLargeBatches();
+
+    void testCsvHeaderAndBom();
+    void testCsvRoundTripsQuotedText();
+    void testCsvDefusesFormulaInjection();
+    void testCsvFlattensControlCharacters();
+    void testCsvWritesIsoDates();
+    void testCsvCompanionFileList();
+    void testCsvWithoutFileListWritesNoCompanion();
+    void testCsvUnfinishedWriteLeavesNoFiles();
+    void testCsvEmptyExportKeepsHeader();
 
 private:
     QTemporaryDir dir_;
@@ -217,6 +302,207 @@ void TestDatabaseExport::testJsonLinesFlushesLargeBatches()
         QCOMPARE(parse.error, QJsonParseError::NoError);
         QCOMPARE(codec::torrentFromJson(doc.object()).hash, makeTorrent(i).hash);
     }
+}
+
+void TestDatabaseExport::testCsvHeaderAndBom()
+{
+    const QString file = path(QStringLiteral("header.csv"));
+
+    CsvWriter writer;
+    QVERIFY(writer.open(file, makeHeader(1)));
+    QVERIFY(writer.write(makeTorrent(1)));
+    QVERIFY(writer.finish());
+
+    // Without the BOM, Excel on Windows mojibakes every non-ASCII name.
+    const QByteArray raw = readAllBytes(file);
+    QVERIFY(raw.startsWith(QByteArray("\xEF\xBB\xBF")));
+    QVERIFY(raw.endsWith(QByteArray("\r\n")));
+
+    const QStringList rows = readCsvRows(file);
+    QCOMPARE(rows.size(), 2); // header + one torrent
+
+    const QStringList header = splitCsvRow(rows.first());
+    QCOMPARE(header.size(), qsizetype(ColCount));
+    QCOMPARE(header.at(ColHash), QStringLiteral("hash"));
+    QCOMPARE(header.at(ColName), QStringLiteral("name"));
+    QCOMPARE(header.at(ColMagnet), QStringLiteral("magnet"));
+    QCOMPARE(header.at(ColDescription), QStringLiteral("description"));
+}
+
+void TestDatabaseExport::testCsvRoundTripsQuotedText()
+{
+    const QString file = path(QStringLiteral("quoting.csv"));
+
+    Torrent torrent = makeTorrent(4);
+    torrent.name = QStringLiteral("Comma, quote\" and \"\"double\"\" Кириллица");
+    torrent.info = QJsonObject { { QStringLiteral("description"), QStringLiteral("multi, field \"text\"") } };
+
+    CsvWriter writer;
+    QVERIFY(writer.open(file, makeHeader(1)));
+    QVERIFY(writer.write(torrent));
+    QVERIFY(writer.finish());
+
+    const QStringList rows = readCsvRows(file);
+    QCOMPARE(rows.size(), 2);
+
+    const QStringList fields = splitCsvRow(rows.at(1));
+    QCOMPARE(fields.size(), qsizetype(ColCount));
+    QCOMPARE(fields.at(ColName), torrent.name);
+    QCOMPARE(fields.at(ColDescription), QStringLiteral("multi, field \"text\""));
+    QCOMPARE(fields.at(ColHash), torrent.hash);
+    QCOMPARE(fields.at(ColSize), QString::number(torrent.size));
+    QCOMPARE(fields.at(ColType), QStringLiteral("video"));
+    QCOMPARE(fields.at(ColCategory), QStringLiteral("movie"));
+}
+
+void TestDatabaseExport::testCsvDefusesFormulaInjection()
+{
+    const QString file = path(QStringLiteral("injection.csv"));
+
+    // Every one of these is a name a stranger can publish on the DHT.
+    const QStringList dangerous = { QStringLiteral("=cmd|' /c calc'!A1"), QStringLiteral("+1+1"),
+        QStringLiteral("-2+3"), QStringLiteral("@SUM(A1)") };
+
+    CsvWriter writer;
+    QVERIFY(writer.open(file, makeHeader(dangerous.size())));
+    for (int i = 0; i < dangerous.size(); ++i) {
+        Torrent torrent = makeTorrent(i);
+        torrent.name = dangerous.at(i);
+        QVERIFY(writer.write(torrent));
+    }
+    QVERIFY(writer.finish());
+
+    const QStringList rows = readCsvRows(file);
+    QCOMPARE(rows.size(), dangerous.size() + 1);
+    for (int i = 0; i < dangerous.size(); ++i) {
+        // The apostrophe is what stops Excel executing the cell.
+        QCOMPARE(splitCsvRow(rows.at(i + 1)).at(ColName), QStringLiteral("'") + dangerous.at(i));
+    }
+}
+
+void TestDatabaseExport::testCsvFlattensControlCharacters()
+{
+    const QString file = path(QStringLiteral("controls.csv"));
+
+    Torrent torrent = makeTorrent(5);
+    torrent.name = QStringLiteral("line\nbreak\ttab\rreturn");
+
+    CsvWriter writer;
+    QVERIFY(writer.open(file, makeHeader(2)));
+    QVERIFY(writer.write(torrent));
+    QVERIFY(writer.write(makeTorrent(6)));
+    QVERIFY(writer.finish());
+
+    // The RFC would allow the newline inside quotes; too many readers mishandle
+    // it, so one torrent stays one physical row.
+    const QStringList rows = readCsvRows(file);
+    QCOMPARE(rows.size(), 3);
+    QCOMPARE(splitCsvRow(rows.at(1)).at(ColName), QStringLiteral("line break tab return"));
+}
+
+void TestDatabaseExport::testCsvWritesIsoDates()
+{
+    const QString file = path(QStringLiteral("dates.csv"));
+
+    const Torrent torrent = makeTorrent(0);
+    QVERIFY(!torrent.trackersChecked.isValid()); // never scraped
+
+    CsvWriter writer;
+    QVERIFY(writer.open(file, makeHeader(1)));
+    QVERIFY(writer.write(torrent));
+    QVERIFY(writer.finish());
+
+    const QStringList fields = splitCsvRow(readCsvRows(file).at(1));
+    QCOMPARE(fields.at(ColAdded), torrent.added.toUTC().toString(Qt::ISODate));
+    QVERIFY(fields.at(ColAdded).endsWith(QLatin1Char('Z')));
+    // "Never scraped" is an empty cell, not an event in 1970.
+    QVERIFY(fields.at(ColTrackersChecked).isEmpty());
+}
+
+void TestDatabaseExport::testCsvCompanionFileList()
+{
+    const QString file = path(QStringLiteral("with-files.csv"));
+
+    CsvWriter::Options options;
+    options.includeFiles = true;
+    CsvWriter writer(options);
+    QVERIFY(writer.needsFiles());
+    QVERIFY(writer.open(file, makeHeader(3)));
+    for (int i = 0; i < 3; ++i)
+        QVERIFY(writer.write(makeTorrent(i)));
+    QVERIFY(writer.finish());
+
+    QCOMPARE(writer.torrentsWritten(), qint64(3));
+    QCOMPARE(writer.filesWritten(), qint64(6)); // two files each
+
+    const QString companion = writer.filesPath();
+    QCOMPARE(QFileInfo(companion).fileName(), QStringLiteral("with-files.files.csv"));
+    QVERIFY(QFile::exists(companion));
+
+    const QStringList rows = readCsvRows(companion);
+    QCOMPARE(rows.size(), 7); // header + six files
+    QCOMPARE(splitCsvRow(rows.first()),
+        QStringList({ QStringLiteral("hash"), QStringLiteral("path"), QStringLiteral("size") }));
+
+    // A file row joins back to its torrent on hash — that is the whole contract
+    // of splitting the export in two.
+    const Torrent expected = makeTorrent(0);
+    const QStringList first = splitCsvRow(rows.at(1));
+    QCOMPARE(first.at(0), expected.hash);
+    QCOMPARE(first.at(1), expected.fileList[0].path);
+    QCOMPARE(first.at(2), QString::number(expected.fileList[0].size));
+}
+
+void TestDatabaseExport::testCsvWithoutFileListWritesNoCompanion()
+{
+    const QString file = path(QStringLiteral("flat.csv"));
+
+    CsvWriter writer; // default: torrents only
+    QVERIFY(!writer.needsFiles());
+    QVERIFY(writer.open(file, makeHeader(1)));
+    QVERIFY(writer.write(makeTorrent(2))); // carries a file list that must be ignored
+    QVERIFY(writer.finish());
+
+    QVERIFY(writer.filesPath().isEmpty());
+    QCOMPARE(writer.filesWritten(), qint64(0));
+    QVERIFY(!QFile::exists(path(QStringLiteral("flat.files.csv"))));
+
+    // The file *count* still lands: it lives on the torrent row, so skipping the
+    // file query costs the flat export nothing.
+    QCOMPARE(splitCsvRow(readCsvRows(file).at(1)).at(ColFiles), QStringLiteral("2"));
+}
+
+void TestDatabaseExport::testCsvUnfinishedWriteLeavesNoFiles()
+{
+    const QString file = path(QStringLiteral("unfinished.csv"));
+    const QString companion = path(QStringLiteral("unfinished.files.csv"));
+
+    {
+        CsvWriter::Options options;
+        options.includeFiles = true;
+        CsvWriter writer(options);
+        QVERIFY(writer.open(file, makeHeader(1)));
+        QVERIFY(writer.write(makeTorrent(0)));
+        // Destroyed without finish().
+    }
+
+    // Both halves go: a companion outliving its export would be worse than none.
+    QVERIFY(!QFile::exists(file));
+    QVERIFY(!QFile::exists(companion));
+}
+
+void TestDatabaseExport::testCsvEmptyExportKeepsHeader()
+{
+    const QString file = path(QStringLiteral("empty.csv"));
+
+    CsvWriter writer;
+    QVERIFY(writer.open(file, makeHeader(0)));
+    QVERIFY(writer.finish());
+
+    // A header-only sheet is the right answer for an empty index.
+    const QStringList rows = readCsvRows(file);
+    QCOMPARE(rows.size(), 1);
+    QCOMPARE(splitCsvRow(rows.first()).at(ColHash), QStringLiteral("hash"));
 }
 
 QTEST_MAIN(TestDatabaseExport)
