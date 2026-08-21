@@ -5,6 +5,8 @@
 
 #include <QDateTime>
 #include <QString>
+#include <memory>
+#include <optional>
 
 namespace rats::service {
 
@@ -60,6 +62,33 @@ public:
     // should say so.
     virtual bool needsFiles() const = 0;
 };
+
+// Which file format an export writes.
+enum class ExportFormat {
+    Ratsdb, // the portable dump: compressed, and the only re-importable one
+    Csv, // spreadsheets and ad-hoc analysis
+    JsonLines, // newline-delimited JSON for scripts and data tools
+};
+
+// Format-specific knobs, ignored by the formats they do not apply to so that
+// callers never have to switch on the format themselves.
+struct ExportOptions {
+    bool includeFiles = false; // CSV: also write the companion file list
+};
+
+// The format `path`'s extension asks for. ".csv" and the JSON-ish suffixes map
+// to their text formats — whatever the caller meant by them, a file they can
+// open beats a binary dump — and everything else falls back to the dump.
+ExportFormat exportFormatForPath(const QString& path);
+
+// API/wire name of a format, and its inverse. fromName answers nullopt for an
+// unknown name so the caller can reject it instead of silently writing
+// something else.
+QString exportFormatName(ExportFormat format);
+std::optional<ExportFormat> exportFormatFromName(const QString& name);
+
+// The sink that writes `format`. Never null.
+std::unique_ptr<TorrentSink> makeExportSink(ExportFormat format, const ExportOptions& options);
 
 } // namespace rats::service
 

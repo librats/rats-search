@@ -11,6 +11,7 @@
 #include "domain/torrent.h"
 #include "domain/torrent_codec.h"
 #include "services/database_export.h"
+#include "services/export_sink.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -165,6 +166,10 @@ private slots:
     void testCsvWithoutFileListWritesNoCompanion();
     void testCsvUnfinishedWriteLeavesNoFiles();
     void testCsvEmptyExportKeepsHeader();
+
+    void testFormatFollowsFileExtension();
+    void testFormatNamesRoundTrip();
+    void testFactoryBuildsTheRightSink();
 
 private:
     QTemporaryDir dir_;
@@ -503,6 +508,69 @@ void TestDatabaseExport::testCsvEmptyExportKeepsHeader()
     const QStringList rows = readCsvRows(file);
     QCOMPARE(rows.size(), 1);
     QCOMPARE(splitCsvRow(rows.first()).at(ColHash), QStringLiteral("hash"));
+}
+
+void TestDatabaseExport::testFormatFollowsFileExtension()
+{
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.csv")) == ExportFormat::Csv);
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.CSV")) == ExportFormat::Csv);
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.jsonl")) == ExportFormat::JsonLines);
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.ndjson")) == ExportFormat::JsonLines);
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.json")) == ExportFormat::JsonLines);
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.ratsdb")) == ExportFormat::Ratsdb);
+
+    // A dotted base name is not an extension.
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/my.index.csv")) == ExportFormat::Csv);
+    // Anything unrecognised stays the format that can be imported back.
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index")) == ExportFormat::Ratsdb);
+    QVERIFY(exportFormatForPath(QStringLiteral("/tmp/index.bin")) == ExportFormat::Ratsdb);
+}
+
+void TestDatabaseExport::testFormatNamesRoundTrip()
+{
+    for (const ExportFormat format : { ExportFormat::Ratsdb, ExportFormat::Csv, ExportFormat::JsonLines })
+        QVERIFY(exportFormatFromName(exportFormatName(format)) == format);
+
+    QCOMPARE(exportFormatName(ExportFormat::Csv), QStringLiteral("csv"));
+    QCOMPARE(exportFormatName(ExportFormat::JsonLines), QStringLiteral("jsonl"));
+    QVERIFY(exportFormatFromName(QStringLiteral("  CSV ")) == ExportFormat::Csv);
+    // An unknown name is rejected, not quietly turned into some other format.
+    QVERIFY(!exportFormatFromName(QStringLiteral("xlsx")).has_value());
+}
+
+void TestDatabaseExport::testFactoryBuildsTheRightSink()
+{
+    struct Case {
+        ExportFormat format;
+        bool includeFiles;
+        bool needsFiles;
+        QByteArray magic;
+        QString name;
+    };
+
+    const QList<Case> cases = {
+        { ExportFormat::Ratsdb, false, true, QByteArray("RATSDB"), QStringLiteral("sink.ratsdb") },
+        { ExportFormat::JsonLines, false, true, QByteArray("{"), QStringLiteral("sink.jsonl") },
+        // Only the flat CSV can skip the file query; that is the whole point of
+        // needsFiles().
+        { ExportFormat::Csv, false, false, QByteArray("\xEF\xBB\xBF"), QStringLiteral("sink-flat.csv") },
+        { ExportFormat::Csv, true, true, QByteArray("\xEF\xBB\xBF"), QStringLiteral("sink-files.csv") },
+    };
+
+    for (const Case& testCase : cases) {
+        ExportOptions options;
+        options.includeFiles = testCase.includeFiles;
+        const std::unique_ptr<TorrentSink> sink = makeExportSink(testCase.format, options);
+        QVERIFY(sink != nullptr);
+        QCOMPARE(sink->needsFiles(), testCase.needsFiles);
+
+        // The bytes prove which sink came back, not just its interface.
+        const QString file = path(testCase.name);
+        QVERIFY(sink->open(file, makeHeader(1)));
+        QVERIFY(sink->write(makeTorrent(0)));
+        QVERIFY(sink->finish());
+        QVERIFY(readAllBytes(file).startsWith(testCase.magic));
+    }
 }
 
 QTEST_MAIN(TestDatabaseExport)

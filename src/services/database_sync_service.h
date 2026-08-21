@@ -1,12 +1,15 @@
 #ifndef RATS_SERVICE_DATABASE_SYNC_SERVICE_H
 #define RATS_SERVICE_DATABASE_SYNC_SERVICE_H
 
+#include "services/export_sink.h"
+
 #include <QFuture>
 #include <QJsonObject>
 #include <QMutex>
 #include <QObject>
 #include <QString>
 #include <atomic>
+#include <optional>
 
 namespace rats::data {
 class TorrentRepository;
@@ -49,6 +52,13 @@ class DatabaseSyncService : public QObject {
 public:
     enum class Operation { None, Export, Import, PeerPull, PeerServe };
 
+    struct ExportSettings {
+        // Unset means "take the format from the file extension".
+        std::optional<ExportFormat> format;
+        // CSV only: also write the companion "<base>.files.csv".
+        bool includeFiles = false;
+    };
+
     struct ImportOptions {
         // Run the local filter policy over the incoming torrents. On by default:
         // a foreign index must not smuggle content past the user's own filters.
@@ -65,6 +75,7 @@ public:
         bool running = false;
         QString stage; // "exporting", "waiting", "transferring", "importing"
         QString path;
+        QString format; // export only: the chosen format's name
         QString peerId;
         QString error;
         qint64 processed = 0; // torrents read/written so far
@@ -82,7 +93,14 @@ public:
 
     // Start writing the whole index to `path`. Returns false (with `error`) if
     // another operation is already running or the file cannot be created.
-    bool exportToFile(const QString& path, QString* error = nullptr);
+    //
+    // `settings` carries no default argument for the same GCC reason spelled out
+    // on importFromFile below; the one-argument overload supplies it.
+    bool exportToFile(const QString& path, const ExportSettings& settings, QString* error = nullptr);
+    bool exportToFile(const QString& path, QString* error = nullptr)
+    {
+        return exportToFile(path, ExportSettings(), error);
+    }
 
     // Start merging the dump at `path` into the local index.
     //
@@ -135,7 +153,7 @@ signals:
 
 private:
     // Worker bodies (run on a QtConcurrent thread).
-    void runExport(const QString& path, const QString& forPeer);
+    void runExport(const QString& path, const QString& forPeer, ExportFormat format, const ExportOptions& options);
     void runImport(const QString& path, const ImportOptions& options);
 
     // Claim/release the single operation slot.

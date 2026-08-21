@@ -56,6 +56,8 @@ QJsonObject statusToJson(const DatabaseSyncService::Status& s)
     obj["running"] = s.running;
     obj["stage"] = s.stage;
     obj["path"] = s.path;
+    if (!s.format.isEmpty())
+        obj["format"] = s.format;
     obj["peer"] = s.peerId;
     obj["processed"] = static_cast<double>(s.processed);
     obj["total"] = static_cast<double>(s.total);
@@ -210,7 +212,7 @@ void DatabaseSyncService::setSharingEnabled(bool enabled)
 // Export
 // ===========================================================================
 
-bool DatabaseSyncService::exportToFile(const QString& path, QString* error)
+bool DatabaseSyncService::exportToFile(const QString& path, const ExportSettings& settings, QString* error)
 {
     if (path.isEmpty()) {
         if (error)
@@ -225,11 +227,22 @@ bool DatabaseSyncService::exportToFile(const QString& path, QString* error)
     if (!beginOperation(Operation::Export, path, QString(), error))
         return false;
 
-    worker_ = QtConcurrent::run([this, path]() { runExport(path, QString()); });
+    const ExportFormat format = settings.format.value_or(exportFormatForPath(path));
+    ExportOptions options;
+    options.includeFiles = settings.includeFiles;
+    {
+        // Set after beginOperation, which resets the status: this is what tells
+        // an API caller which format a sniffed extension resolved to.
+        QMutexLocker lock(&mutex_);
+        status_.format = exportFormatName(format);
+    }
+
+    worker_ = QtConcurrent::run([this, path, format, options]() { runExport(path, QString(), format, options); });
     return true;
 }
 
-void DatabaseSyncService::runExport(const QString& path, const QString& forPeer)
+void DatabaseSyncService::runExport(
+    const QString& path, const QString& forPeer, ExportFormat format, const ExportOptions& options)
 {
     updateStage(QStringLiteral("exporting"));
 
@@ -244,9 +257,9 @@ void DatabaseSyncService::runExport(const QString& path, const QString& forPeer)
         status_.total = header.torrents;
     }
 
-    DumpWriter writer;
+    const std::unique_ptr<TorrentSink> sink = makeExportSink(format, options);
     QString error;
-    if (!writer.open(path, header, &error)) {
+    if (!sink->open(path, header, &error)) {
         QMetaObject::invokeMethod(this, [this, error]() { finishOperation(false, error); }, Qt::QueuedConnection);
         return;
     }
@@ -263,16 +276,21 @@ void DatabaseSyncService::runExport(const QString& path, const QString& forPeer)
             break;
         afterId = page.last().id;
 
-        QStringList hashes;
-        hashes.reserve(page.size());
-        for (const domain::Torrent& t : page)
-            hashes << t.hash;
-        const QHash<QString, QVector<domain::File>> files = repository_->filesOf(hashes);
+        // A flat sink records only the file *count*, which already lives on the
+        // torrent row — so skip the file query, the expensive half of the sweep.
+        QHash<QString, QVector<domain::File>> files;
+        if (sink->needsFiles()) {
+            QStringList hashes;
+            hashes.reserve(page.size());
+            for (const domain::Torrent& t : page)
+                hashes << t.hash;
+            files = repository_->filesOf(hashes);
+        }
 
         for (const domain::Torrent& t : page) {
             domain::Torrent copy = t;
             copy.fileList = files.value(t.hash);
-            if (!writer.write(copy, &error)) {
+            if (!sink->write(copy, &error)) {
                 ok = false;
                 break;
             }
@@ -284,18 +302,18 @@ void DatabaseSyncService::runExport(const QString& path, const QString& forPeer)
         {
             QMutexLocker lock(&mutex_);
             status_.processed = written;
-            status_.bytes = writer.bytesWritten();
+            status_.bytes = sink->bytesWritten();
         }
         QMetaObject::invokeMethod(this, [this]() { publishProgress(); }, Qt::QueuedConnection);
     }
 
     if (cancelRequested_.load()) {
-        writer.abort();
+        sink->abort();
         QMetaObject::invokeMethod(this, [this]() { finishOperation(false, tr("Cancelled.")); }, Qt::QueuedConnection);
         return;
     }
-    if (!ok || !writer.finish(&error)) {
-        writer.abort();
+    if (!ok || !sink->finish(&error)) {
+        sink->abort();
         const QString reason = error.isEmpty() ? tr("Failed to write the dump.") : error;
         QMetaObject::invokeMethod(this, [this, reason]() { finishOperation(false, reason); }, Qt::QueuedConnection);
         return;
@@ -535,7 +553,10 @@ void DatabaseSyncService::handlePeerRequest(const QString& peerId, const QJsonOb
 
     qInfo() << "[DatabaseSync] serving" << torrents << "torrents to" << peerId.left(8);
     emit statusMessage(tr("Sharing the database with %1…").arg(peerId.left(8)), 5000);
-    worker_ = QtConcurrent::run([this, path, peerId]() { runExport(path, peerId); });
+    // Always a dump, whatever the user last exported by hand: the far end feeds
+    // this straight into DumpReader.
+    worker_
+        = QtConcurrent::run([this, path, peerId]() { runExport(path, peerId, ExportFormat::Ratsdb, ExportOptions()); });
 }
 
 void DatabaseSyncService::handlePeerResponse(const QString& peerId, const QJsonObject& data)
