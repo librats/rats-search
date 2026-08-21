@@ -45,11 +45,11 @@ bool writeBlock(QFile& file, const QByteArray& payload)
     return writeU32(file, static_cast<quint32>(payload.size())) && file.write(payload) == payload.size();
 }
 
-QByteArray headerToJson(const dump::Header& header)
+QByteArray headerToJson(const ExportHeader& header)
 {
     QJsonObject obj;
     obj["format"] = QStringLiteral("rats-search-db");
-    obj["version"] = static_cast<int>(header.version);
+    obj["version"] = static_cast<int>(dump::kFormatVersion);
     obj["client"] = header.client;
     obj["peerId"] = header.peerId;
     obj["created"] = (header.created.isValid() ? header.created : QDateTime::currentDateTime()).toString(Qt::ISODate);
@@ -83,7 +83,7 @@ DumpWriter::~DumpWriter()
         abort();
 }
 
-bool DumpWriter::open(const QString& path, const dump::Header& header, QString* error)
+bool DumpWriter::open(const QString& path, const ExportHeader& header, QString* error)
 {
     file_ = std::make_unique<QFile>(path);
     if (!file_->open(QIODevice::WriteOnly | QIODevice::Truncate)) {

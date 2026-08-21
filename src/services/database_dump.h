@@ -2,6 +2,7 @@
 #define RATS_SERVICE_DATABASE_DUMP_H
 
 #include "domain/torrent.h"
+#include "services/export_sink.h"
 
 #include <QDateTime>
 #include <QJsonObject>
@@ -42,15 +43,11 @@ inline constexpr quint32 kFormatVersion = 1;
 // enough that one frame is a few hundred KB.
 inline constexpr int kFrameTorrents = 500;
 
-// What the writer puts in the header / the reader gets out of it. `torrents` is
-// the writer's *estimate* (the row count when the export started); the exact
-// figure lands in the footer.
-struct Header {
+// What the writer puts in the header / the reader gets out of it. Everything
+// but the format version is provenance shared with the other export formats,
+// so it lives on ExportHeader; the exact row totals land in the footer.
+struct Header : ExportHeader {
     quint32 version = kFormatVersion;
-    QString client; // producing client version
-    QString peerId; // producing node's peer id (informational)
-    QDateTime created;
-    qint64 torrents = 0; // estimate, for progress reporting
 };
 
 struct Footer {
@@ -62,32 +59,37 @@ struct Footer {
 } // namespace dump
 
 // Streaming writer. Torrents are buffered until a frame is full, so callers can
-// push one at a time without thinking about batching.
-class DumpWriter {
+// push one at a time without thinking about batching. This is the sink the peer
+// transfer and the "keep my index" export use — the only format a DumpReader on
+// the other end can merge back in.
+class DumpWriter : public TorrentSink {
 public:
     DumpWriter();
-    ~DumpWriter();
+    ~DumpWriter() override;
 
     DumpWriter(const DumpWriter&) = delete;
     DumpWriter& operator=(const DumpWriter&) = delete;
 
     // Create/truncate `path` and write the magic + header. Returns false and
     // fills `error` if the file cannot be opened.
-    bool open(const QString& path, const dump::Header& header, QString* error = nullptr);
+    bool open(const QString& path, const ExportHeader& header, QString* error = nullptr) override;
     bool isOpen() const;
 
     // Queue one torrent; flushes a frame once kFrameTorrents have accumulated.
-    bool write(const domain::Torrent& torrent, QString* error = nullptr);
+    bool write(const domain::Torrent& torrent, QString* error = nullptr) override;
 
     // Flush the pending frame, then write the end marker and the footer. After
     // this the file is a complete dump. Safe to call once.
-    bool finish(QString* error = nullptr);
+    bool finish(QString* error = nullptr) override;
 
     // Abort: closes and removes the partial file.
-    void abort();
+    void abort() override;
+
+    // A dump is lossless, so it always wants the file list.
+    bool needsFiles() const override { return true; }
 
     qint64 torrentsWritten() const { return written_; }
-    qint64 bytesWritten() const;
+    qint64 bytesWritten() const override;
 
 private:
     bool flushFrame(QString* error);
