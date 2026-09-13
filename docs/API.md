@@ -480,6 +480,8 @@ then sends its snapshot over the librats file transfer; it arrives in
 merge keeps the file and can be resumed — see `pendingImport` in
 `database.status`).
 
+**An interrupted download is continued, not restarted.** 
+
 The response says whether the snapshot is `ready`. If it is, the file offer
 follows within seconds. If it is not, the peer builds one and heartbeats its
 progress as `databaseProgress` while it works, and those heartbeats are what our
@@ -577,7 +579,16 @@ GET http://localhost:8095/api/database.status
             "path": "…/dbsync/incoming-ab12cd34.ratsdb",
             "offset": 8388608,
             "size": 94371840
-        }
+        },
+        "pendingTransfers": [
+            {
+                "peer": "ab12cd34…",
+                "snapshot": "snapshot-7.ratsdb",
+                "bytes": 6291456000,
+                "totalBytes": 9663676416,
+                "path": "…/dbsync/incoming-ab12cd34.ratsdb.part"
+            }
+        ]
     }
 }
 ```
@@ -596,6 +607,13 @@ how far, how many peers are queued on it, and how many are receiving it.
 `pendingImport` is present only when an import was interrupted and can be
 continued — pass its `path` to `database.import` to pick up where it stopped.
 
+`pendingTransfers` is present only when a *download* from a peer was interrupted
+and can be continued: one entry per peer, `bytes` of `totalBytes` already on
+disk. Run `database.pull` against that `peer` to continue it. While such a pull
+runs, the top-level `resumedFrom` says where it picked up (absent when it started
+from nothing) and `bytes` counts from there, so `bytes`/`totalBytes` is still the
+completeness of the file rather than of this attempt.
+
 ---
 
 #### `database.cancel` - Stop the running sync
@@ -607,7 +625,8 @@ GET http://localhost:8095/api/database.cancel
 Cancels the **local** operation only; peers we are serving are unaffected. An
 export removes its partial file. An import keeps everything it already merged and
 saves a resume point, so re-running `database.import` on the same file continues
-where it stopped. A pull additionally tells the peer to stop preparing.
+where it stopped. A pull keeps what it has downloaded and tells the peer to stop
+preparing; running it again against the same peer continues the transfer.
 
 ---
 

@@ -674,6 +674,19 @@ bool P2PTransport::acceptFile(const QString& peerId, quint64 transferId, const Q
     return true;
 }
 
+bool P2PTransport::acceptFileResume(
+    const QString& peerId, quint64 transferId, const QString& destPath, const QString& partialPath)
+{
+    if (!isFileTransferAvailable()) {
+        return false;
+    }
+    auto id = librats::PeerId::from_hex(peerId.toStdString());
+    if (!id) {
+        return false;
+    }
+    return d_->fileTransfer->accept_resume(*id, transferId, destPath.toStdString(), partialPath.toStdString());
+}
+
 bool P2PTransport::rejectFile(const QString& peerId, quint64 transferId)
 {
     if (!isFileTransferAvailable()) {

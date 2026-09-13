@@ -43,6 +43,25 @@ bool DatabaseSnapshot::isSnapshotFile(const QString& fileName)
         || (fileName.startsWith(QLatin1String(kNamePrefix)) && fileName.endsWith(QLatin1String(kNameSuffix)));
 }
 
+QString DatabaseSnapshot::pathForGeneration(const QString& fileName) const
+{
+    if (!fileName.startsWith(QLatin1String(kNamePrefix)) || !fileName.endsWith(QLatin1String(kNameSuffix)))
+        return {};
+    constexpr qsizetype prefix = sizeof(kNamePrefix) - 1;
+    constexpr qsizetype suffix = sizeof(kNameSuffix) - 1;
+    const QString generation = fileName.mid(prefix, fileName.size() - prefix - suffix);
+    if (generation.isEmpty())
+        return {};
+    // Digits only: that rules out a separator, a "..", and anything else a peer
+    // might hope turns this into a path of its choosing.
+    for (const QChar c : generation) {
+        if (!c.isDigit())
+            return {};
+    }
+    const QString absolute = QDir(directory_).absoluteFilePath(fileName);
+    return QFileInfo::exists(absolute) ? absolute : QString();
+}
+
 QString DatabaseSnapshot::path() const
 {
     if (info_.fileName.isEmpty())

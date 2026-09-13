@@ -1825,12 +1825,17 @@ QString MainWindow::databaseSyncStatusText(const QJsonObject& info) const
     const qint64 totalBytes = info["totalBytes"].toVariant().toLongLong();
 
     if (stage == QLatin1String("transferring")) {
+        // Worth saying out loud: a pull that broke at 6 of 9 GB shows 66% from its
+        // first second, and without a word for it that reads like a stuck transfer.
+        const bool continued = info["resumedFrom"].toVariant().toLongLong() > 0;
         if (totalBytes > 0) {
-            return tr("Transferring database: %1 / %2 (%3%)")
+            return (continued ? tr("Continuing database transfer: %1 / %2 (%3%)")
+                              : tr("Transferring database: %1 / %2 (%3%)"))
                 .arg(rats::ui::formatSize(bytes), rats::ui::formatSize(totalBytes))
                 .arg((bytes * 100) / totalBytes);
         }
-        return tr("Transferring database: %1").arg(rats::ui::formatSize(bytes));
+        return (continued ? tr("Continuing database transfer: %1") : tr("Transferring database: %1"))
+            .arg(rats::ui::formatSize(bytes));
     }
     if (stage == QLatin1String("waiting") || stage == QLatin1String("preparing"))
         return tr("Waiting for the peer to prepare its database…");

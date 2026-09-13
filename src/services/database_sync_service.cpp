@@ -71,6 +71,17 @@ qint64 nowMs()
     return QDateTime::currentMSecsSinceEpoch();
 }
 
+// Torrents in a dump, from its header. The snapshot metadata only records this
+// for the live generation, and a peer continuing an interrupted download is
+// served an older one — whose header is right there in the first few bytes.
+qint64 torrentsInDump(const QString& path)
+{
+    DumpReader reader;
+    if (!reader.open(path))
+        return 0;
+    return reader.header().torrents;
+}
+
 QString operationName(DatabaseSyncService::Operation operation)
 {
     switch (operation) {
@@ -101,6 +112,8 @@ QJsonObject statusToJson(const DatabaseSyncService::Status& s)
     obj["rejected"] = static_cast<double>(s.rejected);
     obj["bytes"] = static_cast<double>(s.bytes);
     obj["totalBytes"] = static_cast<double>(s.totalBytes);
+    if (s.resumedFrom > 0)
+        obj["resumedFrom"] = static_cast<double>(s.resumedFrom);
     if (!s.error.isEmpty())
         obj["error"] = s.error;
     return obj;
@@ -199,7 +212,32 @@ QJsonObject DatabaseSyncService::statusJson() const
     const QJsonObject pending = pendingImportJson();
     if (!pending.isEmpty())
         obj["pendingImport"] = pending;
+    const QJsonArray transfers = pendingTransfersJson();
+    if (!transfers.isEmpty())
+        obj["pendingTransfers"] = transfers;
     return obj;
+}
+
+QJsonArray DatabaseSyncService::pendingTransfersJson() const
+{
+    QJsonArray out;
+    const QDir dir(transferDirectory());
+    const QFileInfoList notes
+        = dir.entryInfoList({ QStringLiteral("incoming-*.ratsdb.part.json") }, QDir::Files, QDir::Time);
+    for (const QFileInfo& note : notes) {
+        const DatabaseTransferResume state = DatabaseTransferResume::load(note.absoluteFilePath());
+        // The note is a claim about a file; the file is what makes it a resume
+        // point. chopped() strips the ".json" that turns the one name into the other.
+        const QFileInfo partial(note.absoluteFilePath().chopped(5));
+        if (!state.isValid() || !partial.exists())
+            continue;
+        if (state.offsetFor(partial.size(), state.peerId, state.snapshot, state.size) <= 0)
+            continue;
+        out.append(QJsonObject { { "peer", state.peerId }, { "snapshot", state.snapshot },
+            { "bytes", static_cast<double>(partial.size()) }, { "totalBytes", static_cast<double>(state.size) },
+            { "path", partial.absoluteFilePath() } });
+    }
+    return out;
 }
 
 QJsonObject DatabaseSyncService::pendingImportJson() const
@@ -585,8 +623,21 @@ bool DatabaseSyncService::requestFromPeer(const QString& peerId, const ImportOpt
     op->importOptions = options;
     op->sessionId = ++nextSessionId_;
 
-    if (!transport_->sendMessage(peerId, QStringLiteral("databaseRequest"),
-            QJsonObject { { "session", static_cast<double>(op->sessionId) } })) {
+    QJsonObject request { { "session", static_cast<double>(op->sessionId) } };
+
+    // Name the generation we already hold bytes of. Without this the peer answers
+    // with whatever its newest snapshot is, and a snapshot it rebuilt in the
+    // meantime is a different file that the partial is no prefix of — the pull
+    // would start from zero however much of the old one is on disk.
+    const DatabaseTransferResume have = DatabaseTransferResume::load(partialStatePathFor(peerId));
+    const qint64 partial = QFileInfo(partialPathFor(peerId)).size();
+    if (have.offsetFor(partial, peerId, have.snapshot, have.size) > 0) {
+        request["have"] = QJsonObject { { "snapshot", have.snapshot }, { "bytes", static_cast<double>(partial) } };
+        qInfo() << "[DatabaseSync] asking" << peerId.left(8) << "to continue" << have.snapshot << "from" << partial
+                << "bytes";
+    }
+
+    if (!transport_->sendMessage(peerId, QStringLiteral("databaseRequest"), request)) {
         finishLocal(op, false, tr("Could not reach the peer."));
         return false;
     }
@@ -604,6 +655,8 @@ void DatabaseSyncService::handlePeerResponse(const QString& peerId, const QJsonO
         return;
     if (data["session"].toVariant().toULongLong() != op->sessionId)
         return; // an answer to an attempt we have already abandoned
+    if (op->transferId != 0)
+        return; // the file beat the answer here; the transfer is already running
 
     if (!data["accepted"].toBool(false)) {
         const QString reason = data["reason"].toString();
@@ -615,6 +668,11 @@ void DatabaseSyncService::handlePeerResponse(const QString& peerId, const QJsonO
         finishLocal(op, false, message);
         return;
     }
+
+    // Which generation this is. An older peer sends none, and a pull from one can
+    // never be continued — there would be no way to tell one of its dumps from the
+    // next, and continuing into the wrong one wastes the whole download.
+    op->snapshotId = data["snapshot"].toString();
 
     {
         QMutexLocker lock(&mutex_);
@@ -738,12 +796,22 @@ void DatabaseSyncService::handlePeerRequest(const QString& peerId, const QJsonOb
     serve.sessionId = sessionId;
     serve.startedMs = now;
 
+    // The peer is continuing a download of a particular generation. If we still
+    // have that file, serve it — freshness does not enter into it, because most of
+    // a slightly stale dump already on their disk beats a newer one they would
+    // have to fetch from the first byte. pathForGeneration() is what keeps a
+    // peer-supplied name from naming anything but a dump of ours.
+    const QString wanted = data["have"].toObject()["snapshot"].toString();
+    const QString wantedPath = wanted.isEmpty() ? QString() : snapshot_.pathForGeneration(wanted);
+    if (!wantedPath.isEmpty()) {
+        serve.file = wantedPath;
+        serves_.insert(peerId, serve);
+        qInfo() << "[DatabaseSync]" << peerId.left(8) << "is continuing" << wanted;
+        offerSnapshot(serves_[peerId]);
+        return;
+    }
+
     if (snapshot_.isFresh(torrents)) {
-        const DatabaseSnapshot::Info info = snapshot_.info();
-        transport_->sendMessage(peerId, QStringLiteral("databaseRequest_response"),
-            QJsonObject { { "session", static_cast<double>(sessionId) }, { "accepted", true }, { "ready", true },
-                { "torrents", static_cast<double>(info.torrents) }, { "bytes", static_cast<double>(info.bytes) },
-                { "format", static_cast<int>(dump::kFormatVersion) } });
         serves_.insert(peerId, serve);
         offerSnapshot(serves_[peerId]);
         return;
@@ -779,12 +847,19 @@ void DatabaseSyncService::handlePeerCancel(const QString& peerId, const QJsonObj
 
 void DatabaseSyncService::offerSnapshot(Serve& serve)
 {
+    // The answer to the request is sent from here (see below), so a failure before
+    // that point has to be said out loud: otherwise the requester sits out its
+    // whole deadline waiting for an answer that is never coming.
     if (!transport_ || !transport_->isFileTransferAvailable()) {
+        refuse(serve.peerId, serve.sessionId, QStringLiteral("file transfer unavailable"));
         dropServe(serve.peerId, false, QStringLiteral("file transfer unavailable"));
         return;
     }
-    const QString file = snapshot_.path();
+    // serve.file is already set when the peer asked to continue a generation of
+    // its choosing; otherwise it gets the live one.
+    const QString file = serve.file.isEmpty() ? snapshot_.path() : serve.file;
     if (file.isEmpty()) {
+        refuse(serve.peerId, serve.sessionId, QStringLiteral("no snapshot to serve"), 300);
         dropServe(serve.peerId, false, QStringLiteral("no snapshot to serve"));
         return;
     }
@@ -793,6 +868,21 @@ void DatabaseSyncService::offerSnapshot(Serve& serve)
     // published while this transfer is still running, and the prune must not pull
     // the file out from under it.
     serve.file = file;
+
+    // The answer goes out here, next to the offer, rather than at the point the
+    // request arrived: only now is it known which generation the peer is getting,
+    // and that name is what lets it continue this download later. A peer that was
+    // told to wait gets this as a second answer, which reads as "ready now".
+    const QFileInfo info(file);
+    // The live generation's row count is in the metadata; a superseded one that a
+    // peer is continuing has only its own header to say.
+    const DatabaseSnapshot::Info live = snapshot_.info();
+    const qint64 torrents = (live.valid && file == snapshot_.path()) ? live.torrents : torrentsInDump(file);
+    transport_->sendMessage(serve.peerId, QStringLiteral("databaseRequest_response"),
+        QJsonObject { { "session", static_cast<double>(serve.sessionId) }, { "accepted", true }, { "ready", true },
+            { "torrents", static_cast<double>(torrents) }, { "bytes", static_cast<double>(info.size()) },
+            { "snapshot", info.fileName() }, { "format", static_cast<int>(dump::kFormatVersion) } });
+
     serve.transferId = transport_->sendFile(serve.peerId, file);
     if (serve.transferId == 0) {
         dropServe(serve.peerId, false, QStringLiteral("could not offer the snapshot"));
@@ -986,12 +1076,28 @@ void DatabaseSyncService::onFileOffered(const QString& peerId, quint64 transferI
     }
 
     const QString destination = incomingPathFor(peerId);
+    const QString partial = partialPathFor(peerId);
+    const QString note = partialStatePathFor(peerId);
+
+    // What is on disk, and whether it is a prefix of *this* file. The check is on
+    // the note rather than on the bytes: one dump is only told from another by
+    // what the peer said it was serving, and the alternative — finding out from
+    // the SHA-256 — costs the entire download first.
+    const qint64 have = QFileInfo(partial).size();
+    const qint64 resumeFrom = DatabaseTransferResume::load(note).offsetFor(have, peerId, op->snapshotId, size);
+    if (resumeFrom == 0 && have > 0) {
+        // librats resumes from whatever length the partial has, so a partial we
+        // have decided not to trust has to be gone before the transfer starts.
+        discardPartial(peerId);
+    }
+
+    const qint64 needed = size - resumeFrom;
     const qint64 free = availableBytes(transferDirectory());
-    if (free >= 0 && free < size) {
+    if (free >= 0 && free < needed) {
         transport_->rejectFile(peerId, transferId);
         finishLocal(op, false,
             tr("Not enough free space for the database: %1 MB needed, %2 MB available.")
-                .arg(size / (1024 * 1024))
+                .arg(needed / (1024 * 1024))
                 .arg(free / (1024 * 1024)));
         return;
     }
@@ -1002,12 +1108,32 @@ void DatabaseSyncService::onFileOffered(const QString& peerId, quint64 transferI
         QMutexLocker lock(&mutex_);
         status_.path = destination;
         status_.totalBytes = size;
+        status_.bytes = resumeFrom;
+        status_.resumedFrom = resumeFrom;
     }
 
-    if (!transport_->acceptFile(peerId, transferId, destination)) {
+    // Write the note before a byte lands, so an interruption at any point — a
+    // dropped peer, a killed process — leaves something the next attempt can
+    // identify. Without a generation name there is nothing to identify it by, and
+    // the partial is then only worth the transfer it is part of.
+    if (op->snapshotId.isEmpty())
+        DatabaseTransferResume::clear(note);
+    else
+        DatabaseTransferResume { peerId, op->snapshotId, size }.save(note);
+
+    // Always into the partial, resuming or not: that is what makes *the next*
+    // attempt a resume rather than a fresh download.
+    if (!transport_->acceptFileResume(peerId, transferId, destination, partial)) {
         op->transferId = 0;
         finishLocal(op, false, tr("Could not accept the database transfer."));
         return;
+    }
+    if (resumeFrom > 0) {
+        qInfo() << "[DatabaseSync] continuing" << op->snapshotId << "from" << resumeFrom << "of" << size << "bytes";
+        emit statusMessage(tr("Continuing the database download at %1 MB of %2 MB…")
+                               .arg(resumeFrom / (1024 * 1024))
+                               .arg(size / (1024 * 1024)),
+            8000);
     }
     setStage(op, QStringLiteral("transferring"));
 }
@@ -1066,9 +1192,23 @@ void DatabaseSyncService::onTransferFinished(
 
     op->transferId = 0;
     if (!success) {
-        finishLocal(op, false, tr("The database transfer failed."));
+        // The bytes stay on disk with their note beside them: another
+        // database.pull from the same peer continues from here. Which is the point
+        // — an 18M-torrent dump does not always arrive in one piece, and starting
+        // over on every dropped connection is how it never arrives at all.
+        const qint64 have = QFileInfo(partialPathFor(peerId)).size();
+        if (have > 0 && !op->snapshotId.isEmpty()) {
+            finishLocal(op, false,
+                tr("The database transfer failed at %1 MB — pull from this peer again to continue.")
+                    .arg(have / (1024 * 1024)));
+        } else {
+            finishLocal(op, false, tr("The database transfer failed."));
+        }
         return;
     }
+
+    // Complete: the partial became the dump itself, so its note describes nothing.
+    DatabaseTransferResume::clear(partialStatePathFor(peerId));
 
     // Straight into the merge, keeping the same operation: a received dump that is
     // never imported is just a temp file nobody asked for.
@@ -1154,6 +1294,24 @@ QString DatabaseSyncService::incomingPathFor(const QString& peerId) const
     return QDir(transferDirectory()).absoluteFilePath(QStringLiteral("incoming-%1.ratsdb").arg(peerId.left(16)));
 }
 
+QString DatabaseSyncService::partialPathFor(const QString& peerId) const
+{
+    // Beside the destination and named after it: incoming-<peer>.ratsdb.part is
+    // what a broken transfer leaves, and .part.json is the note saying what it is.
+    return incomingPathFor(peerId) + QStringLiteral(".part");
+}
+
+QString DatabaseSyncService::partialStatePathFor(const QString& peerId) const
+{
+    return partialPathFor(peerId) + QStringLiteral(".json");
+}
+
+void DatabaseSyncService::discardPartial(const QString& peerId) const
+{
+    QFile::remove(partialPathFor(peerId));
+    DatabaseTransferResume::clear(partialStatePathFor(peerId));
+}
+
 QString DatabaseSyncService::resumeStatePath() const
 {
     return QDir(transferDirectory()).absoluteFilePath(QStringLiteral("import-state.json"));
@@ -1172,6 +1330,10 @@ void DatabaseSyncService::sweepTransferDirectory() const
     // Nothing in here is precious except the snapshot and an import that can still
     // be resumed. Everything else is the wreckage of a crash or a cancelled
     // transfer, and it used to accumulate for the life of the installation.
+    // A half-received dump (incoming-*.ratsdb.part) is a resume point rather than
+    // wreckage, and deliberately gets no exemption here: it ages out with
+    // everything else, because an abandoned one is gigabytes of a database nobody
+    // is going to continue. A day is long enough to come back to a broken pull.
     const QJsonObject pending = pendingImportJson();
     const QString keep = pending.isEmpty() ? QString() : pending["path"].toString();
 

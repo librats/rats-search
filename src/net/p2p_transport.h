@@ -85,6 +85,13 @@ public:
     // Answer an offer surfaced by fileOffered(). Accepting streams the file into
     // `destPath` (its directory must exist).
     bool acceptFile(const QString& peerId, quint64 transferId, const QString& destPath);
+    // Accept into `destPath`, continuing whatever is already in `partialPath` and
+    // writing there until the file is complete. The partial survives a failed
+    // transfer — that is what makes the next attempt a resume — so the caller owns
+    // it and must be sure it belongs to the file being offered. A peer too old to
+    // understand the request sends the whole file and the partial is discarded.
+    bool acceptFileResume(
+        const QString& peerId, quint64 transferId, const QString& destPath, const QString& partialPath);
     bool rejectFile(const QString& peerId, quint64 transferId);
     bool cancelFile(const QString& peerId, quint64 transferId);
 

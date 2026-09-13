@@ -75,6 +75,16 @@ public:
     // for the wreckage it is there to clear.
     static bool isSnapshotFile(const QString& fileName);
 
+    // Absolute path of a generation still on disk, live or superseded; empty when
+    // there is no such file. This is what lets a peer continue an interrupted
+    // download: it names the generation it already holds bytes of and we serve
+    // that file rather than the newest one, which would restart it from zero.
+    //
+    // `fileName` comes off the wire, so only a bare snapshot-<n>.ratsdb is
+    // accepted — never a path, and never the metadata or the half-written
+    // temporary, neither of which is a dump a peer may read.
+    QString pathForGeneration(const QString& fileName) const;
+
     // Re-read the metadata from disk. Called once at startup; a snapshot whose
     // dump is missing or whose size disagrees with the metadata is discarded.
     void load();

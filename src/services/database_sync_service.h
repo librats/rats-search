@@ -3,10 +3,12 @@
 
 #include "services/database_importer.h"
 #include "services/database_snapshot.h"
+#include "services/database_transfer_resume.h"
 #include "services/database_worker.h"
 
 #include <QFuture>
 #include <QHash>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QMutex>
 #include <QObject>
@@ -47,8 +49,8 @@ class IndexingService;
 // The peer flow
 // ---------------------------------------------------------------------------
 //
-//   A -> B  databaseRequest          {session}          "may I have your index?"
-//   B -> A  databaseRequest_response {session, accepted, ready, torrents, bytes}
+//   A -> B  databaseRequest          {session, have?}   "may I have your index?"
+//   B -> A  databaseRequest_response {session, accepted, ready, torrents, bytes, snapshot}
 //   B -> A  databaseProgress         {session, processed, total}   (while ready=false)
 //   B       offers the snapshot over the librats file transfer
 //   A       accepts it, imports it, deletes it
@@ -56,6 +58,26 @@ class IndexingService;
 //
 // Every message carries the session id A generated, so a reply, a heartbeat or a
 // timer belonging to an abandoned attempt cannot disturb the current one.
+//
+// ---------------------------------------------------------------------------
+// Continuing an interrupted pull
+// ---------------------------------------------------------------------------
+//
+// A multi-gigabyte dump over a household connection does not always arrive in one
+// piece, and starting a 3M-row index over from zero on every dropped connection
+// is how a pull becomes impossible rather than slow. So the received bytes are
+// kept (dbsync/incoming-<peer>.ratsdb.part, with a DatabaseTransferResume note
+// beside them) and the next attempt continues from where the last one stopped.
+//
+// Both ends have a say. `have` tells B which generation A already holds bytes of;
+// if B still has that file it serves *that* one instead of its newest, which is
+// what makes the continuation possible at all — a rebuilt snapshot is a different
+// file, and half of the old one is no use against it. `snapshot` names the
+// generation in the answer, and A only continues when the name, the peer and the
+// total size all match the note it kept. Everything else falls back to a fresh
+// download: an older peer sends no `snapshot`, an older peer's file transfer
+// ignores the offset and streams from the top, and both end up merely as slow as
+// they were before.
 //
 // `ready` distinguishes the two cases that used to be indistinguishable: B either
 // has a snapshot on disk and the file is seconds away, or has to build one first
@@ -99,6 +121,8 @@ public:
         qint64 rejected = 0;
         qint64 bytes = 0;
         qint64 totalBytes = 0;
+        // Where a continued transfer picked up; 0 when it started from nothing.
+        qint64 resumedFrom = 0;
     };
 
     // What we are doing for other peers. Background, informational.
@@ -154,6 +178,10 @@ public:
     // An import that was interrupted and can be continued, or an empty object.
     QJsonObject pendingImportJson() const;
 
+    // Half-received peer dumps that a new pull from the same peer would continue,
+    // newest first. One entry per peer; empty when there is nothing to continue.
+    QJsonArray pendingTransfersJson() const;
+
     // Throw away the snapshot and build a fresh one now.
     bool rebuildSnapshot(QString* error = nullptr);
 
@@ -193,6 +221,9 @@ private:
         QFuture<void> worker;
         ImportOptions importOptions;
         QString peerId; // peer pull only
+        // The snapshot generation the peer said it would serve. Compared against
+        // the note beside the partial before a single byte is continued.
+        QString snapshotId;
         quint64 sessionId = 0; // id we put on the wire for this pull
         quint64 transferId = 0; // incoming transfer, 0 until the offer arrives
         qint64 deadlineMs = 0; // wall clock; 0 = not waiting on anything
@@ -271,6 +302,11 @@ private:
     // Paths, housekeeping, resume bookkeeping.
     QString transferDirectory() const;
     QString incomingPathFor(const QString& peerId) const;
+    // Where a transfer from this peer accumulates, and the note saying what it is.
+    // Both survive a failed transfer; that is the whole point of them.
+    QString partialPathFor(const QString& peerId) const;
+    QString partialStatePathFor(const QString& peerId) const;
+    void discardPartial(const QString& peerId) const;
     QString resumeStatePath() const;
     void saveResumeState(const QString& path, qint64 offset, qint64 fileSize) const;
     qint64 loadResumeOffset(const QString& path, qint64 fileSize) const;

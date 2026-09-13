@@ -48,6 +48,8 @@ private slots:
     void testEachGenerationGetsItsOwnName();
     void testPruneKeepsTheLiveFileAndAnythingInUse();
     void testGenerationCounterSurvivesAReload();
+    void testPathForGenerationFindsASupersededDump();
+    void testPathForGenerationRefusesAnythingButADump();
 
 private:
     QTemporaryDir dir_;
@@ -260,6 +262,42 @@ void TestDatabaseSnapshot::testGenerationCounterSurvivesAReload()
     QVERIFY(writeTemporary(reloaded, 1024));
     QVERIFY(reloaded.commit(200));
     QVERIFY(reloaded.path() != first);
+}
+
+void TestDatabaseSnapshot::testPathForGenerationFindsASupersededDump()
+{
+    DatabaseSnapshot snapshot(dir_.path());
+    QVERIFY(writeTemporary(snapshot, 1024));
+    QVERIFY(snapshot.commit(100));
+    const QString first = snapshot.path();
+    QVERIFY(writeTemporary(snapshot, 2048));
+    QVERIFY(snapshot.commit(200));
+
+    // A peer continuing an interrupted download names the generation it has bytes
+    // of, and gets that file back even though a newer one has since been published.
+    QCOMPARE(snapshot.pathForGeneration(QFileInfo(first).fileName()), first);
+    QCOMPARE(snapshot.pathForGeneration(QFileInfo(snapshot.path()).fileName()), snapshot.path());
+
+    // Once it is pruned there is nothing to continue, and saying so is what sends
+    // the peer back to a fresh download instead of a file that is not there.
+    snapshot.pruneSuperseded({});
+    QVERIFY(snapshot.pathForGeneration(QFileInfo(first).fileName()).isEmpty());
+}
+
+void TestDatabaseSnapshot::testPathForGenerationRefusesAnythingButADump()
+{
+    DatabaseSnapshot snapshot(dir_.path());
+    QVERIFY(writeTemporary(snapshot, 1024));
+    QVERIFY(snapshot.commit(100));
+
+    // The name comes off the wire, so it may be anything at all.
+    QVERIFY(snapshot.pathForGeneration(QString()).isEmpty());
+    QVERIFY(snapshot.pathForGeneration(QStringLiteral("snapshot.json")).isEmpty());
+    QVERIFY(snapshot.pathForGeneration(QStringLiteral("snapshot.ratsdb.part")).isEmpty());
+    QVERIFY(snapshot.pathForGeneration(QStringLiteral("snapshot-99.ratsdb")).isEmpty());
+    QVERIFY(snapshot.pathForGeneration(QStringLiteral("snapshot-.ratsdb")).isEmpty());
+    QVERIFY(snapshot.pathForGeneration(QStringLiteral("snapshot-../../x.ratsdb")).isEmpty());
+    QVERIFY(snapshot.pathForGeneration(QStringLiteral("snapshot-1/../x.ratsdb")).isEmpty());
 }
 
 QTEST_MAIN(TestDatabaseSnapshot)
