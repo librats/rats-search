@@ -20,7 +20,8 @@ public:
     // Custom data roles, read by TorrentItemDelegate.
     enum DataRole {
         ContentTypeRole = Qt::UserRole + 1, // domain::ContentType id
-        MatchingPathsRole = Qt::UserRole + 2 // QStringList of highlighted file paths
+        MatchingPathsRole = Qt::UserRole + 2, // QStringList of highlighted file paths
+        RemoteRole = Qt::UserRole + 3 // true if the hit came from a peer, not the local index
     };
 
     explicit SearchResultModel(QObject* parent = nullptr);

@@ -64,12 +64,19 @@ QVariant SearchResultModel::data(const QModelIndex& index, int role) const
             return Qt::AlignLeft;
         }
     } else if (role == Qt::ToolTipRole) {
-        return QString("Info Hash: %1\nSeeders: %2\nLeechers: %3\nSize: %4\nFiles: %5")
-            .arg(torrent.hash)
-            .arg(torrent.seeders)
-            .arg(torrent.leechers)
-            .arg(rats::ui::formatSize(torrent.size))
-            .arg(torrent.files);
+        QString tip = QString("Info Hash: %1\nSeeders: %2\nLeechers: %3\nSize: %4\nFiles: %5")
+                          .arg(torrent.hash)
+                          .arg(torrent.seeders)
+                          .arg(torrent.leechers)
+                          .arg(rats::ui::formatSize(torrent.size))
+                          .arg(torrent.files);
+        // The row is tinted for these; say why, and name the peer it came from.
+        if (hit.remote) {
+            tip += QLatin1Char('\n')
+                + (hit.sourcePeerId.isEmpty() ? tr("Not indexed locally — found on a remote peer")
+                                              : tr("Not indexed locally — from peer %1").arg(hit.sourcePeerId.left(8)));
+        }
+        return tip;
     }
     // Custom roles for delegate
     else if (role == ContentTypeRole) {
@@ -78,6 +85,8 @@ QVariant SearchResultModel::data(const QModelIndex& index, int role) const
     } else if (role == MatchingPathsRole) {
         // Highlighted file path snippets
         return hit.matchingPaths;
+    } else if (role == RemoteRole) {
+        return hit.remote;
     }
 
     return QVariant();
@@ -116,8 +125,16 @@ void SearchResultModel::setResults(const QVector<SearchHit>& results)
 void SearchResultModel::addResult(const SearchHit& result)
 {
     // Check for duplicates by hash
-    for (const SearchHit& existing : results_) {
-        if (existing.torrent.hash == result.torrent.hash) {
+    for (int i = 0; i < results_.size(); ++i) {
+        if (results_[i].torrent.hash == result.torrent.hash) {
+            // Same torrent from two sources: local wins. A peer usually answers
+            // after the local query has already filled the table, so without this
+            // the row would keep the "remote" tint for a torrent we do have.
+            if (results_[i].remote && !result.remote) {
+                results_[i].remote = false;
+                results_[i].sourcePeerId.clear();
+                emit dataChanged(index(i, 0), index(i, ColumnCount - 1), { RemoteRole, Qt::ToolTipRole });
+            }
             return; // Already exists
         }
     }
@@ -182,12 +199,19 @@ void SearchResultModel::mergeFileResultIntoExisting(const SearchHit& fileResult)
             if (fileResult.fromFileMatch) {
                 results_[i].fromFileMatch = true;
             }
+            // A local match for a row a peer answered first proves we do have the
+            // torrent, so the row stops being remote (see addResult()).
+            if (results_[i].remote && !fileResult.remote) {
+                results_[i].remote = false;
+                results_[i].sourcePeerId.clear();
+            }
             // Emit dataChanged for all columns of this row, including
             // Qt::SizeHintRole so the view recalculates the row height to accommodate
             // the file paths
             QModelIndex topLeft = index(i, 0);
             QModelIndex bottomRight = index(i, ColumnCount - 1);
-            emit dataChanged(topLeft, bottomRight, { MatchingPathsRole, Qt::SizeHintRole });
+            emit dataChanged(
+                topLeft, bottomRight, { MatchingPathsRole, RemoteRole, Qt::ToolTipRole, Qt::SizeHintRole });
             return;
         }
     }

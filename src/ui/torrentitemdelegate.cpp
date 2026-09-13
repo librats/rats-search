@@ -49,15 +49,20 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
     const rats::ui::Theme& theme = rats::ui::Theme::instance();
     const QColor selectedTextColor = theme.color(QLatin1String("textOnAccent"));
 
+    // A hit a peer answered with is not in the local index: it gets a tinted row
+    // and a stripe down its left edge, so "found elsewhere" is readable at a
+    // glance without a column of its own.
+    const bool remoteHit = index.data(SearchResultModel::RemoteRole).toBool();
+
     QColor bgColor;
     if (option.state & QStyle::State_Selected) {
         bgColor = theme.color(QLatin1String("accent"));
     } else if (option.state & QStyle::State_MouseOver) {
         bgColor = theme.color(QLatin1String("rowHover"));
     } else if (index.row() % 2 == 0) {
-        bgColor = theme.color(QLatin1String("surface"));
+        bgColor = theme.color(remoteHit ? QLatin1String("remoteRow") : QLatin1String("surface"));
     } else {
-        bgColor = theme.color(QLatin1String("surfaceAlt"));
+        bgColor = theme.color(remoteHit ? QLatin1String("remoteRowAlt") : QLatin1String("surfaceAlt"));
     }
     painter->fillRect(option.rect, bgColor);
 
@@ -71,6 +76,15 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
     // Paddings
     int borderBottom = 1; // Border bottom line from style sheet take one pixel of bottom padding
     QRect rect = option.rect.adjusted(4, 2 - borderBottom, -4, -2 - borderBottom);
+
+    // Only the first column carries the stripe — repeated at every column border
+    // it would read as a grid. On a selected row the violet would sink into the
+    // accent fill, so there it is drawn in the selection's own text colour.
+    if (remoteHit && column == SearchResultModel::NameColumn) {
+        painter->fillRect(QRect(option.rect.left(), option.rect.top(), RemoteStripeWidth, option.rect.height() - 1),
+            option.state & QStyle::State_Selected ? selectedTextColor : theme.color(QLatin1String("remoteStripe")));
+        rect.setLeft(rect.left() + RemoteStripeWidth);
+    }
 
     switch (column) {
     case SearchResultModel::NameColumn: {

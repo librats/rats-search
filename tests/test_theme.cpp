@@ -138,9 +138,10 @@ void TestTheme::tokensReadAsColours()
     QCOMPARE(theme.isDark(), dark);
 
     // The delegate paints straight from these; a typo would show up as magenta.
-    for (const char* token : { "text", "textMuted", "textFaint", "textOnAccent", "surface", "surfaceAlt", "accent",
-             "rowHover", "rowBorder", "pathText", "matchHighlight", "matchHighlightSelected", "seedersHigh",
-             "seedersMid", "seedersLow", "leechersHigh", "leechersMid", "leechersLow", "peersNone" }) {
+    for (const char* token :
+        { "text", "textMuted", "textFaint", "textOnAccent", "surface", "surfaceAlt", "accent", "rowHover", "rowBorder",
+            "remoteRow", "remoteRowAlt", "remoteStripe", "pathText", "matchHighlight", "matchHighlightSelected",
+            "seedersHigh", "seedersMid", "seedersLow", "leechersHigh", "leechersMid", "leechersLow", "peersNone" }) {
         const QColor color = theme.color(QLatin1String(token), QColor());
         QVERIFY2(color.isValid(), token);
     }

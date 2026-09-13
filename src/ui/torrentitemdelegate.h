@@ -32,6 +32,7 @@ private:
     static constexpr int BaseRowHeight = 30;
     static constexpr int FilePathRowHeight = 16;
     static constexpr int MaxVisiblePaths = 3;
+    static constexpr int RemoteStripeWidth = 3; // left edge bar on rows a peer answered with
 };
 
 #endif // TORRENTITEMDELEGATE_H

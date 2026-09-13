@@ -41,6 +41,9 @@
     "link": "#60a5fa",
 
     "rowHover": "#242a34",
+    "remoteRow": "#231f30",
+    "remoteRowAlt": "#282338",
+    "remoteStripe": "#a78bfa",
     "rowBorder": "#23272f",
     "pathText": "#97a1b0",
     "matchHighlightSelected": "#fcd34d",
