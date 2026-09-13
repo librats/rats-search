@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.2](https://github.com/DEgITx/rats-search/compare/v2.3.1...v2.3.2) (2026-09-13)
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.3.1([becaf95](https://github.com/DEgITx/rats-search/commit/becaf959d2164d974fec677adb731b88e6f3ac46)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **dbsync:** Resume interrupted database pulls instead of restarting([2da9d9e](https://github.com/DEgITx/rats-search/commit/2da9d9ec2e6f4b696273a978206477d2b51f8cf6)) by @DEgITx
+- **ui:** Filters panel([a0eb592](https://github.com/DEgITx/rats-search/commit/a0eb5920de98c8bd8cd4229579323585231a2013)) by @DEgITx
+- **ui:** New design for ui([3f52786](https://github.com/DEgITx/rats-search/commit/3f5278615f52b9545847a0e4f5e23070767bbfe9)) by @DEgITx
+- **ui:** Visually mark search hits found on remote peers([345f565](https://github.com/DEgITx/rats-search/commit/345f5653a30ba3eaa4ebc970c98769056417dfc9)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 4 commits
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.3.1](https://github.com/DEgITx/rats-search/compare/v2.3.0...v2.3.1) (2026-09-02)
 
 
