@@ -163,8 +163,8 @@ GET http://localhost:8095/api/search.torrents?text=ubuntu&limit=10
 | `orderDesc` | bool | | `true` | Sort descending |
 | `safeSearch` | bool | | `false` | Enable safe-search filter |
 | `type` (or `contentType`) | string | | | Content type filter (e.g. `video`, `audio`, `pictures`, `books`, `software`, `games`, `archive`) |
-| `size` | object | | | Size filter: `{"min": 0, "max": 1000000000}` |
-| `files` | object | | | File count filter: `{"min": 1, "max": 100}` |
+| `size` | object | | | Size filter in bytes, bounds inclusive: `{"min": 0, "max": 1000000000}`. `0` (or a missing key) leaves that bound unset |
+| `files` | object | | | File count filter, bounds inclusive: `{"min": 1, "max": 100}`. `0` (or a missing key) leaves that bound unset |
 
 **Response** - `data` is an array of torrent objects (see [Torrent Object Format](#torrent-object-format)).
 
@@ -178,7 +178,7 @@ GET http://localhost:8095/api/search.torrents?text=ubuntu&limit=10
 GET http://localhost:8095/api/search.files?text=readme.txt&limit=10
 ```
 
-Same parameters as `search.torrents`. The query must be longer than 2 characters.
+Same parameters as `search.torrents`. The query must be longer than 2 characters. The `type`, `safeSearch`, `size` and `files` filters apply to the torrent the matching file belongs to.
 
 **Response** - torrent objects that matched on a file path, carrying extra fields:
 

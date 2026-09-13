@@ -82,6 +82,24 @@ QVector<qint64> idsFor(const QStringList& hashes, QHash<qint64, QStringList>& wa
     }
     return ids;
 }
+
+// Size / file-count range filters, shared by the torrent search and the parent
+// lookup of the file search so both lanes answer one request the same way.
+//
+// Bounds are inclusive: "up to 1 GB" has to keep a torrent of exactly 1 GB, and
+// a "from 1 file" filter must not drop every single-file torrent. 0 means the
+// bound is unset — a torrent of size 0 is nothing anyone filters *for*.
+void applyRangeFilters(SelectQuery& builder, const TorrentRepository::SearchQuery& q)
+{
+    if (q.sizeMin > 0)
+        builder.whereRaw(QStringLiteral("size >= %1").arg(q.sizeMin));
+    if (q.sizeMax > 0)
+        builder.whereRaw(QStringLiteral("size <= %1").arg(q.sizeMax));
+    if (q.filesMin > 0)
+        builder.whereRaw(QStringLiteral("files >= %1").arg(q.filesMin));
+    if (q.filesMax > 0)
+        builder.whereRaw(QStringLiteral("files <= %1").arg(q.filesMax));
+}
 } // namespace
 
 TorrentRepository::TorrentRepository(Database* db, QObject* parent) : QObject(parent), db_(db) { }
@@ -399,14 +417,7 @@ QVector<SearchHit> TorrentRepository::searchTorrents(const SearchQuery& q)
     if (q.safeSearch)
         builder.whereRaw(QStringLiteral("contentCategory != %1").arg(domain::toId(ContentCategory::XXX)));
     builder.whereRaw(contentTypeFilter(q.contentType));
-    if (q.sizeMin > 0)
-        builder.whereRaw(QStringLiteral("size > %1").arg(q.sizeMin));
-    if (q.sizeMax > 0)
-        builder.whereRaw(QStringLiteral("size < %1").arg(q.sizeMax));
-    if (q.filesMin > 0)
-        builder.whereRaw(QStringLiteral("files > %1").arg(q.filesMin));
-    if (q.filesMax > 0)
-        builder.whereRaw(QStringLiteral("files < %1").arg(q.filesMax));
+    applyRangeFilters(builder, q);
 
     const QString sortColumn = resolveSortColumn(q.sort);
     if (!sortColumn.isEmpty())
@@ -461,6 +472,7 @@ QVector<SearchHit> TorrentRepository::searchFiles(const SearchQuery& q)
     SelectQuery parents(kTorrents);
     parents.whereInIds(QStringLiteral("id"), parentIds);
     parents.whereRaw(contentTypeFilter(q.contentType));
+    applyRangeFilters(parents, q);
     for (const auto& row : db_->query(parents.build())) {
         Torrent t = rowToTorrent(row);
         if (!wantedMatches(wantedParents.value(t.id), t.hash))

@@ -73,14 +73,14 @@ void TestVotingRecord::testCarriesNothingBeyondTheVote()
         QStringList keys = r.keys();
         keys.sort();
 
-        QStringList expected{ QStringLiteral("_index"), QStringLiteral("torrentHash"),
-                              QStringLiteral("type"), QStringLiteral("vote") };
+        QStringList expected { QStringLiteral("_index"), QStringLiteral("torrentHash"), QStringLiteral("type"),
+            QStringLiteral("vote") };
         expected.sort();
 
         QCOMPARE(keys, expected);
         QVERIFY2(!r.contains(QStringLiteral("_torrent")),
-                 "a vote must not carry torrent data: it is replicated to every peer "
-                 "and re-sent on every snapshot");
+            "a vote must not carry torrent data: it is replicated to every peer "
+            "and re-sent on every snapshot");
     }
 
     // Nothing nested either — a vote is flat, so no field can quietly grow with
@@ -96,11 +96,10 @@ void TestVotingRecord::testCarriesNothingBeyondTheVote()
 // A few hundred bytes is the budget; the old record was two orders out.
 void TestVotingRecord::testStaysSmall()
 {
-    const QByteArray encoded =
-        QJsonDocument(VotingService::voteRecord(kHash, true)).toJson(QJsonDocument::Compact);
+    const QByteArray encoded = QJsonDocument(VotingService::voteRecord(kHash, true)).toJson(QJsonDocument::Compact);
 
-    QVERIFY2(encoded.size() < 512,
-             qPrintable(QStringLiteral("a replicated vote grew to %1 bytes").arg(encoded.size())));
+    QVERIFY2(
+        encoded.size() < 512, qPrintable(QStringLiteral("a replicated vote grew to %1 bytes").arg(encoded.size())));
 }
 
 // _index is the prefix VotingService::aggregate() scans to collect every peer's

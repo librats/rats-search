@@ -127,7 +127,7 @@ private:
     QNetworkAccessManager* networkManager_;
 
     // Set by stop(): rejects new scrapes while the app is shutting down.
-    std::atomic<bool> stopping_{ false };
+    std::atomic<bool> stopping_ { false };
 
     // Per-hash cooldown bookkeeping.
     mutable QMutex recentChecksMutex_;

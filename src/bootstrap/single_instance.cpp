@@ -16,25 +16,25 @@ namespace rats::bootstrap {
 
 namespace {
 
-    // "activate" is the only message on this channel; the payload exists purely
-    // so the primary can tell a real ping from a probe that connects and dies.
-    const char kActivateMessage[] = "activate\n";
+// "activate" is the only message on this channel; the payload exists purely
+// so the primary can tell a real ping from a probe that connects and dies.
+const char kActivateMessage[] = "activate\n";
 
-    // A local-socket name has to be short and filesystem-safe (on Unix it becomes
-    // a socket file in the temp dir), so the data directory is hashed rather than
-    // embedded. Canonical path first, so /data and /data/ key the same instance.
-    QString serverNameFor(const QString& dataDirectory)
-    {
-        const QDir dir(dataDirectory);
-        QString path = dir.canonicalPath();
-        if (path.isEmpty())
-            path = dir.absolutePath();
+// A local-socket name has to be short and filesystem-safe (on Unix it becomes
+// a socket file in the temp dir), so the data directory is hashed rather than
+// embedded. Canonical path first, so /data and /data/ key the same instance.
+QString serverNameFor(const QString& dataDirectory)
+{
+    const QDir dir(dataDirectory);
+    QString path = dir.canonicalPath();
+    if (path.isEmpty())
+        path = dir.absolutePath();
 #ifdef _WIN32
-        path = path.toLower(); // Windows paths are case-insensitive
+    path = path.toLower(); // Windows paths are case-insensitive
 #endif
-        const QByteArray digest = QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Sha1).toHex().left(16);
-        return QStringLiteral("rats-search-") + QString::fromLatin1(digest);
-    }
+    const QByteArray digest = QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Sha1).toHex().left(16);
+    return QStringLiteral("rats-search-") + QString::fromLatin1(digest);
+}
 
 } // namespace
 

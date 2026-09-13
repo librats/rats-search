@@ -58,14 +58,14 @@ struct AnnounceResult {
 struct ScrapeState {
     QMutex mutex;
     AnnounceResult best;
-    std::atomic<int> remaining{ 0 };
+    std::atomic<int> remaining { 0 };
 };
 
 // Announce to a single tracker to read the torrent's seeder/leecher counts. An
 // announce with numwant=0 doubles as a scrape: the tracker still reports the
 // swarm counts (BEP 3 complete/incomplete, BEP 15 seeders/leechers).
-AnnounceResult announceOne(const std::string& url, const std::string& hashHex, int timeoutMs,
-    const std::function<bool()>& cancelled)
+AnnounceResult announceOne(
+    const std::string& url, const std::string& hashHex, int timeoutMs, const std::function<bool()>& cancelled)
 {
     AnnounceResult result;
 

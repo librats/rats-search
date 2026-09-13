@@ -26,22 +26,26 @@ service::SearchService::Request parseSearchRequest(const QJsonObject& data)
     if (req.query.isEmpty())
         req.query = data["query"].toString();
 
-    if (data.contains("navigation")) {
-        const QJsonObject nav = data["navigation"].toObject();
-        req.limit = nav["limit"].toInt(10);
-        req.offset = nav["index"].toInt(0);
-        req.sort = nav["orderBy"].toString();
-        req.descending = nav["orderDesc"].toBool(true);
-        req.safeSearch = nav["safeSearch"].toBool(false);
-        req.contentType = nav["type"].toString();
-    } else {
-        req.limit = data["limit"].toInt(10);
-        req.offset = data["index"].toInt(0);
-        req.sort = data["orderBy"].toString();
-        req.descending = data["orderDesc"].toBool(true);
-        req.safeSearch = data["safeSearch"].toBool(false);
-        req.contentType = data["type"].toString();
-    }
+    // v1 clients wrap the paging/filter options in a "navigation" object; newer
+    // ones put them at the top level. Both spellings stay understood — the wire
+    // names are frozen.
+    const QJsonObject opts = data.contains("navigation") ? data["navigation"].toObject() : data;
+    req.limit = opts["limit"].toInt(10);
+    req.offset = opts["index"].toInt(0);
+    req.sort = opts["orderBy"].toString();
+    req.descending = opts["orderDesc"].toBool(true);
+    req.safeSearch = opts["safeSearch"].toBool(false);
+    req.contentType = opts["type"].toString();
+
+    // Size / file-count ranges, in the same {min,max} shape the REST router
+    // takes. A peer too old to send them simply leaves the range unset, which is
+    // exactly what a missing object means.
+    const QJsonObject size = opts["size"].toObject();
+    req.sizeMin = size["min"].toVariant().toLongLong();
+    req.sizeMax = size["max"].toVariant().toLongLong();
+    const QJsonObject files = opts["files"].toObject();
+    req.filesMin = files["min"].toInt();
+    req.filesMax = files["max"].toInt();
     return req;
 }
 

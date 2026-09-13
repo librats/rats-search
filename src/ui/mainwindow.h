@@ -31,6 +31,9 @@ class SearchResultModel;
 class TorrentItemDelegate;
 class TorrentDetailsPanel;
 class QMenu;
+class QToolButton;
+class QSpinBox;
+class QDoubleSpinBox;
 class TopTorrentsWidget;
 class FeedWidget;
 class DownloadsWidget;
@@ -119,6 +122,36 @@ private:
     void connectServiceSignals(); // transport / repository / indexing / peers
     void connectPeerSignals(); // remote P2P results streamed into the UI
     void performSearch(const QString& query);
+
+    // Size / file-count ranges from the "Filters" popup. 0 is "no bound" on
+    // every field — the shape both TorrentRepository and the P2P wire expect.
+    struct SearchFilters {
+        qint64 sizeMin = 0;
+        qint64 sizeMax = 0;
+        int filesMin = 0;
+        int filesMax = 0;
+
+        bool isEmpty() const { return sizeMin == 0 && sizeMax == 0 && filesMin == 0 && filesMax == 0; }
+        int activeCount() const
+        {
+            return (sizeMin > 0 ? 1 : 0) + (sizeMax > 0 ? 1 : 0) + (filesMin > 0 ? 1 : 0) + (filesMax > 0 ? 1 : 0);
+        }
+        bool operator==(const SearchFilters& other) const
+        {
+            return sizeMin == other.sizeMin && sizeMax == other.sizeMax && filesMin == other.filesMin
+                && filesMax == other.filesMax;
+        }
+    };
+    // Build the "Filters" drop-down (size from/to, files from/to) for the
+    // search bar. Called from setupUi() before the button is laid out.
+    void setupSearchFilters();
+    // Read the popup's widgets into bytes / plain counts.
+    SearchFilters currentSearchFilters() const;
+    // Refresh the button label ("Filters (2)") and its tooltip, and keep the
+    // max bounds from sitting below the min ones.
+    void updateSearchFiltersButton();
+    // Clear every range back to "any".
+    void resetSearchFilters();
     // Set up the history dropdown on the search field (completer + event filter).
     void setupSearchHistory();
     // Re-fill the completer from app_->searchHistory(). Wired to its
@@ -179,6 +212,18 @@ private:
     QComboBox* sortComboBox = nullptr;
     QComboBox* typeComboBox = nullptr;
     QCheckBox* safeSearchCheckBox = nullptr;
+    // Search-bar "Filters" drop-down: size and file-count ranges.
+    QToolButton* filtersButton = nullptr;
+    QMenu* filtersMenu = nullptr;
+    QDoubleSpinBox* sizeMinSpin = nullptr;
+    QDoubleSpinBox* sizeMaxSpin = nullptr;
+    QComboBox* sizeMinUnit = nullptr;
+    QComboBox* sizeMaxUnit = nullptr;
+    QSpinBox* filesMinSpin = nullptr;
+    QSpinBox* filesMaxSpin = nullptr;
+    // Snapshot taken when the popup opens, so closing it only re-runs the
+    // search when something actually changed.
+    SearchFilters filtersOnOpen_;
     QTableView* resultsTableView = nullptr;
     QTabWidget* tabWidget = nullptr;
     QSplitter* mainSplitter = nullptr; // Horizontal: tabs + details

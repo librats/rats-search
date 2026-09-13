@@ -536,11 +536,11 @@ QWidget* SettingsDialog::createStorageTab()
     logMaxSizeSpin_->setToolTip(tr("Total disk space used by the log file and its rotated copies"));
     logLayout->addRow(tr("Maximum log size:"), logMaxSizeSpin_);
 
-    QLabel* logHint = new QLabel(
-        tr("* Shared by %1 and its rotated copies (.1 - .%2). Once the limit is reached the oldest "
-           "entries are dropped. Applies immediately.")
-            .arg(QDir::toNativeSeparators(dataDirectory_ + QStringLiteral("/rats-search.log")))
-            .arg(rats::common::kLogRetentionCount));
+    QLabel* logHint
+        = new QLabel(tr("* Shared by %1 and its rotated copies (.1 - .%2). Once the limit is reached the oldest "
+                        "entries are dropped. Applies immediately.")
+                .arg(QDir::toNativeSeparators(dataDirectory_ + QStringLiteral("/rats-search.log")))
+                .arg(rats::common::kLogRetentionCount));
     logHint->setObjectName("hintLabel");
     logHint->setWordWrap(true);
     logLayout->addRow(logHint);

@@ -61,8 +61,7 @@ bool FeedRepository::replaceAll(const QJsonArray& items)
 
         QVariantMap row;
         row[QStringLiteral("id")] = nextId++;
-        row[QStringLiteral("data")]
-            = QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
+        row[QStringLiteral("data")] = QString::fromUtf8(QJsonDocument(value.toObject()).toJson(QJsonDocument::Compact));
         rows.append(row);
     }
 

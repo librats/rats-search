@@ -52,6 +52,7 @@
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDir>
+#include <QDoubleSpinBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFile>
@@ -59,6 +60,7 @@
 #include <QFileInfo>
 #include <QFocusEvent>
 #include <QFontMetrics>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
@@ -76,6 +78,7 @@
 #include <QRegularExpression>
 #include <QResizeEvent>
 #include <QSettings>
+#include <QSpinBox>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -87,9 +90,11 @@
 #include <QTableView>
 #include <QTextEdit>
 #include <QTimer>
+#include <QToolButton>
 #include <QUrl>
 #include <QUrlQuery>
 #include <QVBoxLayout>
+#include <QWidgetAction>
 
 using rats::Result;
 using rats::domain::SearchHit;
@@ -245,8 +250,11 @@ void MainWindow::setupUi()
 
     setupSearchHistory();
 
+    setupSearchFilters();
+
     searchLayout->addWidget(searchLineEdit, 1);
     searchLayout->addWidget(typeComboBox);
+    searchLayout->addWidget(filtersButton);
     searchLayout->addWidget(safeSearchCheckBox);
     searchLayout->addWidget(sortComboBox);
     searchLayout->addWidget(searchButton);
@@ -529,6 +537,15 @@ void MainWindow::connectSearchSignals()
     connect(typeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         if (!currentSearchQuery_.isEmpty())
             performSearch(currentSearchQuery_);
+    });
+    // Adjusting a range re-runs the query when the popup closes, not on every
+    // keystroke inside it — a spin box passes through a dozen values on the way
+    // to the one the user means.
+    connect(filtersMenu, &QMenu::aboutToShow, this, [this]() { filtersOnOpen_ = currentSearchFilters(); });
+    connect(filtersMenu, &QMenu::aboutToHide, this, [this]() {
+        if (currentSearchFilters() == filtersOnOpen_ || currentSearchQuery_.isEmpty())
+            return;
+        performSearch(currentSearchQuery_);
     });
     connect(safeSearchCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
         if (app_ && app_->config())
@@ -824,6 +841,164 @@ void MainWindow::connectPeerSignals()
         });
 }
 
+// --- Search filters (size / file-count ranges) ------------------------------
+
+namespace {
+// Unit multipliers offered next to each size field. The combo carries the
+// multiplier as its item data, so reading a field back is one multiplication.
+void fillSizeUnits(QComboBox* combo, int defaultIndex)
+{
+    combo->addItem(QObject::tr("KB"), QVariant::fromValue<qint64>(1024LL));
+    combo->addItem(QObject::tr("MB"), QVariant::fromValue<qint64>(1024LL * 1024));
+    combo->addItem(QObject::tr("GB"), QVariant::fromValue<qint64>(1024LL * 1024 * 1024));
+    combo->addItem(QObject::tr("TB"), QVariant::fromValue<qint64>(1024LL * 1024 * 1024 * 1024));
+    combo->setCurrentIndex(defaultIndex);
+}
+
+qint64 sizeFieldBytes(const QDoubleSpinBox* spin, const QComboBox* unit)
+{
+    if (spin->value() <= 0.0)
+        return 0; // "any"
+    return static_cast<qint64>(spin->value() * static_cast<double>(unit->currentData().toLongLong()));
+}
+} // namespace
+
+void MainWindow::setupSearchFilters()
+{
+    filtersButton = new QToolButton(this);
+    // Styled through the theme sheets to match the combo boxes it sits between;
+    // the plain QToolButton rule is the flat toolbar look.
+    filtersButton->setObjectName("searchFiltersButton");
+    filtersButton->setPopupMode(QToolButton::InstantPopup);
+    filtersButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    filtersButton->setMinimumHeight(44);
+    filtersButton->setCursor(Qt::PointingHandCursor);
+
+    // A drop-down rather than four more widgets in the search bar: the ranges
+    // are used far less often than the type/sort combos, and the button label
+    // still reports how many of them are active.
+    filtersMenu = new QMenu(filtersButton);
+    QWidget* panel = new QWidget(filtersMenu);
+    QFormLayout* form = new QFormLayout(panel);
+    form->setContentsMargins(12, 10, 12, 10);
+    form->setSpacing(8);
+
+    // Every field treats 0 as "no bound", which is what the special value text
+    // spells out — an empty-looking spin box would read as "zero bytes".
+    auto makeSizeRow = [panel](QDoubleSpinBox*& spin, QComboBox*& unit, int defaultUnitIndex) {
+        spin = new QDoubleSpinBox(panel);
+        spin->setRange(0.0, 999999.0);
+        spin->setDecimals(2);
+        spin->setSpecialValueText(tr("any"));
+        spin->setMinimumWidth(110);
+        unit = new QComboBox(panel);
+        unit->setObjectName("searchFilterUnit"); // narrower than the global combo min-width
+        fillSizeUnits(unit, defaultUnitIndex);
+
+        QWidget* row = new QWidget(panel);
+        QHBoxLayout* layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(6);
+        layout->addWidget(spin, 1);
+        layout->addWidget(unit);
+        return row;
+    };
+
+    form->addRow(tr("Size from:"), makeSizeRow(sizeMinSpin, sizeMinUnit, 1)); // MB
+    form->addRow(tr("Size to:"), makeSizeRow(sizeMaxSpin, sizeMaxUnit, 2)); // GB
+
+    auto makeCountSpin = [panel](QSpinBox*& spin) {
+        spin = new QSpinBox(panel);
+        spin->setRange(0, 1000000);
+        spin->setSpecialValueText(tr("any"));
+        spin->setMinimumWidth(110);
+        return spin;
+    };
+    form->addRow(tr("Files from:"), makeCountSpin(filesMinSpin));
+    form->addRow(tr("Files to:"), makeCountSpin(filesMaxSpin));
+
+    QPushButton* resetButton = new QPushButton(tr("Reset filters"), panel);
+    resetButton->setCursor(Qt::PointingHandCursor);
+    form->addRow(resetButton);
+
+    QWidgetAction* panelAction = new QWidgetAction(filtersMenu);
+    panelAction->setDefaultWidget(panel);
+    filtersMenu->addAction(panelAction);
+    filtersButton->setMenu(filtersMenu);
+
+    connect(resetButton, &QPushButton::clicked, this, &MainWindow::resetSearchFilters);
+    // The label has to stay truthful while the popup is open, so every editor
+    // feeds it; the search itself only re-runs once the popup closes.
+    connect(sizeMinSpin, &QDoubleSpinBox::valueChanged, this, &MainWindow::updateSearchFiltersButton);
+    connect(sizeMaxSpin, &QDoubleSpinBox::valueChanged, this, &MainWindow::updateSearchFiltersButton);
+    connect(filesMinSpin, &QSpinBox::valueChanged, this, &MainWindow::updateSearchFiltersButton);
+    connect(filesMaxSpin, &QSpinBox::valueChanged, this, &MainWindow::updateSearchFiltersButton);
+    connect(sizeMinUnit, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this](int) { updateSearchFiltersButton(); });
+    connect(sizeMaxUnit, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [this](int) { updateSearchFiltersButton(); });
+
+    updateSearchFiltersButton();
+}
+
+MainWindow::SearchFilters MainWindow::currentSearchFilters() const
+{
+    SearchFilters filters;
+    if (!sizeMinSpin)
+        return filters;
+    filters.sizeMin = sizeFieldBytes(sizeMinSpin, sizeMinUnit);
+    filters.sizeMax = sizeFieldBytes(sizeMaxSpin, sizeMaxUnit);
+    filters.filesMin = filesMinSpin->value();
+    filters.filesMax = filesMaxSpin->value();
+    return filters;
+}
+
+void MainWindow::updateSearchFiltersButton()
+{
+    if (!filtersButton)
+        return;
+
+    // An upper bound below the lower one can only ever return nothing, so the
+    // one the user is not editing follows along instead of silently emptying
+    // the result list. Raising the max to the min settles on the second pass.
+    const SearchFilters filters = currentSearchFilters();
+    if (filters.sizeMin > 0 && filters.sizeMax > 0 && filters.sizeMax < filters.sizeMin) {
+        const qint64 unit = sizeMaxUnit->currentData().toLongLong();
+        QSignalBlocker block(sizeMaxSpin);
+        sizeMaxSpin->setValue(static_cast<double>(filters.sizeMin) / static_cast<double>(unit));
+    }
+    if (filters.filesMin > 0 && filters.filesMax > 0 && filters.filesMax < filters.filesMin) {
+        QSignalBlocker block(filesMaxSpin);
+        filesMaxSpin->setValue(filters.filesMin);
+    }
+
+    const SearchFilters settled = currentSearchFilters();
+    const int active = settled.activeCount();
+    filtersButton->setText(active > 0 ? tr("Filters (%1)").arg(active) : tr("Filters"));
+
+    QStringList parts;
+    if (settled.sizeMin > 0)
+        parts << tr("size from %1").arg(rats::ui::formatSize(settled.sizeMin));
+    if (settled.sizeMax > 0)
+        parts << tr("size to %1").arg(rats::ui::formatSize(settled.sizeMax));
+    if (settled.filesMin > 0)
+        parts << tr("from %n file(s)", nullptr, settled.filesMin);
+    if (settled.filesMax > 0)
+        parts << tr("to %n file(s)", nullptr, settled.filesMax);
+    filtersButton->setToolTip(
+        parts.isEmpty() ? tr("Filter results by size and file count") : parts.join(QLatin1String(", ")));
+}
+
+void MainWindow::resetSearchFilters()
+{
+    if (!sizeMinSpin)
+        return;
+    sizeMinSpin->setValue(0.0);
+    sizeMaxSpin->setValue(0.0);
+    filesMinSpin->setValue(0);
+    filesMaxSpin->setValue(0);
+}
+
 void MainWindow::performSearch(const QString& query)
 {
     if (query.isEmpty())
@@ -858,6 +1033,12 @@ void MainWindow::performSearch(const QString& query)
     req.safeSearch = safeSearchCheckBox->isChecked();
     req.contentType = typeComboBox->currentData().toString();
 
+    const SearchFilters filters = currentSearchFilters();
+    req.sizeMin = filters.sizeMin;
+    req.sizeMax = filters.sizeMax;
+    req.filesMin = filters.filesMin;
+    req.filesMax = filters.filesMax;
+
     searchResultModel->clearResults();
 
     // Local torrent search (synchronous).
@@ -888,6 +1069,25 @@ void MainWindow::performSearch(const QString& query)
         msg["safeSearch"] = req.safeSearch;
         if (!req.contentType.isEmpty())
             msg["type"] = req.contentType;
+        // Ranges travel in the same {min,max} shape the REST router takes. An
+        // unset bound is left out entirely rather than sent as 0, so a peer that
+        // does read them cannot mistake "any" for "at least nothing".
+        if (filters.sizeMin > 0 || filters.sizeMax > 0) {
+            QJsonObject size;
+            if (filters.sizeMin > 0)
+                size["min"] = filters.sizeMin;
+            if (filters.sizeMax > 0)
+                size["max"] = filters.sizeMax;
+            msg["size"] = size;
+        }
+        if (filters.filesMin > 0 || filters.filesMax > 0) {
+            QJsonObject files;
+            if (filters.filesMin > 0)
+                files["min"] = filters.filesMin;
+            if (filters.filesMax > 0)
+                files["max"] = filters.filesMax;
+            msg["files"] = files;
+        }
         app_->transport()->broadcastMessage("searchTorrent", msg);
         app_->transport()->broadcastMessage("searchFiles", msg);
     }

@@ -94,7 +94,7 @@ private:
 
     // Set true by stop(): gates new requests and makes in-flight announce loops
     // bail early instead of hammering every remaining tracker while shutting down.
-    std::atomic<bool> stopping_{ false };
+    std::atomic<bool> stopping_ { false };
 };
 
 } // namespace rats::net

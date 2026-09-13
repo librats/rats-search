@@ -586,6 +586,46 @@ QToolButton:pressed {
     background-color: #4a9eff;
 }
 
+/* Search-bar "Filters" drop-down. Scoped by id: the plain QToolButton rule
+   above is the flat toolbar look, and this one sits between two combo boxes. */
+QToolButton#searchFiltersButton {
+    background-color: #2a2a2a;
+    border: 2px solid #404040;
+    border-radius: 8px;
+    padding: 10px 34px 10px 14px;
+    color: #e0e0e0;
+    font-size: 13px;
+    font-weight: normal;
+}
+
+QToolButton#searchFiltersButton:hover {
+    background-color: #2a2a2a;
+    border-color: #505050;
+    color: #ffffff;
+}
+
+QToolButton#searchFiltersButton:pressed {
+    background-color: #2a2a2a;
+    border-color: #4a9eff;
+    color: #ffffff;
+}
+
+QToolButton#searchFiltersButton::menu-indicator {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #b0b0b0;
+    margin-right: 12px;
+}
+
+/* Unit picker inside the filters drop-down — the global 150px minimum would
+   make the popup three times as wide as it needs to be. */
+QComboBox#searchFilterUnit {
+    min-width: 44px;
+    padding: 10px 4px 10px 12px;
+}
+
 /* ============================================
    Status Bar
    ============================================ */
