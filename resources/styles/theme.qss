@@ -1,0 +1,1390 @@
+/*
+ * Rats Search — interface stylesheet.
+ *
+ * This is a TEMPLATE, not a finished sheet: every placeholder spelled
+ * at-name is replaced by
+ * ui::Theme with the value from resources/styles/{light,dark}.json before the
+ * result reaches setStyleSheet(). There is exactly one sheet for both themes,
+ * so a layout change can never land in one theme and not the other.
+ *
+ * Design rules followed below:
+ *   - flat fills, no gradients; depth comes from surface/border contrast
+ *   - radii: 6px controls, 8px inputs/buttons, 12px cards
+ *   - 1px hairline borders; the accent is reserved for focus and selection
+ *   - spacing multiples of 4
+ */
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+* {
+    font-family: @fontUi;
+    font-size: 13px;
+}
+
+QMainWindow,
+QMainWindow > QWidget,
+QDialog {
+    background-color: @bg;
+    color: @text;
+}
+
+QWidget {
+    background-color: transparent;
+    color: @text;
+}
+
+QWidget:focus {
+    outline: none;
+}
+
+QLabel {
+    background: transparent;
+    color: @text;
+}
+
+QLabel:disabled {
+    color: @textDisabled;
+}
+
+QToolTip {
+    background-color: @tooltipBg;
+    color: @tooltipText;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* HLine / VLine separators */
+QFrame[frameShape="4"],
+QFrame[frameShape="5"] {
+    background-color: @border;
+    border: none;
+    max-height: 1px;
+}
+
+QFrame[frameShape="5"] {
+    max-height: 16777215px;
+    max-width: 1px;
+}
+
+/* ============================================================
+   Search header card
+   ============================================================ */
+
+QWidget#searchSection {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 12px;
+}
+
+QWidget#searchSection QLabel#logoLabel {
+    font-size: 24px;
+}
+
+QWidget#searchSection QLabel#titleLabel {
+    font-size: 16px;
+    font-weight: 600;
+    color: @text;
+}
+
+/* ============================================================
+   Text inputs
+   ============================================================ */
+
+QLineEdit,
+QSpinBox,
+QDoubleSpinBox,
+QComboBox,
+QTextEdit,
+QPlainTextEdit {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: @text;
+    selection-background-color: @accent;
+    selection-color: @textOnAccent;
+}
+
+QLineEdit {
+    min-height: 22px;
+    padding: 7px 14px;
+}
+
+QLineEdit:hover,
+QSpinBox:hover,
+QDoubleSpinBox:hover,
+QComboBox:hover,
+QTextEdit:hover,
+QPlainTextEdit:hover {
+    border-color: @borderStrong;
+}
+
+QLineEdit:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus,
+QComboBox:focus,
+QComboBox:on,
+QTextEdit:focus,
+QPlainTextEdit:focus {
+    border-color: @accent;
+}
+
+QLineEdit:disabled,
+QSpinBox:disabled,
+QDoubleSpinBox:disabled,
+QComboBox:disabled,
+QTextEdit:disabled,
+QPlainTextEdit:disabled {
+    background-color: @surfaceDisabled;
+    color: @textDisabled;
+}
+
+QTextEdit,
+QPlainTextEdit {
+    padding: 10px;
+}
+
+/* Opt-in monospace: logs and hand-typed lists of URLs. Prose (changelog,
+   licence, release notes) stays in the UI font. */
+QPlainTextEdit,
+QTextEdit#monoEdit {
+    font-family: @fontMono;
+    font-size: 12px;
+}
+
+QSpinBox::up-button,
+QDoubleSpinBox::up-button,
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    background-color: transparent;
+    border: none;
+    width: 18px;
+    margin-right: 2px;
+}
+
+QSpinBox::up-button,
+QDoubleSpinBox::up-button {
+    subcontrol-position: top right;
+    margin-top: 2px;
+}
+
+QSpinBox::down-button,
+QDoubleSpinBox::down-button {
+    subcontrol-position: bottom right;
+    margin-bottom: 2px;
+}
+
+QSpinBox::up-arrow,
+QDoubleSpinBox::up-arrow {
+    image: url(@iconChevronUp);
+    width: 9px;
+    height: 9px;
+}
+
+QSpinBox::down-arrow,
+QDoubleSpinBox::down-arrow {
+    image: url(@iconChevronDown);
+    width: 9px;
+    height: 9px;
+}
+
+/* ============================================================
+   Combo box
+   ============================================================ */
+
+QComboBox {
+    min-width: 120px;
+    padding-right: 28px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    border: none;
+    width: 26px;
+}
+
+QComboBox::down-arrow {
+    image: url(@iconChevronDown);
+    width: 12px;
+    height: 12px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 8px;
+    color: @text;
+    padding: 4px;
+    outline: 0;
+    selection-background-color: @accentSoft;
+    selection-color: @text;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 26px;
+    padding: 4px 8px;
+    border-radius: 5px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: @surfaceHover;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: @accentSoft;
+    color: @text;
+}
+
+/* The popup is a plain QFrame around the view; without this it paints the
+   window background through the rounded corners. */
+QComboBox QFrame {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 8px;
+}
+
+/* Unit picker inside the filters drop-down — the shared minimum would make the
+   popup three times wider than it needs to be. */
+QComboBox#searchFilterUnit {
+    min-width: 56px;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+QPushButton {
+    background-color: @accent;
+    color: @textOnAccent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-weight: 600;
+    min-height: 22px;
+}
+
+QPushButton:hover {
+    background-color: @accentHover;
+}
+
+QPushButton:pressed {
+    background-color: @accentActive;
+}
+
+QPushButton:disabled {
+    background-color: @surfaceDisabled;
+    color: @textDisabled;
+}
+
+QPushButton#primaryButton {
+    background-color: @accent;
+}
+
+QPushButton#secondaryButton,
+QPushButton#outlineButton {
+    background-color: @surface;
+    color: @text;
+    border: 1px solid @border;
+}
+
+QPushButton#secondaryButton:hover,
+QPushButton#outlineButton:hover {
+    background-color: @surfaceHover;
+    border-color: @borderStrong;
+}
+
+QPushButton#secondaryButton:pressed,
+QPushButton#outlineButton:pressed {
+    background-color: @surfaceActive;
+}
+
+QPushButton#secondaryButton:disabled,
+QPushButton#outlineButton:disabled {
+    background-color: @surfaceDisabled;
+    color: @textDisabled;
+    border-color: @border;
+}
+
+QPushButton#successButton,
+QPushButton#completedButton {
+    background-color: @success;
+}
+
+QPushButton#successButton:hover,
+QPushButton#completedButton:hover {
+    background-color: @successHover;
+}
+
+QPushButton#successButton:pressed,
+QPushButton#completedButton:pressed {
+    background-color: @successActive;
+}
+
+QPushButton#dangerButton,
+QPushButton#cancelDownloadButton {
+    background-color: @danger;
+}
+
+QPushButton#dangerButton:hover,
+QPushButton#cancelDownloadButton:hover {
+    background-color: @dangerHover;
+}
+
+QPushButton#dangerButton:pressed,
+QPushButton#cancelDownloadButton:pressed {
+    background-color: @dangerActive;
+}
+
+QPushButton#warningButton {
+    background-color: @surface;
+    color: @warning;
+    border: 1px solid @border;
+}
+
+QPushButton#warningButton:hover {
+    background-color: @surfaceHover;
+    border-color: @warning;
+}
+
+QPushButton#magnetButton {
+    background-color: @magnet;
+}
+
+QPushButton#magnetButton:hover {
+    background-color: @magnetHover;
+}
+
+/* Quiet icon-ish button that closes a panel */
+QPushButton#closeButton {
+    background-color: transparent;
+    color: @textMuted;
+    border: none;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 16px;
+    font-weight: normal;
+    min-height: 0;
+}
+
+QPushButton#closeButton:hover {
+    background-color: @surfaceHover;
+    color: @text;
+}
+
+/* Vote buttons in the details panel */
+QPushButton#goodVoteButton,
+QPushButton#badVoteButton {
+    padding: 6px 14px;
+    font-size: 12px;
+}
+
+QPushButton#goodVoteButton {
+    background-color: @success;
+}
+
+QPushButton#goodVoteButton:hover {
+    background-color: @successHover;
+}
+
+QPushButton#goodVoteButton:pressed {
+    background-color: @successActive;
+}
+
+QPushButton#badVoteButton {
+    background-color: @danger;
+}
+
+QPushButton#badVoteButton:hover {
+    background-color: @dangerHover;
+}
+
+QPushButton#badVoteButton:pressed {
+    background-color: @dangerActive;
+}
+
+QPushButton#goodVoteButton:disabled,
+QPushButton#badVoteButton:disabled {
+    background-color: @surfaceDisabled;
+    color: @textDisabled;
+}
+
+/* Link-styled buttons */
+QPushButton#descriptionToggle {
+    background: transparent;
+    border: none;
+    color: @link;
+    padding: 2px 0;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    min-height: 0;
+}
+
+QPushButton#descriptionToggle:hover {
+    color: @accentHover;
+}
+
+QPushButton#trackerLinkButton {
+    background-color: @accentSoft;
+    color: @accent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QPushButton#trackerLinkButton:hover {
+    background-color: @accentSoftHover;
+    border-color: @accent;
+}
+
+QPushButton#trackerLinkButton:pressed {
+    background-color: @accentSoftHover;
+}
+
+QPushButton#goToDownloadsButton {
+    background-color: @accentSoft;
+    color: @accent;
+    border: 1px solid transparent;
+    padding: 6px 14px;
+}
+
+QPushButton#goToDownloadsButton:hover {
+    background-color: @accentSoftHover;
+    border-color: @accent;
+}
+
+/* ============================================================
+   Tool buttons
+   ============================================================ */
+
+QToolBar {
+    background-color: @surface;
+    border: none;
+    border-bottom: 1px solid @border;
+    spacing: 6px;
+    padding: 6px;
+}
+
+QToolBar::separator {
+    width: 1px;
+    background-color: @border;
+    margin: 4px 6px;
+}
+
+QToolButton {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: @textMuted;
+    font-weight: 500;
+}
+
+QToolButton:hover {
+    background-color: @surfaceHover;
+    color: @text;
+}
+
+QToolButton:pressed {
+    background-color: @surfaceActive;
+    color: @text;
+}
+
+/* Search-bar "Filters" drop-down: it sits between two combo boxes and has to
+   match them, not the flat toolbar buttons above. */
+QToolButton#searchFiltersButton {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 8px;
+    padding: 7px 30px 7px 12px;
+    color: @text;
+    font-weight: normal;
+    min-height: 22px;
+}
+
+QToolButton#searchFiltersButton:hover {
+    border-color: @borderStrong;
+}
+
+QToolButton#searchFiltersButton:pressed,
+QToolButton#searchFiltersButton:on {
+    border-color: @accent;
+}
+
+QToolButton#searchFiltersButton::menu-indicator {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    image: url(@iconChevronDown);
+    width: 12px;
+    height: 12px;
+    right: 10px;
+}
+
+/* ============================================================
+   Check boxes and radio buttons
+   ============================================================ */
+
+QCheckBox,
+QRadioButton {
+    spacing: 8px;
+    color: @text;
+    background: transparent;
+}
+
+QCheckBox:disabled,
+QRadioButton:disabled {
+    color: @textDisabled;
+}
+
+QCheckBox::indicator,
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid @borderStrong;
+    background-color: @surface;
+}
+
+QCheckBox::indicator {
+    border-radius: 4px;
+}
+
+QRadioButton::indicator {
+    border-radius: 9px;
+}
+
+QCheckBox::indicator:hover,
+QRadioButton::indicator:hover {
+    border-color: @accent;
+}
+
+QCheckBox::indicator:checked {
+    background-color: @accent;
+    border-color: @accent;
+    image: url(@iconCheck);
+}
+
+QCheckBox::indicator:checked:hover {
+    background-color: @accentHover;
+    border-color: @accentHover;
+}
+
+QRadioButton::indicator:checked {
+    background-color: @surface;
+    border: 5px solid @accent;
+}
+
+QRadioButton::indicator:checked:hover {
+    border-color: @accentHover;
+}
+
+QCheckBox::indicator:disabled,
+QRadioButton::indicator:disabled {
+    background-color: @surfaceDisabled;
+    border-color: @border;
+}
+
+/* ============================================================
+   Slider
+   ============================================================ */
+
+QSlider::groove:horizontal {
+    height: 4px;
+    background-color: @surfaceActive;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background-color: @accent;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    width: 14px;
+    height: 14px;
+    margin: -6px 0;
+    background-color: @accent;
+    border: 2px solid @surface;
+    border-radius: 8px;
+}
+
+QSlider::handle:horizontal:hover {
+    background-color: @accentHover;
+}
+
+/* ============================================================
+   Item views — tables, lists, trees
+   ============================================================ */
+
+QAbstractItemView {
+    background-color: @surface;
+    alternate-background-color: @surfaceAlt;
+    color: @text;
+    border: 1px solid @border;
+    border-radius: 10px;
+    selection-background-color: @accent;
+    selection-color: @textOnAccent;
+    outline: none;
+}
+
+QTableView,
+QTableWidget {
+    gridline-color: @rowBorder;
+}
+
+QTableView::item,
+QTableWidget::item {
+    border-bottom: 1px solid @rowBorder;
+    padding: 2px 4px;
+}
+
+QTableView::item:hover,
+QTableWidget::item:hover {
+    background-color: @rowHover;
+}
+
+QTableView::item:selected,
+QTableWidget::item:selected {
+    background-color: @accent;
+    color: @textOnAccent;
+}
+
+QListView::item,
+QListWidget::item {
+    padding: 7px 10px;
+    border-radius: 6px;
+    margin: 1px 3px;
+}
+
+QListView::item:hover,
+QListWidget::item:hover {
+    background-color: @surfaceHover;
+}
+
+QListView::item:selected,
+QListWidget::item:selected {
+    background-color: @accent;
+    color: @textOnAccent;
+}
+
+QTreeView::item,
+QTreeWidget::item {
+    padding: 4px 2px;
+    border: none;
+}
+
+QTreeView::item:hover,
+QTreeWidget::item:hover {
+    background-color: @surfaceHover;
+}
+
+QTreeView::item:selected,
+QTreeWidget::item:selected {
+    background-color: @accent;
+    color: @textOnAccent;
+}
+
+QTreeView::branch:has-children:!has-siblings:closed,
+QTreeView::branch:closed:has-children:has-siblings {
+    border-image: none;
+    image: url(@iconChevronRight);
+}
+
+QTreeView::branch:open:has-children:!has-siblings,
+QTreeView::branch:open:has-children:has-siblings {
+    border-image: none;
+    image: url(@iconChevronDown);
+}
+
+/* ============================================================
+   Header view
+   ============================================================ */
+
+QHeaderView {
+    background-color: transparent;
+}
+
+QHeaderView::section {
+    background-color: @surfaceAlt;
+    color: @textMuted;
+    border: none;
+    border-right: 1px solid @border;
+    border-bottom: 1px solid @border;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QHeaderView::section:hover {
+    background-color: @surfaceHover;
+    color: @text;
+}
+
+QHeaderView::section:first {
+    border-top-left-radius: 10px;
+}
+
+QHeaderView::section:last {
+    border-right: none;
+    border-top-right-radius: 10px;
+}
+
+QHeaderView::section:only-one {
+    border-right: none;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+/* Qt centres the sort indicator over the label unless it is positioned. */
+QHeaderView::up-arrow,
+QHeaderView::down-arrow {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 10px;
+    height: 10px;
+    right: 4px;
+}
+
+QHeaderView::up-arrow {
+    image: url(@iconChevronUp);
+}
+
+QHeaderView::down-arrow {
+    image: url(@iconChevronDown);
+}
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+
+QTabWidget::pane {
+    border: 1px solid @border;
+    border-radius: 10px;
+    background-color: @surface;
+    top: -1px;
+}
+
+QTabBar {
+    background: transparent;
+    qproperty-drawBase: 0;
+}
+
+QTabBar::tab {
+    background-color: transparent;
+    color: @textMuted;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 16px;
+    margin-right: 2px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: @surfaceHover;
+    color: @text;
+}
+
+QTabBar::tab:selected {
+    background-color: @accentSoft;
+    color: @accent;
+}
+
+/* ============================================================
+   Scroll bars
+   ============================================================ */
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 12px;
+    margin: 2px;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 12px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: @scrollbar;
+    border-radius: 4px;
+    min-height: 32px;
+    margin: 0 2px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: @scrollbar;
+    border-radius: 4px;
+    min-width: 32px;
+    margin: 2px 0;
+}
+
+QScrollBar::handle:vertical:hover,
+QScrollBar::handle:horizontal:hover {
+    background-color: @scrollbarHover;
+}
+
+QScrollBar::add-line,
+QScrollBar::sub-line {
+    width: 0;
+    height: 0;
+    background: transparent;
+    border: none;
+}
+
+QScrollBar::add-page,
+QScrollBar::sub-page {
+    background: transparent;
+}
+
+QScrollArea {
+    background-color: transparent;
+    border: none;
+}
+
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+/* ============================================================
+   Menus
+   ============================================================ */
+
+QMenuBar {
+    background-color: @bg;
+    color: @text;
+    border-bottom: 1px solid @border;
+    padding: 2px 4px;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin: 1px 2px;
+}
+
+QMenuBar::item:selected {
+    background-color: @surfaceHover;
+}
+
+QMenuBar::item:pressed {
+    background-color: @accentSoft;
+    color: @accent;
+}
+
+QMenu {
+    background-color: @surface;
+    color: @text;
+    border: 1px solid @border;
+    border-radius: 10px;
+    padding: 6px;
+}
+
+QMenu::item {
+    padding: 7px 28px 7px 14px;
+    border-radius: 6px;
+    margin: 1px 2px;
+}
+
+QMenu::item:selected {
+    background-color: @accentSoft;
+    color: @accent;
+}
+
+QMenu::item:disabled {
+    color: @textDisabled;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: @border;
+    margin: 5px 10px;
+}
+
+QMenu::icon {
+    padding-left: 10px;
+}
+
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    margin-left: 8px;
+}
+
+/* ============================================================
+   Group box / forms
+   ============================================================ */
+
+QGroupBox {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 10px;
+    margin-top: 14px;
+    padding: 16px;
+    padding-top: 20px;
+    font-weight: 600;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 14px;
+    padding: 0 6px;
+    color: @text;
+    background-color: @surface;
+}
+
+QGroupBox QGroupBox {
+    background-color: @surfaceAlt;
+}
+
+QGroupBox QGroupBox::title {
+    background-color: @surfaceAlt;
+}
+
+/* ============================================================
+   Progress bars
+   ============================================================ */
+
+QProgressBar {
+    background-color: @surfaceActive;
+    border: none;
+    border-radius: 5px;
+    min-height: 10px;
+    max-height: 10px;
+    text-align: center;
+    color: @textMuted;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+QProgressBar::chunk {
+    background-color: @accent;
+    border-radius: 5px;
+}
+
+QDialog QProgressBar,
+QProgressBar#downloadProgress,
+QProgressBar#downloadProgressPaused,
+QProgressBar#downloadProgressBarDetails {
+    min-height: 16px;
+    max-height: 16px;
+    border-radius: 8px;
+    font-size: 11px;
+    color: @text;
+}
+
+QDialog QProgressBar::chunk,
+QProgressBar#downloadProgress::chunk,
+QProgressBar#downloadProgressPaused::chunk,
+QProgressBar#downloadProgressBarDetails::chunk {
+    border-radius: 8px;
+}
+
+QProgressBar#downloadProgressPaused::chunk {
+    background-color: @textFaint;
+}
+
+/* ============================================================
+   Splitter
+   ============================================================ */
+
+QSplitter::handle {
+    background-color: @border;
+}
+
+QSplitter::handle:hover {
+    background-color: @accent;
+}
+
+QSplitter::handle:horizontal {
+    width: 1px;
+}
+
+QSplitter::handle:vertical {
+    height: 1px;
+}
+
+/* ============================================================
+   Status bar
+   ============================================================ */
+
+QStatusBar {
+    background-color: @surface;
+    color: @textMuted;
+    border-top: 1px solid @border;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+QStatusBar QLabel {
+    color: @textMuted;
+    padding: 2px 10px;
+    font-size: 11px;
+}
+
+/* ============================================================
+   Dialogs and message boxes
+   ============================================================ */
+
+QDialogButtonBox {
+    dialogbuttonbox-buttons-have-icons: 0;
+}
+
+/* Locale-independent: the accept button is the dialog's default button, so it
+   gets the accent and everything else stays neutral. Matching on button TEXT
+   (the old approach) silently stopped working in every translated UI. */
+QDialogButtonBox QPushButton,
+QMessageBox QPushButton {
+    background-color: @surface;
+    color: @text;
+    border: 1px solid @border;
+    min-width: 92px;
+    min-height: 24px;
+}
+
+QDialogButtonBox QPushButton:hover,
+QMessageBox QPushButton:hover {
+    background-color: @surfaceHover;
+    border-color: @borderStrong;
+}
+
+QDialogButtonBox QPushButton:pressed,
+QMessageBox QPushButton:pressed {
+    background-color: @surfaceActive;
+}
+
+QDialogButtonBox QPushButton:default,
+QMessageBox QPushButton:default {
+    background-color: @accent;
+    color: @textOnAccent;
+    border-color: transparent;
+}
+
+QDialogButtonBox QPushButton:default:hover,
+QMessageBox QPushButton:default:hover {
+    background-color: @accentHover;
+}
+
+QMessageBox {
+    background-color: @bg;
+}
+
+QMessageBox QLabel {
+    color: @text;
+}
+
+QFileDialog {
+    background-color: @bg;
+}
+
+/* ============================================================
+   Named labels
+   ============================================================ */
+
+QLabel#titleLabel {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+QLabel#headerLabel {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+QLabel#sectionTitle {
+    color: @textMuted;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 0 4px 0;
+    border-bottom: 1px solid @border;
+}
+
+QLabel#subtitleLabel {
+    color: @textMuted;
+}
+
+QLabel#hintLabel,
+QLabel#statusLabel,
+QLabel#filterLabel,
+QLabel#infoLabel,
+QLabel#statsSubLabel,
+QLabel#votesLabel,
+QLabel#contentTypeLabel,
+QLabel#downloadItemSize,
+QLabel#downloadItemStatus,
+QLabel#downloadStatusLabel,
+QLabel#filesWidgetInfo {
+    color: @textMuted;
+    font-size: 11px;
+}
+
+QLabel#infoValue,
+QLabel#downloadItemName,
+QLabel#detailsTitleLabel {
+    color: @text;
+}
+
+QLabel#downloadItemName,
+QLabel#detailsTitleLabel {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QLabel#emptyStateLabel {
+    color: @textFaint;
+    font-size: 15px;
+    padding: 40px;
+}
+
+QLabel#seedersLabel {
+    color: @seeders;
+    font-weight: 700;
+}
+
+QLabel#leechersLabel {
+    color: @leechers;
+    font-weight: 700;
+}
+
+QLabel#completedLabel {
+    color: @completed;
+    font-weight: 700;
+}
+
+QLabel#downloadSpeedLabel,
+QLabel#downloadItemSpeed {
+    color: @accent;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QLabel#cleanupProgressLabel,
+QLabel#downloadTitleLabel {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QLabel#hashLabel {
+    font-family: @fontMono;
+    font-size: 11px;
+    color: @textMuted;
+}
+
+QLabel#linkLabel,
+QLabel#linkLabel a {
+    color: @link;
+}
+
+QLabel#trackerLoadingLabel {
+    color: @textMuted;
+    font-size: 11px;
+    font-style: italic;
+    padding: 4px 0;
+}
+
+QLabel#aboutLogoLabel {
+    font-size: 44px;
+}
+
+QLabel#aboutTitleLabel {
+    font-size: 19px;
+    font-weight: 700;
+}
+
+QLabel#ratingLabel {
+    color: @textMuted;
+    font-size: 11px;
+}
+
+QLabel#ratingLabel[ratingType="good"] {
+    color: @success;
+    font-weight: 700;
+}
+
+QLabel#ratingLabel[ratingType="bad"] {
+    color: @danger;
+    font-weight: 700;
+}
+
+/* ============================================================
+   Main window sections
+   ============================================================ */
+
+QWidget#headerRow,
+QWidget#filterRow,
+QWidget#bottomRow {
+    background-color: @surfaceAlt;
+    border-bottom: 1px solid @border;
+}
+
+/* Category tabs (Top torrents) reuse the shared tab look; only the metrics
+   differ, so nothing but padding is repeated here. */
+QTabBar#categoryTabBar::tab {
+    padding: 6px 14px;
+}
+
+/* ============================================================
+   Downloads
+   ============================================================ */
+
+/* The list sits directly on the tab pane; giving it its own fill split the
+   page in two whenever the list was empty. */
+QScrollArea#downloadsScrollArea,
+QWidget#downloadsListContainer {
+    background-color: transparent;
+}
+
+QWidget#downloadItemWidget {
+    background-color: @surfaceAlt;
+    border: 1px solid @border;
+    border-radius: 10px;
+    margin: 3px;
+}
+
+QWidget#downloadItemWidget:hover {
+    border-color: @borderStrong;
+}
+
+QWidget#downloadProgressWidget {
+    background-color: @surface;
+    border: 1px solid @border;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+/* ============================================================
+   Torrent details panel
+   ============================================================ */
+
+QWidget#detailsPanel {
+    background-color: @bg;
+    border-left: 1px solid @border;
+}
+
+QScrollArea#detailsScrollArea {
+    background-color: transparent;
+}
+
+QFrame#detailsSeparator {
+    background-color: @border;
+    max-height: 1px;
+    border: none;
+}
+
+QWidget#contentTypeIcon {
+    background-color: @accentSoft;
+    border-radius: 8px;
+}
+
+QProgressBar#ratingBar {
+    min-height: 6px;
+    max-height: 6px;
+    border-radius: 3px;
+    background-color: @surfaceActive;
+}
+
+QProgressBar#ratingBar::chunk {
+    border-radius: 3px;
+    background-color: @textFaint;
+}
+
+QProgressBar#ratingBar[ratingType="good"]::chunk {
+    background-color: @success;
+}
+
+QProgressBar#ratingBar[ratingType="bad"]::chunk {
+    background-color: @danger;
+}
+
+QWidget#trackerInfoWidget {
+    background-color: transparent;
+}
+
+QLabel#posterLabel {
+    background-color: @surfaceAlt;
+    border: 1px solid @border;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+QLabel#descriptionLabel {
+    color: @text;
+    font-size: 12px;
+    padding: 10px;
+    background-color: @surfaceAlt;
+    border: 1px solid @border;
+    border-radius: 8px;
+}
+
+/* ============================================================
+   Files panel
+   ============================================================ */
+
+QWidget#torrentFilesWidget {
+    background-color: @bg;
+    border-top: 1px solid @border;
+}
+
+QLabel#filesWidgetTitle {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QTreeWidget#filesTreeBottom {
+    font-size: 12px;
+}
+
+/* ============================================================
+   Activity
+   ============================================================ */
+
+QListWidget#activityTorrentList::item {
+    min-height: 44px;
+    padding: 8px 12px;
+}
+
+/* ============================================================
+   Migration splash (frameless — the border is its only edge)
+   ============================================================ */
+
+QWidget#migrationSplash {
+    background-color: @surface;
+    border: 1px solid @border;
+}
+
+QLabel#migrationHeading {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+QLabel#migrationDetail {
+    font-size: 12px;
+}
+
+QLabel#migrationHint {
+    color: @textMuted;
+    font-size: 11px;
+}
+
+QWidget#migrationSplash QProgressBar {
+    min-height: 16px;
+    max-height: 16px;
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+QWidget#migrationSplash QProgressBar::chunk {
+    border-radius: 8px;
+}

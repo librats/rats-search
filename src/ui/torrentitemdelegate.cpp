@@ -2,6 +2,7 @@
 #include "domain/content.h"
 #include "format.h"
 #include "searchresultmodel.h"
+#include "theme.h"
 #include <QApplication>
 #include <QPainter>
 #include <QPainterPath>
@@ -11,24 +12,26 @@ TorrentItemDelegate::TorrentItemDelegate(QObject* parent) : QStyledItemDelegate(
 
 QColor TorrentItemDelegate::getSeedersColor(int seeders)
 {
+    const rats::ui::Theme& theme = rats::ui::Theme::instance();
     if (seeders > 50)
-        return QColor("#00C853"); // Green
+        return theme.color(QLatin1String("seedersHigh"));
     if (seeders > 10)
-        return QColor("#64DD17"); // Light Green
+        return theme.color(QLatin1String("seedersMid"));
     if (seeders > 0)
-        return QColor("#FFD600"); // Yellow
-    return QColor("#888888"); // Gray
+        return theme.color(QLatin1String("seedersLow"));
+    return theme.color(QLatin1String("peersNone"));
 }
 
 QColor TorrentItemDelegate::getLeechersColor(int leechers)
 {
+    const rats::ui::Theme& theme = rats::ui::Theme::instance();
     if (leechers > 50)
-        return QColor("#AA00FF"); // Purple
+        return theme.color(QLatin1String("leechersHigh"));
     if (leechers > 10)
-        return QColor("#D500F9"); // Light Purple
+        return theme.color(QLatin1String("leechersMid"));
     if (leechers > 0)
-        return QColor("#E040FB"); // Pink
-    return QColor("#888888"); // Gray
+        return theme.color(QLatin1String("leechersLow"));
+    return theme.color(QLatin1String("peersNone"));
 }
 
 void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const
@@ -41,31 +44,27 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setRenderHint(QPainter::TextAntialiasing, true);
 
-    // Get colors from palette for theme support
-    const QPalette& palette = option.palette;
+    // Every colour comes from the same token table the stylesheet is built
+    // from, so the rows cannot drift from the view they sit in.
+    const rats::ui::Theme& theme = rats::ui::Theme::instance();
+    const QColor selectedTextColor = theme.color(QLatin1String("textOnAccent"));
 
-    // Detect if dark mode based on background color luminance
-    QColor baseColor = palette.color(QPalette::Base);
-    bool isDarkMode = (baseColor.red() + baseColor.green() + baseColor.blue()) / 3 < 128;
-
-    // Background colors (theme-aware)
     QColor bgColor;
     if (option.state & QStyle::State_Selected) {
-        bgColor = palette.color(QPalette::Highlight);
+        bgColor = theme.color(QLatin1String("accent"));
     } else if (option.state & QStyle::State_MouseOver) {
-        bgColor = isDarkMode ? QColor("#3c4048") : QColor("#f0f7ff");
+        bgColor = theme.color(QLatin1String("rowHover"));
     } else if (index.row() % 2 == 0) {
-        bgColor = palette.color(QPalette::Base);
+        bgColor = theme.color(QLatin1String("surface"));
     } else {
-        bgColor = palette.color(QPalette::AlternateBase);
+        bgColor = theme.color(QLatin1String("surfaceAlt"));
     }
     painter->fillRect(option.rect, bgColor);
 
-    // Text colors (theme-aware)
-    QColor textColor = palette.color(QPalette::Text);
-    QColor mutedTextColor = isDarkMode ? QColor("#aaaaaa") : QColor("#666666");
-    QColor dimTextColor = isDarkMode ? QColor("#888888") : QColor("#999999");
-    QColor borderColor = isDarkMode ? QColor("#3c3f41") : QColor("#e0e0e0");
+    const QColor textColor = theme.color(QLatin1String("text"));
+    const QColor mutedTextColor = theme.color(QLatin1String("textMuted"));
+    const QColor dimTextColor = theme.color(QLatin1String("textFaint"));
+    const QColor borderColor = theme.color(QLatin1String("rowBorder"));
 
     // Get column
     int column = index.column();
@@ -98,18 +97,13 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
             QFont iconFont = option.font;
             iconFont.setPointSize(10);
             painter->setFont(iconFont);
-            painter->setPen(
-                option.state & QStyle::State_Selected ? palette.color(QPalette::HighlightedText) : textColor);
+            painter->setPen(option.state & QStyle::State_Selected ? selectedTextColor : textColor);
             painter->drawText(iconRect, Qt::AlignVCenter | Qt::AlignLeft, typeIcon);
             nameRect.setLeft(iconLeft + 18);
         }
 
         // Draw name - use selected text color if selected
-        if (option.state & QStyle::State_Selected) {
-            painter->setPen(palette.color(QPalette::HighlightedText));
-        } else {
-            painter->setPen(textColor);
-        }
+        painter->setPen(option.state & QStyle::State_Selected ? selectedTextColor : textColor);
         QFont font = option.font;
         font.setPointSize(10);
         painter->setFont(font);
@@ -131,8 +125,13 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
             pathFont.setPointSize(8);
             painter->setFont(pathFont);
 
-            QColor pathColor = isDarkMode ? QColor("#9e9e9e") : QColor("#757575");
-            QColor highlightColor = isDarkMode ? QColor("#ffab40") : QColor("#e65100");
+            const QColor pathColor
+                = option.state & QStyle::State_Selected ? selectedTextColor : theme.color(QLatin1String("pathText"));
+            // The plain highlight is tuned for the row fill; over the accent it
+            // needs the lighter amber to stay legible.
+            const QColor highlightColor
+                = theme.color(option.state & QStyle::State_Selected ? QLatin1String("matchHighlightSelected")
+                                                                    : QLatin1String("matchHighlight"));
 
             int pathTop = rect.top() + BaseRowHeight - 6;
             int pathsToShow = qMin(matchingPaths.size(), MaxVisiblePaths);
@@ -153,11 +152,7 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
     }
 
     case SearchResultModel::SizeColumn: {
-        if (option.state & QStyle::State_Selected) {
-            painter->setPen(palette.color(QPalette::HighlightedText));
-        } else {
-            painter->setPen(mutedTextColor);
-        }
+        painter->setPen(option.state & QStyle::State_Selected ? selectedTextColor : mutedTextColor);
         QString size = index.data(Qt::DisplayRole).toString();
         painter->drawText(rect, Qt::AlignVCenter | Qt::AlignRight, size);
         break;
@@ -165,8 +160,9 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
 
     case SearchResultModel::SeedersColumn: {
         int seeders = index.data(Qt::DisplayRole).toInt();
-        // Seeders color stays the same (green tones) - visible on both themes
-        painter->setPen(getSeedersColor(seeders));
+        // The swarm-health tint would sit unreadably on the accent fill, so a
+        // selected row falls back to the selection's own text colour.
+        painter->setPen(option.state & QStyle::State_Selected ? selectedTextColor : getSeedersColor(seeders));
         QFont font = option.font;
         font.setBold(seeders > 0);
         painter->setFont(font);
@@ -176,8 +172,7 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
 
     case SearchResultModel::LeechersColumn: {
         int leechers = index.data(Qt::DisplayRole).toInt();
-        // Leechers color stays the same (purple tones) - visible on both themes
-        painter->setPen(getLeechersColor(leechers));
+        painter->setPen(option.state & QStyle::State_Selected ? selectedTextColor : getLeechersColor(leechers));
         QFont font = option.font;
         font.setBold(leechers > 0);
         painter->setFont(font);
@@ -186,11 +181,7 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
     }
 
     case SearchResultModel::DateColumn: {
-        if (option.state & QStyle::State_Selected) {
-            painter->setPen(palette.color(QPalette::HighlightedText));
-        } else {
-            painter->setPen(dimTextColor);
-        }
+        painter->setPen(option.state & QStyle::State_Selected ? selectedTextColor : dimTextColor);
         QString date = index.data(Qt::DisplayRole).toString();
         painter->drawText(rect, Qt::AlignVCenter | Qt::AlignLeft, date);
         break;
@@ -201,7 +192,6 @@ void TorrentItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
         break;
     }
 
-    // Draw bottom border (theme-aware)
     painter->setPen(borderColor);
     painter->drawLine(option.rect.bottomLeft(), option.rect.bottomRight());
 

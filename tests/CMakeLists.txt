@@ -46,6 +46,13 @@ add_rats_test(test_voting_record)
 # ratscore), so its source is compiled straight into the test.
 add_rats_test(test_single_instance ${CMAKE_SOURCE_DIR}/src/bootstrap/single_instance.cpp)
 
+# The theme lives in src/ui (executable-only, not in ratscore) and reads its
+# stylesheet template and token tables out of the Qt resources, so both the
+# source and the qrc are compiled straight into this test.
+add_rats_test(test_theme
+    ${CMAKE_SOURCE_DIR}/src/ui/theme.cpp
+    ${CMAKE_SOURCE_DIR}/resources/resources.qrc)
+
 # Content classifier needs the :/content/*.json Qt resources. Those live in the
 # main resources.qrc (they are not compiled into ratscore), so compile the qrc
 # straight into this test executable (CMAKE_AUTORCC is ON globally).
@@ -116,6 +123,7 @@ add_custom_target(check
             test_database_dump
             test_voting_record
             test_single_instance
+            test_theme
     COMMENT "Running all tests..."
 )
 

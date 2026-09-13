@@ -508,9 +508,6 @@ void TorrentDetailsPanel::clear()
     hasVoted_ = false;
 
     titleLabel_->setText(tr("Select a torrent"));
-    contentTypeIcon_->setProperty("typeColor", "#888888");
-    contentTypeIcon_->style()->unpolish(contentTypeIcon_);
-    contentTypeIcon_->style()->polish(contentTypeIcon_);
     contentTypeLabel_->clear();
 
     seedersLabel_->setText("0");

@@ -190,6 +190,9 @@ QWidget* SettingsDialog::createGeneralTab()
     searchLayout->addRow(searchHistoryCheck_);
 
     clearSearchHistoryButton_ = new QPushButton(tr("Clear search history"));
+    // Neutral, like the other in-place actions on this page: the accent is for
+    // the dialog's own accept button, not for a side action.
+    clearSearchHistoryButton_->setObjectName("secondaryButton");
     // Clearing is immediate and independent of Save — it is an action, not a
     // setting, and there is nothing to roll back on Cancel.
     connect(clearSearchHistoryButton_, &QPushButton::clicked, this, [this]() {

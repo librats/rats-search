@@ -1,9 +1,9 @@
 #include "migrationprogresswindow.h"
 
 #include "services/migration_service.h"
+#include "theme.h"
 
 #include <QApplication>
-#include <QFile>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QLabel>
@@ -90,27 +90,10 @@ void MigrationProgressWindow::setupUi()
 void MigrationProgressWindow::applyTheme(bool darkMode)
 {
     // Same sheet MainWindow uses, so the splash matches the window that follows
-    // it; the frame border and the two text styles are the only additions (a
-    // frameless window otherwise has no visible edge).
-    QString styleSheet;
-    QFile styleFile(darkMode ? ":/styles/styles/dark.qss" : ":/styles/styles/light.qss");
-    if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        styleSheet = QString::fromUtf8(styleFile.readAll());
-
-    const QString background = darkMode ? QStringLiteral("#1a1a1a") : QStringLiteral("#ffffff");
-    const QString border = darkMode ? QStringLiteral("#353535") : QStringLiteral("#d0d0d0");
-    const QString heading = darkMode ? QStringLiteral("#e0e0e0") : QStringLiteral("#202020");
-    const QString muted = darkMode ? QStringLiteral("#808080") : QStringLiteral("#707070");
-
-    styleSheet += QStringLiteral("\n"
-                                 "QWidget#migrationSplash { background-color: %1; border: 1px solid %2; }\n"
-                                 "QLabel#migrationHeading { color: %3; font-size: 15px; font-weight: bold; }\n"
-                                 "QLabel#migrationDetail { color: %3; font-size: 12px; }\n"
-                                 "QLabel#migrationHint { color: %4; font-size: 11px; }\n"
-                                 "QProgressBar { height: 16px; border-radius: 8px; font-size: 11px; }\n"
-                                 "QProgressBar::chunk { border-radius: 8px; }\n")
-                      .arg(background, border, heading, muted);
-    setStyleSheet(styleSheet);
+    // it; the frameless edge and the three text styles live in theme.qss under
+    // #migrationSplash and friends.
+    rats::ui::Theme::instance().setDark(darkMode);
+    setStyleSheet(rats::ui::Theme::instance().styleSheet());
 }
 
 void MigrationProgressWindow::onMigrationStarted(const QString& migrationId, const QString& description)

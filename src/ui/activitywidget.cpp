@@ -105,7 +105,7 @@ void ActivityWidget::setupUi()
     torrentList_->setSpacing(2);
 
     // Note: Hover/selection colors are handled by the application theme
-    // (light.qss/dark.qss) We only set padding and height here
+    // (resources/styles/theme.qss). We only set padding and height here
 
     connect(torrentList_, &QListWidget::itemClicked, this, &ActivityWidget::onItemClicked);
     connect(torrentList_, &QListWidget::itemDoubleClicked, this, &ActivityWidget::onItemDoubleClicked);

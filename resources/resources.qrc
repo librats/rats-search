@@ -3,14 +3,20 @@
         <file>images/rat-logo.png</file>
         <file>images/icon.png</file>
         <file>images/checkmark.svg</file>
-        <file>images/checkmark-dark.svg</file>
+        <file>images/chevron-down-l.svg</file>
+        <file>images/chevron-down-d.svg</file>
+        <file>images/chevron-up-l.svg</file>
+        <file>images/chevron-up-d.svg</file>
+        <file>images/chevron-right-l.svg</file>
+        <file>images/chevron-right-d.svg</file>
         <file>icon.ico</file>
         <file alias="AGREEMENT.md">../AGREEMENT.md</file>
         <file alias="CHANGELOG.md">../CHANGELOG.md</file>
     </qresource>
     <qresource prefix="/styles">
-        <file>styles/dark.qss</file>
-        <file>styles/light.qss</file>
+        <file>styles/theme.qss</file>
+        <file>styles/light.json</file>
+        <file>styles/dark.json</file>
     </qresource>
     <qresource prefix="/content">
         <file alias="extensions.json">content/extensions.json</file>

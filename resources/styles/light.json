@@ -1,0 +1,70 @@
+{
+    "_comment": "Light theme tokens. Substituted into theme.qss (@name) and read by ui::Theme for hand-painted widgets. Keep the key set identical to dark.json.",
+
+    "bg": "#f4f6f8",
+    "surface": "#ffffff",
+    "surfaceAlt": "#f8fafc",
+    "surfaceHover": "#eef2f7",
+    "surfaceActive": "#e2e8f0",
+    "surfaceDisabled": "#eef1f5",
+
+    "border": "#e2e8f0",
+    "borderStrong": "#cbd5e1",
+
+    "text": "#111827",
+    "textMuted": "#64748b",
+    "textFaint": "#94a3b8",
+    "textDisabled": "#a9b4c2",
+    "textOnAccent": "#ffffff",
+
+    "accent": "#2563eb",
+    "accentHover": "#3b82f6",
+    "accentActive": "#1d4ed8",
+    "accentSoft": "#e8f0fe",
+    "accentSoftHover": "#dbe7fd",
+
+    "success": "#16a34a",
+    "successHover": "#22c55e",
+    "successActive": "#15803d",
+
+    "danger": "#dc2626",
+    "dangerHover": "#ef4444",
+    "dangerActive": "#b91c1c",
+
+    "warning": "#c2620a",
+
+    "seeders": "#16a34a",
+    "leechers": "#9333ea",
+    "completed": "#ea580c",
+    "magnet": "#db2777",
+    "magnetHover": "#ec4899",
+    "link": "#2563eb",
+
+    "rowHover": "#f1f6fe",
+    "rowBorder": "#eef2f7",
+    "pathText": "#64748b",
+    "matchHighlightSelected": "#fcd34d",
+    "matchHighlight": "#c2410c",
+
+    "scrollbar": "#cbd5e1",
+    "scrollbarHover": "#94a3b8",
+
+    "tooltipBg": "#111827",
+    "tooltipText": "#f8fafc",
+
+    "seedersHigh": "#16a34a",
+    "seedersMid": "#65a30d",
+    "seedersLow": "#ca8a04",
+    "peersNone": "#94a3b8",
+    "leechersHigh": "#9333ea",
+    "leechersMid": "#a855f7",
+    "leechersLow": "#c026d3",
+
+    "iconChevronDown": ":/images/chevron-down-l.svg",
+    "iconChevronUp": ":/images/chevron-up-l.svg",
+    "iconChevronRight": ":/images/chevron-right-l.svg",
+    "iconCheck": ":/images/checkmark.svg",
+
+    "fontMono": "\"JetBrains Mono\", \"Cascadia Mono\", Consolas, \"DejaVu Sans Mono\", monospace",
+    "fontUi": "\"Segoe UI\", \"SF Pro Text\", \"Noto Sans\", Ubuntu, Arial, sans-serif"
+}

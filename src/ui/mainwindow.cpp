@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "searchresultmodel.h"
+#include "theme.h"
 #include "torrentdetailspanel.h"
 #include "torrentitemdelegate.h"
 #include "torrentmenu.h"
@@ -166,16 +167,8 @@ MainWindow::~MainWindow()
 
 void MainWindow::applyTheme(bool darkMode)
 {
-    QString stylePath = darkMode ? ":/styles/styles/dark.qss" : ":/styles/styles/light.qss";
-    QFile styleFile(stylePath);
-    if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QString styleSheet = QString::fromUtf8(styleFile.readAll());
-        styleFile.close();
-        setStyleSheet(styleSheet);
-        qInfo() << (darkMode ? "Dark" : "Light") << "theme loaded from resources";
-    } else {
-        qWarning() << "Failed to load theme from resources:" << styleFile.errorString();
-    }
+    rats::ui::Theme::instance().setDark(darkMode);
+    setStyleSheet(rats::ui::Theme::instance().styleSheet());
 }
 
 void MainWindow::setupUi()
@@ -918,6 +911,9 @@ void MainWindow::setupSearchFilters()
     form->addRow(tr("Files to:"), makeCountSpin(filesMaxSpin));
 
     QPushButton* resetButton = new QPushButton(tr("Reset filters"), panel);
+    // Neutral: the popup has no accept button, so nothing here should read as
+    // the primary action.
+    resetButton->setObjectName("secondaryButton");
     resetButton->setCursor(Qt::PointingHandCursor);
     form->addRow(resetButton);
 
@@ -1919,6 +1915,7 @@ void MainWindow::createTorrent()
     layout->addWidget(trackersLabel);
 
     QTextEdit* trackersEdit = new QTextEdit();
+    trackersEdit->setObjectName("monoEdit"); // one URL per line reads better fixed-width
     trackersEdit->setPlaceholderText("udp://tracker.example.com:6969/announce\nhttp://tracker2.example.com/"
                                      "announce");
     trackersEdit->setMaximumHeight(80);
@@ -2567,13 +2564,9 @@ bool MainWindow::showAgreementDialog()
     dialog.setMinimumSize(700, 600);
     dialog.setModal(true);
 
-    if (config && config->darkMode()) {
-        QFile styleFile(":/styles/styles/dark.qss");
-        if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            dialog.setStyleSheet(QString::fromUtf8(styleFile.readAll()));
-            styleFile.close();
-        }
-    }
+    // Shown before MainWindow is styled, so it cannot inherit a sheet.
+    rats::ui::Theme::instance().setDark(config && config->darkMode());
+    dialog.setStyleSheet(rats::ui::Theme::instance().styleSheet());
 
     QVBoxLayout* layout = new QVBoxLayout(&dialog);
     layout->setSpacing(16);
