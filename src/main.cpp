@@ -117,7 +117,7 @@ static std::optional<bool> parseBoolOption(const QString& value)
 
 static void addCommonOptions(QCommandLineParser& parser, QCommandLineOption& port, QCommandLineOption& dhtPort,
     QCommandLineOption& dataDir, QCommandLineOption& maxPeers, QCommandLineOption& spider, QCommandLineOption& console,
-    QCommandLineOption& shareDb)
+    QCommandLineOption& webuiDir, QCommandLineOption& shareDb)
 {
     parser.setApplicationDescription(QStringLiteral("Rats Search - BitTorrent P2P Search Engine"));
     parser.addHelpOption();
@@ -128,6 +128,7 @@ static void addCommonOptions(QCommandLineParser& parser, QCommandLineOption& por
     parser.addOption(dataDir);
     parser.addOption(maxPeers);
     parser.addOption(spider);
+    parser.addOption(webuiDir);
     parser.addOption(shareDb);
 }
 
@@ -265,13 +266,14 @@ int main(int argc, char* argv[])
     QCommandLineOption dataDirOption(QStringList() << "data-dir", QStringLiteral("Data directory"), "path");
     QCommandLineOption maxPeersOption(QStringList() << "m" << "max-peers", QStringLiteral("Max P2P connections"), "n");
     QCommandLineOption spiderOption(QStringList() << "s" << "spider", QStringLiteral("Force-enable the DHT spider"));
+    QCommandLineOption webuiDirOption(QStringList() << "w" << "webui-dir", QStringLiteral("Web UI directory"), "path");
     QCommandLineOption shareDbOption(QStringList() << "share-db",
         QStringLiteral("Serve the whole database to peers that ask: on|off "
                        "(overrides the databaseSharing config key for this run)"),
         "on|off");
     QCommandLineParser parser;
-    addCommonOptions(
-        parser, portOption, dhtPortOption, dataDirOption, maxPeersOption, spiderOption, consoleOption, shareDbOption);
+    addCommonOptions(parser, portOption, dhtPortOption, dataDirOption, maxPeersOption, spiderOption, consoleOption,
+        webuiDirOption, shareDbOption);
     parser.process(*qapp);
 
     const QString dataDir = resolveDataDirectory(parser, dataDirOption);
@@ -302,6 +304,7 @@ int main(int argc, char* argv[])
     options.dhtPort = parser.isSet(dhtPortOption) ? parser.value(dhtPortOption).toInt() : 0;
     options.maxPeers = parser.isSet(maxPeersOption) ? parser.value(maxPeersOption).toInt() : 0;
     options.forceSpider = parser.isSet(spiderOption);
+    options.webuiDir = parser.isSet(webuiDirOption) ? parser.value(webuiDirOption) : dataDir + "/webui";
     if (parser.isSet(shareDbOption)) {
         options.shareDatabase = parseBoolOption(parser.value(shareDbOption));
         if (!options.shareDatabase) {

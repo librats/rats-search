@@ -71,6 +71,7 @@ private slots:
     void onItemClicked(QListWidgetItem* item);
     void onItemDoubleClicked(QListWidgetItem* item);
     void onContextMenu(const QPoint& pos);
+    void onTorrentUpdated(const QString& hash);
 
 private:
     void setupUi();

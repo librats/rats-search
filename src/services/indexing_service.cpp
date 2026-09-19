@@ -49,6 +49,9 @@ IndexingService::Result IndexingService::insert(domain::Torrent torrent)
             && repository_->updateFiles(existing.hash, torrent.fileList)) {
             existing.fileList = torrent.fileList;
             existing.files = torrent.fileList.size();
+            // Re-classify now that we have the file list.
+            domain::ContentClassifier::classify(existing);
+            repository_->updateClassification(existing.hash, existing.contentType, existing.contentCategory);
             result.torrent = existing;
         }
 

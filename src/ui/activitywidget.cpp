@@ -1,5 +1,6 @@
 #include "activitywidget.h"
 #include "app/application.h"
+#include "data/torrent_repository.h"
 #include "domain/content.h"
 #include "format.h"
 #include "services/indexing_service.h"
@@ -123,6 +124,12 @@ void ActivityWidget::setApplication(rats::app::Application* app)
         // Connect to new torrent signal from the indexing service
         if (auto* indexing = app_->indexing()) {
             connect(indexing, &rats::service::IndexingService::torrentIndexed, this, &ActivityWidget::onNewTorrent);
+        }
+
+        // Refresh displayed torrents when the repository updates (e.g. size
+        // populated after initial index, tracker counts change).
+        if (auto* repo = app_->torrents()) {
+            connect(repo, &rats::data::TorrentRepository::torrentUpdated, this, &ActivityWidget::onTorrentUpdated);
         }
 
         // Load initial recent torrents
@@ -360,4 +367,27 @@ void ActivityWidget::onContextMenu(const QPoint& pos)
     connect(exportAction, &QAction::triggered, [this, torrent]() { emit exportTorrentRequested(torrent); });
 
     contextMenu.exec(torrentList_->viewport()->mapToGlobal(pos));
+}
+
+void ActivityWidget::onTorrentUpdated(const QString& hash)
+{
+    if (!displayedTorrents_.contains(hash) || !app_ || !app_->torrents())
+        return;
+
+    auto updated = app_->torrents()->get(hash, false);
+    if (!updated)
+        return;
+
+    displayedTorrents_[hash] = *updated;
+
+    // Find the matching list item and rebuild its display text.
+    for (int i = 0; i < torrentList_->count(); ++i) {
+        QListWidgetItem* item = torrentList_->item(i);
+        if (item && item->data(Qt::UserRole).toString() == hash) {
+            QListWidgetItem* newItem = createTorrentItem(*updated);
+            delete torrentList_->takeItem(i);
+            torrentList_->insertItem(i, newItem);
+            break;
+        }
+    }
 }

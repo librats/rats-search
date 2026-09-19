@@ -1,0 +1,54 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "rats-search",
+    "root": ".",
+    "src": "src",
+    "tests": "tests",
+    "docs": "docs"
+  },
+  "build": {
+    "generator": "Ninja",
+    "config": "Debug",
+    "options": {
+      "RATS_SEARCH_BUILD_TESTS": "ON",
+      "RATS_SEARCH_USE_SYSTEM_LIBRATS": "OFF"
+    },
+    "output": "build/bin"
+  },
+  "testing": {
+    "framework": "Qt Test",
+    "runner": "ctest",
+    "options": "--output-on-failure --parallel",
+    "env": {
+      "QT_QPA_PLATFORM": "offscreen"
+    }
+  },
+  "code-style": {
+    "standard": "C++17",
+    "naming": {
+      "classes": "PascalCase",
+      "functions": "camelCase",
+      "variables": "camelCase",
+      "constants": "UPPER_SNAKE_CASE",
+      "files": "lowercase"
+    },
+    "includes": {
+      "order": ["Qt", "std", "project"],
+      "sorting": true
+    }
+  },
+  "git": {
+    "submodules": true,
+    "ignore": [
+      "build/",
+      "*.user",
+      ".qtcreator/"
+    ]
+  },
+  "ci": {
+    "platforms": ["windows", "linux", "macos-arm"],
+    "qt-version": "6.10.1",
+    "build-type": "Release"
+  }
+}
