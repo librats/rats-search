@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.6](https://github.com/DEgITx/rats-search/compare/v2.3.5...v2.3.6) (2026-11-02)
+
+
+### 📚 Documentation
+
+
+- Update CHANGELOG.md for v2.3.5([032d297](https://github.com/DEgITx/rats-search/commit/032d297a62e895dd253d6df9095a6f8068f49f91)) by @github-actions[bot]
+
+
+### 🚀 Features
+
+
+- **p2p:** Updated to latest librats with new protocol([1639ef8](https://github.com/DEgITx/rats-search/commit/1639ef89008ed6ae3a9bf6fd02a86c7d1530afc8)) by @DEgITx
+
+
+
+
+### 👥 Contributors
+
+
+
+- [@DEgITx](https://github.com/DEgITx) — 1 commit
+
+
+- [@github-actions[bot]](https://github.com/github-actions[bot]) — 1 commit
+
+
 ## [2.3.5](https://github.com/DEgITx/rats-search/compare/v2.3.4...v2.3.5) (2026-10-03)
 
 
