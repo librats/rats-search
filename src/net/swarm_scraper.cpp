@@ -42,6 +42,7 @@ const QStringList kDefaultTrackers = {
     QStringLiteral("udp://tracker.torrent.eu.org:451/announce"),
     QStringLiteral("udp://open.demonii.com:1337/announce"),
     QStringLiteral("udp://explodie.org:6969/announce"),
+    QStringLiteral("udp://tracker.evergarden.uk:1914/announce"),
     QStringLiteral("udp://tracker.moeking.me:6969/announce"),
 };
 
